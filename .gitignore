@@ -80,3 +80,4 @@ Desktop.ini
 .ninja_deps
 .clangd
 build/
+.cache/
