@@ -1,0 +1,82 @@
+# ===============================
+# Build directories
+# ===============================
+
+build/
+build.clang/
+cmake-build*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+Makefile
+
+# ===============================
+# ESP-IDF generated files
+# ===============================
+
+sdkconfig
+sdkconfig.old
+sdkconfig.*.old
+
+# Partition table binaries
+partition_table/partition-table.bin
+
+# ===============================
+# Flash / binary output
+# ===============================
+
+*.bin
+*.elf
+*.map
+*.hex
+
+# ===============================
+# Logs
+# ===============================
+
+*.log
+
+# ===============================
+# Python virtual environments
+# ===============================
+
+venv/
+.env/
+.env*/
+__pycache__/
+*.pyc
+
+# ===============================
+# VSCode
+# ===============================
+
+.vscode/
+*.code-workspace
+
+# ===============================
+# CLion
+# ===============================
+
+.idea/
+
+# ===============================
+# macOS
+# ===============================
+
+.DS_Store
+
+# ===============================
+# Windows
+# ===============================
+
+Thumbs.db
+Desktop.ini
+
+# ===============================
+# Ninja / CMake extras
+# ===============================
+
+.ninja_log
+.ninja_deps
+.clangd
+build/
