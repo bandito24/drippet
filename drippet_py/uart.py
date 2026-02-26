@@ -114,9 +114,16 @@ class Uart:
         msg = Message(HEAD_ADDR, constants.Command.DISCOVERY, [self.key])
         self.write_data(msg)
 
-    def handle_incoming(self):
-        if not self.has_msg():
-            return
+    def handle_incoming(self, msg: Message):
+        match constants.Command(msg.command):
+            case constants.Command.ADDRESSING:
+                if msg.data != self.key:
+                    print(f"Addressing data key does not belong to program: {msg.data}")
+                    return
+                given_addr = msg.address
+                print(f"Received given address of {given_addr}")
+                self.self_address = given_addr
+                # Write Address and Key back in the write order
 
 
 def uart_task(uart: Uart):
