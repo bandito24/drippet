@@ -4,3 +4,6 @@
 void Logger::log_simple(const std::string &message) {
   std::cout << message << std::endl;
 }
+void Logger::log_error(const std::string &message) {
+  std::cerr << message << std::endl;
+}

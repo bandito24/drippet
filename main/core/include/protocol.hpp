@@ -1,53 +1,9 @@
 #pragma once
-#include "config.hpp"
-#include <array>
+#include "driver.hpp"
 #include <cstddef>
 #include <optional>
 #include <stdint.h>
 
-using Pin = uint8_t;
-using Esp_Err_t = uint8_t;
-using byte_count = int;
-
-namespace Protocol {
-
-constexpr uint8_t start_bit = 0xAA;
-constexpr uint8_t head_address = 0x00;
-
-enum class Command : uint8_t {
-  DISCOVERY,
-  ADDRESSING,
-  BROADCAST,
-  INIT_WATER_DURATIONS
-};
-
-enum class HeaderOrder : uint8_t {
-  START_BIT,
-  ADDRESS,
-  COMMAND,
-  DATA_LENGTH,
-  HEADER_LENGTH
-}; // Header length strictly for reference and not included
-constexpr size_t DATA_START_INDEX =
-    static_cast<size_t>(Protocol::HeaderOrder::HEADER_LENGTH);
-
-constexpr size_t FrameLength =
-    static_cast<size_t>(Protocol::HeaderOrder::HEADER_LENGTH) +
-    (config::node_hose_count * 2) + 2;
-
-using Frame = std::array<uint8_t, FrameLength>;
-
-using FrameDataArray = std::array<uint16_t, config::node_hose_count>;
-} // namespace Protocol
-//
-//
-
-using LocalReadBuffer = std::array<uint8_t, 128>;
-
-struct SizedReadBuffer {
-  LocalReadBuffer content;
-  size_t length;
-};
 struct SizedFrameBuffer {
   Protocol::Frame frame;
   size_t next_buffer_index;
@@ -75,48 +31,28 @@ struct UartMessage {
 };
 
 struct FrameIndexes {
-  size_t start_bit;
-  size_t address;
-  size_t command;
-  size_t data_start;
-  size_t data_end;
+  int data_start = -1; // Data start is -1 if no data
   size_t cdc_start;
-  size_t cdc_end;
+  size_t length;
 };
 struct IndexedFrame {
   FrameIndexes i;
   Protocol::Frame frame;
 };
 
-struct Uart {
-  virtual Esp_Err_t init() = 0;
-  virtual byte_count write_bytes(const UartMessage &msg) const = 0;
-
-  virtual SizedReadBuffer uart_read() = 0;
-  virtual std::optional<IndexedFrame> parse_uart_read(SizedReadBuffer buffer,
-                                                      size_t start_index) = 0;
-  virtual std::optional<UartMessage>
-  build_uart_message(Protocol::Frame frame_seg) = 0;
-};
-
-class EspUart : public Uart {
+class UartProtocol {
 public:
-  Esp_Err_t init() override;
-
-  byte_count write_bytes(const UartMessage &msg) const override;
-
-  SizedReadBuffer uart_read() override;
   std::optional<IndexedFrame> parse_uart_read(SizedReadBuffer buffer,
-                                              size_t start_index) override;
-  std::optional<UartMessage>
-  build_uart_message(Protocol::Frame frame_seg) override;
-  EspUart(Pin tx, Pin rx);
-  EspUart();
+                                              size_t start_index);
+  std::optional<UartMessage> build_uart_message(Protocol::Frame frame_seg);
+  byte_count write_bytes(const UartMessage &msg) const;
+  virtual SizedReadBuffer uart_read() = 0;
+  UartProtocol(Driver &driver);
 
 private:
-  Pin tx_pin;
-  Pin rx_pin;
+  Driver &driver;
 };
+
 enum MsgType { DISCOVERY, ADDRESSING };
 enum MsgCode { N0_DATA = 200 };
 
@@ -140,7 +76,7 @@ namespace UartFunctions {
 ParseResult validate_frame(Protocol::Frame buffer);
 uint16_t crc16_modbus(const uint8_t *data, size_t length);
 uint16_t merge_uint8(uint8_t high_bit, uint8_t low_bit);
-FrameIndexes get_uint8_buffer_indexes(Protocol::Frame frame);
 
+void add_uint8_frame_indexes(IndexedFrame &frame);
 UartMessage reconstruct_uart_message(Protocol::Frame buffer);
 } // namespace UartFunctions

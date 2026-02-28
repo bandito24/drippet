@@ -1,47 +1,17 @@
-#include "uart.hpp"
-#include "config.hpp"
-#include "driver/uart.h"
-#include "esp32config.hpp"
-#include "freertos/projdefs.h"
+#include "protocol.hpp"
+#include "driver.hpp"
 #include "logger.hpp"
-#include "portmacro.h"
-#include "soc/gpio_num.h"
 #include "uart.hpp"
-#include <cstdint>
 #include <cstdio>
 #include <optional>
 
-Esp_Err_t EspUart::init() {
-  gpio_num_t esp_tx = static_cast<gpio_num_t>(tx_pin);
-  gpio_num_t esp_rx = static_cast<gpio_num_t>(rx_pin);
-
-  uart_config_t uart_config{}; // Zero-initialize everything
-  uart_config.baud_rate = BAUD_RATE;
-  uart_config.data_bits = UART_DATA_8_BITS;
-  uart_config.parity = UART_PARITY_DISABLE;
-  uart_config.stop_bits = UART_STOP_BITS_1;
-  uart_config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
-  uart_config.rx_flow_ctrl_thresh = 122;
-  uart_config.source_clk = UART_SCLK_DEFAULT;
-
-  ESP_ERROR_CHECK(uart_param_config(UART_PORT, &uart_config));
-
-  ESP_ERROR_CHECK(uart_set_pin(UART_PORT,
-                               esp_tx, // TX
-                               esp_rx, // RX
-                               UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
-
-  ESP_ERROR_CHECK(uart_driver_install(UART_PORT, UART_BUF_SIZE, 0, 0, NULL, 0));
-  return 0;
-}
-byte_count EspUart::write_bytes(const UartMessage &data) const {
+byte_count UartProtocol::write_bytes(const UartMessage &data) const {
 
   assert(data.data_length <= config::node_hose_count);
   uint8_t data_len = data.data_length * 2; // uint16_t broken up into 2
 
-  uint8_t frame[Protocol::FrameLength] = {Protocol::start_bit, data.address,
-                                          static_cast<uint8_t>(data.command),
-                                          data_len};
+  Protocol::Frame frame = {Protocol::start_bit, data.address,
+                           static_cast<uint8_t>(data.command), data_len};
   size_t frame_index = to_index(Protocol::HeaderOrder::HEADER_LENGTH);
   for (size_t i = 0; i < data.data_length; i++) {
     uint16_t byte = data.data[i];
@@ -52,10 +22,42 @@ byte_count EspUart::write_bytes(const UartMessage &data) const {
   frame[frame_index++] = crc & 0xFF;
   frame[frame_index++] = (crc >> 8) & 0xFF;
   assert(frame_index < Protocol::FrameLength);
-  return uart_write_bytes(UART_PORT, frame, frame_index);
+  return this->driver.send(frame, frame_index);
 }
 
-FrameIndexes UartFunctions::get_uint8_buffer_indexes(Protocol::Frame frame) {}
+std::optional<IndexedFrame>
+UartFunctions::create_indexed_frame(SizedReadBuffer buffer,
+                                    size_t start_index) {
+
+  if (buffer.content[start_index] != Protocol::start_bit)
+    return std::nullopt;
+  IndexedFrame packet{};
+  auto &segment = packet.frame;
+  auto &i = packet.i;
+
+  size_t data_length_index =
+      start_index + to_index(Protocol::HeaderOrder::DATA_LENGTH);
+  size_t data_length = buffer.content[data_length_index];
+  int header_end = static_cast<int>(Protocol::HeaderOrder::HEADER_LENGTH);
+  if (data_length) {
+    i.data_start = header_end;
+  } else {
+    i.data_start = -1;
+  }
+  i.cdc_start = header_end + data_length;
+  i.length = i.cdc_start + 2;
+  if ((start_index + i.length) > buffer.length) {
+    return std::nullopt;
+  }
+  if (i.length > segment.size()) {
+    return std::nullopt;
+  }
+  auto begin = buffer.content.begin() + start_index;
+  auto end = begin + i.length;
+  std::copy(begin, end, segment.begin());
+
+  return packet;
+}
 
 // Calculates the exclusive end index (beginning of next frame)
 inline std::optional<size_t>
@@ -76,29 +78,15 @@ calculate_buffer_frame_end(std::span<const uint8_t> buffer,
   }
   return last_index;
 }
-size_t get_buffered_rx_length() {
-  size_t buffer_length = 0;
-  uart_get_buffered_data_len(UART_PORT, (size_t *)&buffer_length);
-  return buffer_length;
-}
 
 // Sequence Goes:
-// 1) uart_read,
-// 2) parse_uart_read
-// 3) build_uart_message (which uart_task adds to the queue)
+// 1) uart_read (from driver),
+// 1) parse_uart_read (iterate over the buffer returned from previous in a task)
+// 2) build_uart_message with each extracted Frame (which uart_task adds to the
+// queue)
 
-// 1)
-SizedReadBuffer EspUart::uart_read() {
-
-  SizedReadBuffer buffer{};
-
-  buffer.length = uart_read_bytes(UART_PORT, buffer.content.data(),
-                                  buffer.content.size(), pdMS_TO_TICKS(50));
-  return buffer;
-}
-// 2)
-std::optional<IndexedFrame> EspUart::parse_uart_read(SizedReadBuffer buffer,
-                                                     size_t start_index) {
+std::optional<IndexedFrame>
+UartProtocol::parse_uart_read(SizedReadBuffer buffer, size_t start_index) {
 
   if (buffer.length == 0 || start_index >= buffer.length)
     return std::nullopt;
@@ -108,12 +96,16 @@ std::optional<IndexedFrame> EspUart::parse_uart_read(SizedReadBuffer buffer,
   while (i < buffer.length && (content[i] != Protocol::start_bit)) {
     i++;
   }
-  std::optional<size_t> frame_end = calculate_buffer_frame_end(content, i);
-  if (!frame_end) {
+  if (i >= buffer.length) {
     return std::nullopt;
   }
-  IndexedFrame indexed_frame{};
-  auto &frame_seg = indexed_frame.frame;
+
+  //  std::optional<size_t> frame_end = calculate_buffer_frame_end(content, i);
+  //  if (!frame_end) {
+  //    return std::nullopt;
+  //  }
+
+  // Add indexing here
 
   size_t frame_length = *frame_end - i;
   if (frame_length > frame_seg.size()) {
@@ -128,7 +120,7 @@ std::optional<IndexedFrame> EspUart::parse_uart_read(SizedReadBuffer buffer,
 
 // 3)
 std::optional<UartMessage>
-EspUart::build_uart_message(Protocol::Frame frame_seg) {
+UartProtocol::build_uart_message(Protocol::Frame frame_seg) {
 
   if (UartFunctions::validate_frame(frame_seg) != ParseResult::Ok) {
     return std::nullopt;
@@ -185,8 +177,8 @@ UartMessage UartFunctions::reconstruct_uart_message(Protocol::Frame buffer) {
           .data_length = data_length / 2};
 }
 
-EspUart::EspUart() : tx_pin{RS485_TXD_PIN}, rx_pin{RS485_RXD_PIN} {};
-EspUart::EspUart(Pin tx, Pin rx) : tx_pin{tx}, rx_pin{rx} {}
+UartProtocol::UartProtocol(Driver &transportDriver)
+    : driver{transportDriver} {};
 
 uint16_t UartFunctions::crc16_modbus(const uint8_t *data, size_t length) {
   uint16_t crc = 0xFFFF;
