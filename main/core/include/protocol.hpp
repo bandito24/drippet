@@ -12,8 +12,7 @@ using byte_count = int;
 namespace Protocol {
 
 constexpr uint8_t start_bit = 0xAA;
-constexpr uint8_t no_address = 200;
-constexpr uint8_t head_address = 0;
+constexpr uint8_t head_address = 0x00;
 
 enum class Command : uint8_t {
   DISCOVERY,
@@ -42,6 +41,18 @@ using FrameDataArray = std::array<uint16_t, config::node_hose_count>;
 } // namespace Protocol
 //
 //
+
+using LocalReadBuffer = std::array<uint8_t, 128>;
+
+struct SizedReadBuffer {
+  LocalReadBuffer content;
+  size_t length;
+};
+struct SizedFrameBuffer {
+  Protocol::Frame frame;
+  size_t next_buffer_index;
+};
+
 constexpr size_t to_index(Protocol::HeaderOrder h) noexcept {
   return static_cast<size_t>(h);
 }
@@ -63,31 +74,42 @@ struct UartMessage {
   size_t data_length{};
 };
 
+struct FrameIndexes {
+  size_t start_bit;
+  size_t address;
+  size_t command;
+  size_t data_start;
+  size_t data_end;
+  size_t cdc_start;
+  size_t cdc_end;
+};
+struct IndexedFrame {
+  FrameIndexes i;
+  Protocol::Frame frame;
+};
+
 struct Uart {
   virtual Esp_Err_t init() = 0;
-  virtual byte_count write_bytes(UartMessage) const = 0;
-};
-inline std::optional<size_t>
-calculate_last_index(std::span<const uint8_t> buffer, size_t start_index) {
-  assert(buffer[start_index] == Protocol::start_bit);
+  virtual byte_count write_bytes(const UartMessage &msg) const = 0;
 
-  size_t data_length_index =
-      start_index + to_index(Protocol::HeaderOrder::DATA_LENGTH);
-  size_t last_index = start_index +
-                      to_index(Protocol::HeaderOrder::HEADER_LENGTH) +
-                      (buffer[data_length_index]) + 2 - 1; // 2 For CRC16
-  if (last_index >= buffer.size()) {
-    return std::nullopt;
-  }
-  return last_index;
-}
+  virtual SizedReadBuffer uart_read() = 0;
+  virtual std::optional<IndexedFrame> parse_uart_read(SizedReadBuffer buffer,
+                                                      size_t start_index) = 0;
+  virtual std::optional<UartMessage>
+  build_uart_message(Protocol::Frame frame_seg) = 0;
+};
 
 class EspUart : public Uart {
 public:
   Esp_Err_t init() override;
 
-  byte_count write_bytes(UartMessage) const override;
-  Esp_Err_t broadcast() const;
+  byte_count write_bytes(const UartMessage &msg) const override;
+
+  SizedReadBuffer uart_read() override;
+  std::optional<IndexedFrame> parse_uart_read(SizedReadBuffer buffer,
+                                              size_t start_index) override;
+  std::optional<UartMessage>
+  build_uart_message(Protocol::Frame frame_seg) override;
   EspUart(Pin tx, Pin rx);
   EspUart();
 
@@ -111,11 +133,14 @@ enum class ParseResult { Ok, CrcMismatch, InvalidStartBit, InvalidLength };
 constexpr size_t dataIndex = to_index(Protocol::HeaderOrder::HEADER_LENGTH);
 using MsgIndex = Protocol::HeaderOrder;
 
+size_t get_buffered_rx_length();
+
 namespace UartFunctions {
 
 ParseResult validate_frame(Protocol::Frame buffer);
 uint16_t crc16_modbus(const uint8_t *data, size_t length);
 uint16_t merge_uint8(uint8_t high_bit, uint8_t low_bit);
+FrameIndexes get_uint8_buffer_indexes(Protocol::Frame frame);
 
 UartMessage reconstruct_uart_message(Protocol::Frame buffer);
 } // namespace UartFunctions

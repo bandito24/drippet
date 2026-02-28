@@ -1,6 +1,5 @@
 #include "task.hpp"
 #include "freertos/idf_additions.h"
-#include "freertos/projdefs.h"
 #include "portmacro.h"
 
 Task::Task(const char *const process_name, configSTACK_DEPTH_TYPE stack_depth,

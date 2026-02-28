@@ -1,4 +1,4 @@
-import collections
+import time
 from typing import Optional
 import serial
 import constants
@@ -16,9 +16,9 @@ class Message:
 
 
 class Uart:
-    def __init__(self) -> None:
+    def __init__(self, uart_port="/dev/cu.usbserial-BG01PTMO") -> None:
         self.messages: deque[Message] = deque()
-
+        self.port = uart_port
         self.serial = self.connect()
         self.key = 0xAF
         self.crc_calc = Calculator(Crc16.MODBUS.value)
@@ -26,7 +26,7 @@ class Uart:
 
     def connect(self) -> serial.Serial:
         ser = serial.Serial(
-            port="/dev/cu.usbserial-BG01PTMO",  # Device path
+            port=self.port,  # Device path
             baudrate=115200,  # Speed (9600, 115200, etc.)
             bytesize=serial.EIGHTBITS,  # Data bits
             parity=serial.PARITY_NONE,  # Parity checking
@@ -44,6 +44,7 @@ class Uart:
     type NextFrameIndex = int
 
     def extract_frame(self, start_index: int, buffer: bytes) -> NextFrameIndex:
+        print(f"buffer bytes: {buffer}")
         while (
             buffer[start_index] != constants.START_BYTE
             and start_index < len(buffer) - 1
@@ -64,14 +65,18 @@ class Uart:
             data_start_index = start_index + constants.HeaderOrder.HEADER_LENGTH
             data_end_index = data_start_index + data_length - 1
             for i in range(data_start_index, data_end_index - 1, 2):
-                uint16 = int.from_bytes(buffer[i : i + 2], byteorder="big")
+                uint16 = int.from_bytes(buffer[i : i + 2], byteorder="little")
                 data.append(uint16)
+
+        print(f"frame bytes: {buffer[(start_index + 1) : (frame_end - 2)]}")
         crc_check = self.crc_calc.checksum(
             buffer[(start_index + 1) : (frame_end - 2)]
         )  # Skips the start bit and the 2 crc bits at the end
         crc_received = int.from_bytes(
-            buffer[frame_end - 2 : frame_end], byteorder="big"
+            buffer[frame_end - 2 : frame_end], byteorder="little"
         )
+
+        print(f"crc received: {crc_received}, crc calc: {crc_check}")
         if crc_check != crc_received:
             raise ValueError("Crc16 does not match")
 
@@ -88,10 +93,10 @@ class Uart:
         bytes[order.ADDRESS] = HEAD_ADDR  # Zero address is Head Node
         bytes[order.DATA_LENGTH] = len(msg.data) * 2
         for i in range(0, len(msg.data) - 1, 2):
-            endian = (msg.data[i]).to_bytes(2, "big")
+            endian = (msg.data[i]).to_bytes(2, "little")
             bytes.extend(endian)
 
-        crc = (self.crc_calc.checksum(bytes[1:])).to_bytes(2, "big")
+        crc = (self.crc_calc.checksum(bytes[1:])).to_bytes(2, "little")
         bytes.extend(crc)
         try:
             self.serial.write(bytes)
@@ -105,12 +110,14 @@ class Uart:
 
     def poll_data(self) -> None:
         if self.serial.in_waiting:
+            print("data being received")
             buffer = self.serial.read(self.serial.in_waiting)
             next_begin = 0
             while next_begin < len(buffer):
                 next_begin = self.extract_frame(next_begin, buffer)
 
     def broadcast_pairing_key(self):
+        print("Broadcasting pariring key")
         msg = Message(HEAD_ADDR, constants.Command.DISCOVERY, [self.key])
         self.write_data(msg)
 
@@ -120,10 +127,12 @@ class Uart:
                 if msg.data != self.key:
                     print(f"Addressing data key does not belong to program: {msg.data}")
                     return
-                given_addr = msg.address
-                print(f"Received given address of {given_addr}")
-                self.self_address = given_addr
-                # Write Address and Key back in the write order
+                print(f"Received given address of {msg.address}")
+                self.self_address = msg.address
+                self.write_data(msg)
+                # Write Same Frame Back To Confirm It was Received
+            case _:
+                print(f"Unknown incoming message of {msg.command}")
 
 
 def uart_task(uart: Uart):
@@ -132,7 +141,12 @@ def uart_task(uart: Uart):
             if not uart.self_address:
                 uart.broadcast_pairing_key()
             elif uart.has_msg():
+                print("message is had")
                 message = uart.messages.popleft()
+                uart.handle_incoming(message)
+
+            uart.poll_data()
+            time.sleep(3)
 
         except ValueError as e:
             print(f"Location Operation Failed: {e}")

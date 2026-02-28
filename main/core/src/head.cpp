@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <head.hpp>
 #include <node.hpp>
-#include <optional>
 #include <time.hpp>
 
 Head::Head(iValve &waterFaucetMain, iClock &clock)

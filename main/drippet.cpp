@@ -1,5 +1,6 @@
 #include "esp_err.h"
 #include "freertos/idf_additions.h"
+#include "head.hpp"
 #include "node.hpp"
 #include "queues/queue.hpp"
 #include "tasks/uart_task.hpp"
@@ -19,15 +20,15 @@ extern "C" void app_main(void) {
   Queue outgoing_queue(10, sizeof(UartMessage));
   outgoing_queue.init();
 
-  UartTask uart_task{espUart, incoming_queue.get_handle(),
-                     outgoing_queue.get_handle()};
-  uart_task.start_and_notify();
+  UartTask uart_task{espUart, outgoing_queue.get_handle(),
+                     incoming_queue.get_handle()};
+  uart_task.start();
 
-  // For Queueing Outgoing Messages and Reading Uart Queued Messages
   MainValve main_valve{};
   std::unique_ptr<iClock> clock = initialize_clock();
   HeadTask head_task{main_valve, *clock, incoming_queue.get_handle(),
                      outgoing_queue.get_handle()};
+  head_task.start();
 
   while (true) {
     vTaskDelay(pdMS_TO_TICKS(1000));
