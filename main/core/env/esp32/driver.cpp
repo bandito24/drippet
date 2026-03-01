@@ -3,7 +3,6 @@
 #include "esp32config.hpp"
 #include "freertos/projdefs.h"
 #include "logger.hpp"
-#include "protocol.hpp"
 #include <cstdio>
 
 Esp_Err_t UartDriver::init() {
@@ -29,7 +28,8 @@ Esp_Err_t UartDriver::init() {
   ESP_ERROR_CHECK(uart_driver_install(UART_PORT, UART_BUF_SIZE, 0, 0, NULL, 0));
   return 0;
 }
-byte_count UartDriver::send(Protocol::Frame frame, size_t frame_length) const {
+byte_count UartDriver::send(const Protocol::Frame &frame,
+                            size_t frame_length) const {
 
   return uart_write_bytes(UART_PORT, frame.data(), frame_length);
 }

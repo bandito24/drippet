@@ -6,7 +6,7 @@
 
 struct SizedFrameBuffer {
   Protocol::Frame frame;
-  size_t next_buffer_index;
+  size_t content_length;
 };
 
 constexpr size_t to_index(Protocol::HeaderOrder h) noexcept {
@@ -42,11 +42,12 @@ struct IndexedFrame {
 
 class UartProtocol {
 public:
-  std::optional<IndexedFrame> parse_uart_read(SizedReadBuffer buffer,
+  std::optional<IndexedFrame> parse_uart_read(const SizedReadBuffer &buffer,
                                               size_t start_index);
-  std::optional<UartMessage> build_uart_message(Protocol::Frame frame_seg);
-  byte_count write_bytes(const UartMessage &msg) const;
-  virtual SizedReadBuffer uart_read() = 0;
+  std::optional<UartMessage>
+  build_uart_message(const Protocol::Frame &frame_seg);
+  byte_count write_bytes(const SizedFrameBuffer &msg) const;
+  SizedFrameBuffer prepare_bytes(const UartMessage &data) const;
   UartProtocol(Driver &driver);
 
 private:
@@ -77,6 +78,7 @@ ParseResult validate_frame(Protocol::Frame buffer);
 uint16_t crc16_modbus(const uint8_t *data, size_t length);
 uint16_t merge_uint8(uint8_t high_bit, uint8_t low_bit);
 
-void add_uint8_frame_indexes(IndexedFrame &frame);
+std::optional<IndexedFrame> create_indexed_frame(const SizedReadBuffer &buffer,
+                                                 size_t start_index);
 UartMessage reconstruct_uart_message(Protocol::Frame buffer);
 } // namespace UartFunctions

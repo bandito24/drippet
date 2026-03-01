@@ -1,11 +1,6 @@
-#include "uart.hpp"
-#include <array>
 #include <assert.h>
-#include <config.hpp>
 #include <cstddef>
 #include <head.hpp>
-#include <node.hpp>
-#include <time.hpp>
 
 Head::Head(iValve &waterFaucetMain, iClock &clock)
     : mainValve(waterFaucetMain), clock(clock){};

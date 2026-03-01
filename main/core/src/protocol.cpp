@@ -1,17 +1,21 @@
 #include "protocol.hpp"
+#include "constants.hpp"
 #include "driver.hpp"
+#include <assert.h>
+
 #include "logger.hpp"
-#include "uart.hpp"
 #include <cstdio>
 #include <optional>
 
-byte_count UartProtocol::write_bytes(const UartMessage &data) const {
+SizedFrameBuffer UartProtocol::prepare_bytes(const UartMessage &data) const {
 
   assert(data.data_length <= config::node_hose_count);
   uint8_t data_len = data.data_length * 2; // uint16_t broken up into 2
 
-  Protocol::Frame frame = {Protocol::start_bit, data.address,
-                           static_cast<uint8_t>(data.command), data_len};
+  SizedFrameBuffer frame_buffer{};
+  Protocol::Frame &frame = frame_buffer.frame;
+  frame = {Protocol::start_bit, data.address,
+           static_cast<uint8_t>(data.command), data_len};
   size_t frame_index = to_index(Protocol::HeaderOrder::HEADER_LENGTH);
   for (size_t i = 0; i < data.data_length; i++) {
     uint16_t byte = data.data[i];
@@ -22,11 +26,15 @@ byte_count UartProtocol::write_bytes(const UartMessage &data) const {
   frame[frame_index++] = crc & 0xFF;
   frame[frame_index++] = (crc >> 8) & 0xFF;
   assert(frame_index < Protocol::FrameLength);
-  return this->driver.send(frame, frame_index);
+  frame_buffer.content_length = frame_index;
+  return frame_buffer;
+}
+byte_count UartProtocol::write_bytes(const SizedFrameBuffer &buffer) const {
+  return this->driver.send(buffer.frame, buffer.content_length);
 }
 
 std::optional<IndexedFrame>
-UartFunctions::create_indexed_frame(SizedReadBuffer buffer,
+UartFunctions::create_indexed_frame(const SizedReadBuffer &buffer,
                                     size_t start_index) {
 
   if (buffer.content[start_index] != Protocol::start_bit)
@@ -59,26 +67,6 @@ UartFunctions::create_indexed_frame(SizedReadBuffer buffer,
   return packet;
 }
 
-// Calculates the exclusive end index (beginning of next frame)
-inline std::optional<size_t>
-calculate_buffer_frame_end(std::span<const uint8_t> buffer,
-                           size_t start_index) {
-  assert(buffer[start_index] == Protocol::start_bit);
-
-  size_t data_length_index =
-      start_index + to_index(Protocol::HeaderOrder::DATA_LENGTH);
-  if (data_length_index >= buffer.size()) {
-    return std::nullopt;
-  }
-  size_t last_index = start_index +
-                      to_index(Protocol::HeaderOrder::HEADER_LENGTH) +
-                      (buffer[data_length_index]) + 2; // 2 For CRC16
-  if (last_index > buffer.size()) {
-    return std::nullopt;
-  }
-  return last_index;
-}
-
 // Sequence Goes:
 // 1) uart_read (from driver),
 // 1) parse_uart_read (iterate over the buffer returned from previous in a task)
@@ -86,7 +74,8 @@ calculate_buffer_frame_end(std::span<const uint8_t> buffer,
 // queue)
 
 std::optional<IndexedFrame>
-UartProtocol::parse_uart_read(SizedReadBuffer buffer, size_t start_index) {
+UartProtocol::parse_uart_read(const SizedReadBuffer &buffer,
+                              size_t start_index) {
 
   if (buffer.length == 0 || start_index >= buffer.length)
     return std::nullopt;
@@ -100,27 +89,12 @@ UartProtocol::parse_uart_read(SizedReadBuffer buffer, size_t start_index) {
     return std::nullopt;
   }
 
-  //  std::optional<size_t> frame_end = calculate_buffer_frame_end(content, i);
-  //  if (!frame_end) {
-  //    return std::nullopt;
-  //  }
-
-  // Add indexing here
-
-  size_t frame_length = *frame_end - i;
-  if (frame_length > frame_seg.size()) {
-    return std::nullopt;
-  }
-  std::copy(content.begin() + i, content.begin() + (*frame_end),
-            frame_seg.begin());
-
-  // BUILD THE INDEXED FRAME
-  return indexed_frame;
+  return UartFunctions::create_indexed_frame(buffer, start_index);
 }
 
 // 3)
 std::optional<UartMessage>
-UartProtocol::build_uart_message(Protocol::Frame frame_seg) {
+UartProtocol::build_uart_message(const Protocol::Frame &frame_seg) {
 
   if (UartFunctions::validate_frame(frame_seg) != ParseResult::Ok) {
     return std::nullopt;

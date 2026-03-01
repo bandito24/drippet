@@ -24,7 +24,7 @@ void UartTask::run() {
             if (!uart_msg) {
               reading = false;
             }
-            i = frame_buffer->next_buffer_index;
+            i = frame_buffer->content_length;
             xQueueSend(this->to_head_queue, &uart_msg, pdMS_TO_TICKS(100));
           }
         }

@@ -1,6 +1,6 @@
 #pragma once
 #include "config.hpp"
-#include "uart.hpp"
+#include "protocol.hpp"
 #include <array>
 #include <node.hpp>
 #include <time.hpp>
