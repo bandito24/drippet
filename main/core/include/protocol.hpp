@@ -76,7 +76,10 @@ namespace UartFunctions {
 
 ParseResult validate_frame(Protocol::Frame buffer);
 uint16_t crc16_modbus(const uint8_t *data, size_t length);
-uint16_t merge_uint8(uint8_t high_bit, uint8_t low_bit);
+constexpr uint16_t merge_uint8(uint8_t first_bit, uint8_t second_bit) {
+  return (static_cast<uint16_t>(first_bit)) |
+         static_cast<uint16_t>(second_bit << 8);
+}
 
 std::optional<IndexedFrame> create_indexed_frame(const SizedReadBuffer &buffer,
                                                  size_t start_index);

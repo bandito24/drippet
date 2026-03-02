@@ -25,7 +25,7 @@ SizedFrameBuffer UartProtocol::prepare_bytes(const UartMessage &data) const {
   uint16_t crc = UartFunctions::crc16_modbus(&frame[1], frame_index - 1);
   frame[frame_index++] = crc & 0xFF;
   frame[frame_index++] = (crc >> 8) & 0xFF;
-  assert(frame_index < Protocol::FrameLength);
+  assert(frame_index <= Protocol::FrameLength); // Equal to length here
   frame_buffer.content_length = frame_index;
   return frame_buffer;
 }
@@ -37,8 +37,12 @@ std::optional<IndexedFrame>
 UartFunctions::create_indexed_frame(const SizedReadBuffer &buffer,
                                     size_t start_index) {
 
-  if (buffer.content[start_index] != Protocol::start_bit)
+  if (buffer.content[start_index] != Protocol::start_bit) {
+
+    printf("OH SddHIR TRUE\n");
     return std::nullopt;
+  }
+
   IndexedFrame packet{};
   auto &segment = packet.frame;
   auto &i = packet.i;
@@ -54,12 +58,17 @@ UartFunctions::create_indexed_frame(const SizedReadBuffer &buffer,
   }
   i.cdc_start = header_end + data_length;
   i.length = i.cdc_start + 2;
+
   if ((start_index + i.length) > buffer.length) {
+
     return std::nullopt;
   }
+
   if (i.length > segment.size()) {
+
     return std::nullopt;
   }
+
   auto begin = buffer.content.begin() + start_index;
   auto end = begin + i.length;
   std::copy(begin, end, segment.begin());
@@ -85,11 +94,12 @@ UartProtocol::parse_uart_read(const SizedReadBuffer &buffer,
   while (i < buffer.length && (content[i] != Protocol::start_bit)) {
     i++;
   }
+
   if (i >= buffer.length) {
     return std::nullopt;
   }
 
-  return UartFunctions::create_indexed_frame(buffer, start_index);
+  return UartFunctions::create_indexed_frame(buffer, i);
 }
 
 // 3)
@@ -169,11 +179,4 @@ uint16_t UartFunctions::crc16_modbus(const uint8_t *data, size_t length) {
   }
 
   return crc;
-}
-
-uint16_t
-UartFunctions::merge_uint8(uint8_t first_bit,
-                           uint8_t second_bit) { // Little Endian Reconstruction
-  return (static_cast<uint16_t>(first_bit)) |
-         static_cast<uint16_t>(second_bit << 8);
 }
