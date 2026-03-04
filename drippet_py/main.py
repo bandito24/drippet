@@ -1,4 +1,4 @@
-from uart import Uart, uart_task
+from transport.uart import Uart, uart_task
 
 
 def init():

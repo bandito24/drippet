@@ -4,7 +4,6 @@
 #include "logger.hpp"
 #include "node.hpp"
 #include "portmacro.h"
-#include "uart.hpp"
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -24,28 +23,34 @@ void HeadTask::run() {
         // acknoledgement
         uint16_t key = frame.data[0];
         printf("key received is %d", key);
-        UartMessage msg = headNode.create_addressing_frame(key);
-        headNode.pending_node = {.address = msg.address, .key = key};
-        xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
+        // UartMessage msg = headNode.create_addressing_frame(key);
+        // headNode.pending_node = {.address = msg.address, .key = key};
+        // xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
       } else if (frame.command == CMD::ADDRESSING) {
-        uint16_t key = frame.data[0];
-        if (frame.address != headNode.pending_node.address ||
-            key != headNode.pending_node.key) {
-          headNode.reset_pending_node();
-        } else {
-          NodeTypes::Node_Link new_node =
-              std::make_unique<Node>(frame.address, key);
-          headNode.add_node(std::move(new_node));
-        }
+        printf("Got addressing command");
+        //  uint16_t key = frame.data[0];
+        //  if (frame.address != headNode.pending_node.address ||
+        //      key != headNode.pending_node.key) {
+        //    headNode.reset_pending_node();
+        //  } else {
+        //    NodeTypes::Node_Link new_node =
+        //        std::make_unique<Node>(frame.address, key);
+        //    headNode.add_node(std::move(new_node));
+        //  }
+      } else {
+        printf("unknown command of %d", static_cast<int>(frame.command));
       }
       frame = {};
     }
 
-    // Logger::log_simple("TRYING TO SEND");
-    // uint16_t test_key = 24;
-    // UartMessage msg = headNode.create_addressing_frame(test_key);
-    // headNode.pending_node = {.address = msg.address, .key = test_key};
-    // xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
+    if (1 == 2) {
+
+      Logger::log_simple("TRYING TO SEND");
+      uint16_t test_key = 24;
+      UartMessage msg = headNode.create_addressing_frame(test_key);
+      headNode.pending_node = {.address = msg.address, .key = test_key};
+      xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
+    }
 
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
