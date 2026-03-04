@@ -1,15 +1,15 @@
+#include "protocol.hpp"
 #pragma once
 #include "freertos/idf_additions.h"
 #include "task.hpp"
-#include "uart.hpp"
 
 class UartTask : public Task {
 public:
-  UartTask(Uart &uart_class, QueueHandle_t fromHeadHandle,
+  UartTask(UartProtocol &uart_protocal, QueueHandle_t fromHeadHandle,
            QueueHandle_t toHeadHandle)
-      : Task("UART", 4096, 2), uart{uart_class},
+      : Task("UART", 4096, 2), uart{uart_protocal},
         from_head_queue(fromHeadHandle), to_head_queue(toHeadHandle){};
-  Uart &uart;
+  UartProtocol &uart;
 
 protected:
   void run() override;

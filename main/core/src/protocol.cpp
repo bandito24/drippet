@@ -33,13 +33,16 @@ byte_count UartProtocol::write_bytes(const SizedFrameBuffer &buffer) const {
   return this->driver.send(buffer.frame, buffer.content_length);
 }
 
+SizedReadBuffer UartProtocol::receive_bytes() const {
+  return this->driver.receive();
+}
+
 std::optional<IndexedFrame>
 UartFunctions::create_indexed_frame(const SizedReadBuffer &buffer,
                                     size_t start_index) {
 
   if (buffer.content[start_index] != Protocol::start_bit) {
 
-    printf("OH SddHIR TRUE\n");
     return std::nullopt;
   }
 
@@ -51,11 +54,6 @@ UartFunctions::create_indexed_frame(const SizedReadBuffer &buffer,
       start_index + to_index(Protocol::HeaderOrder::DATA_LENGTH);
   size_t data_length = buffer.content[data_length_index];
   int header_end = static_cast<int>(Protocol::HeaderOrder::HEADER_LENGTH);
-  if (data_length) {
-    i.data_start = header_end;
-  } else {
-    i.data_start = -1;
-  }
   i.cdc_start = header_end + data_length;
   i.length = i.cdc_start + 2;
 
@@ -113,28 +111,23 @@ UartProtocol::build_uart_message(const Protocol::Frame &frame_seg) {
 }
 
 // 3a)
-ParseResult UartFunctions::validate_frame(Protocol::Frame buffer) {
+ParseResult UartFunctions::validate_frame(const Protocol::Frame &buffer) {
 
   if (buffer[to_index(MsgIndex::START_BIT)] != Protocol::start_bit) {
-    Logger::log_error("Invalid Start Bit"); // Drop it, start process over
-                                            // of discovery or water init
-                                            // return
     return ParseResult::InvalidStartBit;
   }
 
   size_t crc_start = to_index(Protocol::HeaderOrder::HEADER_LENGTH) +
                      buffer[to_index(Protocol::HeaderOrder::DATA_LENGTH)];
-
-  for (size_t i = 0; i < 10; i++) {
-    printf("index: %d = %u\n", i, buffer[i]);
+  if (crc_start + 2 > Protocol::FrameLength) {
+    return ParseResult::InvalidLength;
   }
 
   uint16_t crc_computed =
       UartFunctions::crc16_modbus(&buffer[1], crc_start - 1);
-  uint16_t crc_received = UartFunctions::merge_uint8(crc_start, crc_start + 1);
-  printf("received: %d, calculated: %d", crc_received, crc_computed);
+  uint16_t crc_received = UartFunctions::merge_uint8(buffer.at(crc_start),
+                                                     buffer.at(crc_start + 1));
   if (crc_computed != crc_received) {
-    Logger::log_error("CRC16 MODBUS values do not match"); // Drop it, restart
     return ParseResult::CrcMismatch;
   }
   return ParseResult::Ok;
@@ -142,16 +135,26 @@ ParseResult UartFunctions::validate_frame(Protocol::Frame buffer) {
 
 // 3b)
 using Header = Protocol::HeaderOrder;
-UartMessage UartFunctions::reconstruct_uart_message(Protocol::Frame buffer) {
+UartMessage
+UartFunctions::reconstruct_uart_message(const Protocol::Frame &buffer) {
 
   Protocol::FrameDataArray result{};
   size_t data_length = buffer[to_index(Protocol::HeaderOrder::DATA_LENGTH)];
+
   if (data_length != 0) {
     assert(data_length % 2 == 0);
-    for (size_t i = Protocol::DATA_START_INDEX; i < data_length; i = i + 2) {
-      result[i - Protocol::DATA_START_INDEX] =
-          UartFunctions::merge_uint8(buffer[i], buffer[i + 1]);
+    size_t j = 0;
+    for (size_t i = Protocol::DATA_START_INDEX;
+         i < Protocol::DATA_START_INDEX + data_length; i = i + 2) {
+      result[j] = UartFunctions::merge_uint8(buffer[i], buffer[i + 1]);
+      j++;
     }
+
+  } else {
+
+    // for (size_t i = 0; i < config::max_nodes; i++) {
+    //  printf("%d\n", buffer[i]);
+    //}
   }
 
   return {.address = buffer[to_index(Header::ADDRESS)],

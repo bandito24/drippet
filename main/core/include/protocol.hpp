@@ -1,8 +1,10 @@
 #pragma once
 #include "driver.hpp"
+#include <algorithm>
 #include <cstddef>
 #include <optional>
 #include <stdint.h>
+#include <valarray>
 
 struct SizedFrameBuffer {
   Protocol::Frame frame;
@@ -26,12 +28,39 @@ struct UartHeader {
 struct UartMessage {
   uint8_t address{};
   Protocol::Command command{};
-  Protocol::FrameDataArray data{}; // Represents the max data size
+  Protocol::FrameDataArray data{}; // Represents the max uint16_t data size
   size_t data_length{};
+  bool operator==(const UartMessage &msg) const {
+    return this->address == msg.address &&
+           this->data_length == msg.data_length &&
+           this->command == msg.command &&
+           std::equal(this->data.begin(),
+                      (this->data.begin() + this->data_length),
+                      msg.data.begin());
+  }
+  // TODO: Remove this an iostream
+  friend std::ostream &operator<<(std::ostream &out, const UartMessage &msg) {
+    out << "UartMessage {\n";
+    out << "  address: " << static_cast<unsigned>(msg.address) << "\n";
+    out << "  command: " << static_cast<unsigned>(msg.command) << "\n";
+    out << "  data_length: " << msg.data_length << "\n";
+    out << "  data: [";
+
+    for (size_t i = 0; i < msg.data_length; ++i) {
+      out << msg.data[i];
+      if (i + 1 < msg.data_length)
+        out << ", ";
+    }
+
+    out << "]\n";
+    out << "}";
+
+    return out;
+  }
 };
 
 struct FrameIndexes {
-  int data_start = -1; // Data start is -1 if no data
+  bool has_data = false;
   size_t cdc_start;
   size_t length;
 };
@@ -47,6 +76,7 @@ public:
   std::optional<UartMessage>
   build_uart_message(const Protocol::Frame &frame_seg);
   byte_count write_bytes(const SizedFrameBuffer &msg) const;
+  SizedReadBuffer receive_bytes() const;
   SizedFrameBuffer prepare_bytes(const UartMessage &data) const;
   UartProtocol(Driver &driver);
 
@@ -74,7 +104,7 @@ size_t get_buffered_rx_length();
 
 namespace UartFunctions {
 
-ParseResult validate_frame(Protocol::Frame buffer);
+ParseResult validate_frame(const Protocol::Frame &buffer);
 uint16_t crc16_modbus(const uint8_t *data, size_t length);
 constexpr uint16_t merge_uint8(uint8_t first_bit, uint8_t second_bit) {
   return (static_cast<uint16_t>(first_bit)) |
@@ -83,5 +113,5 @@ constexpr uint16_t merge_uint8(uint8_t first_bit, uint8_t second_bit) {
 
 std::optional<IndexedFrame> create_indexed_frame(const SizedReadBuffer &buffer,
                                                  size_t start_index);
-UartMessage reconstruct_uart_message(Protocol::Frame buffer);
+UartMessage reconstruct_uart_message(const Protocol::Frame &buffer);
 } // namespace UartFunctions

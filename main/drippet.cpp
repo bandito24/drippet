@@ -1,17 +1,16 @@
 #include "esp_err.h"
 #include "freertos/idf_additions.h"
-#include "head.hpp"
 #include "node.hpp"
 #include "queues/queue.hpp"
-#include "tasks/uart_task.hpp"
-
 #include "tasks/head_task.hpp"
+#include "tasks/uart_task.hpp"
 #include "time.hpp"
-#include "uart.hpp"
 #include <memory>
 extern "C" void app_main(void) {
-  EspUart espUart{};
-  ESP_ERROR_CHECK(espUart.init());
+
+  UartDriver driver{};
+  ESP_ERROR_CHECK(driver.init());
+  UartProtocol uart{driver};
 
   // For Queueing Incoming Messages From Peripherals and Sending Head Queued
   // Messages
@@ -20,7 +19,7 @@ extern "C" void app_main(void) {
   Queue outgoing_queue(10, sizeof(UartMessage));
   outgoing_queue.init();
 
-  UartTask uart_task{espUart, outgoing_queue.get_handle(),
+  UartTask uart_task{uart, outgoing_queue.get_handle(),
                      incoming_queue.get_handle()};
   uart_task.start();
 
