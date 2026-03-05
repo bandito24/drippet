@@ -1,9 +1,10 @@
-from transport.uart import Uart, uart_task
+from transport import Uart, UartSerial, uart_task
 
 
 def init():
     try:
-        uart_task(Uart())
+        serial = UartSerial()
+        uart_task(Uart(serial))
     except KeyboardInterrupt:
         print("\nExiting...")
     except Exception as e:

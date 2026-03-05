@@ -1,7 +1,5 @@
-"""
-This file tests the functionality or serialization, the values of the bytes array correspond to the c++ struct values found at the bottom. For Order look at constants.py.
-Data and crc values are broken into two bits using little endian
-"""
+from transport import Message
+import constants
 
 addressingBytes = bytes(
     [
@@ -15,8 +13,6 @@ addressingBytes = bytes(
         252,
     ]
 )
-
-
 wateringBytes = bytes(
     [
         170,
@@ -37,8 +33,6 @@ wateringBytes = bytes(
         68,
     ]
 )
-
-
 emptyDataBytes = bytes(
     [
         170,
@@ -50,9 +44,26 @@ emptyDataBytes = bytes(
     ]
 )
 
+addressing_message = Message(
+    address=2,
+    command=constants.Command.ADDRESSING,
+    data=[500],
+)
+watering_message = Message(
+    address=2,
+    command=constants.Command.INIT_WATER_DURATIONS,
+    data=[100, 200, 300, 400, 500],
+)
+empty_message = Message(
+    address=0,
+    command=constants.Command.BROADCAST,
+    data=[],
+)
+
+# C++ implementation
 # UartMessage addressingBytes{.address = 2,
 #                               .command = Protocol::Command::ADDRESSING,
-#                               .data = Protocol::FrameDataArray{sample_key},
+#                               .data = Protocol::FrameDataArray{500},
 #                               .data_length = 1};
 # Protocol::FrameDataArray exampleWatering{100, 200, 300, 400, 500};
 # UartMessage wateringBytes{.address = 2,
