@@ -14,8 +14,6 @@ void HeadTask::run() {
   for (;;) {
     if (xQueueReceive(this->incoming_queue, &frame, pdMS_TO_TICKS(100)) ==
         pdTRUE) {
-      Logger::log_simple("SOMETHING IS COMING IN");
-
       if (frame.command == CMD::DISCOVERY) {
         // Newly connected Node broadcasts DISCOVERY with key. Head Node
         // responds with ADDRESSING with address and received key (for
@@ -23,9 +21,8 @@ void HeadTask::run() {
         // acknoledgement
         uint16_t key = frame.data[0];
         printf("key received is %d", key);
-        // UartMessage msg = headNode.create_addressing_frame(key);
-        // headNode.pending_node = {.address = msg.address, .key = key};
-        // xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
+        UartMessage msg = headNode.create_addressing_frame(key);
+        xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
       } else if (frame.command == CMD::ADDRESSING) {
         printf("Got addressing command");
         //  uint16_t key = frame.data[0];

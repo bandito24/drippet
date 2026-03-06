@@ -12,11 +12,7 @@ void UartTask::run() {
   for (;;) {
     SizedReadBuffer incoming_buffer = this->uart.receive_bytes();
     if (incoming_buffer.length > 0) {
-      printf("size of %d\n", incoming_buffer.length);
 
-      // for (size_t i = 0; i < 13; i++) {
-      //   printf("%d\n", incoming_buffer.content[i]);
-      // }
       Logger::log_simple("something is comming in");
       size_t start_index = 0;
       while (true) {
@@ -36,11 +32,12 @@ void UartTask::run() {
       }
     }
 
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
     UartMessage msg{};
     if (xQueueReceive(this->outgoing_queue, &msg, pdMS_TO_TICKS(5000))) {
       SizedFrameBuffer buffer = this->uart.prepare_bytes(msg);
       this->uart.write_bytes(buffer);
     }
-    vTaskDelay(pdMS_TO_TICKS(5000));
   }
 }

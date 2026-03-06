@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from dataclasses import dataclass
 import time
 from typing import Optional
@@ -6,6 +6,7 @@ import serial
 import constants
 from crc import Calculator, Crc16
 from collections import deque
+import traceback
 
 HEAD_ADDR = 0x00
 
@@ -17,7 +18,7 @@ class Message:
     data: list[int]
 
 
-class Transport:
+class Transport(ABC):
     @abstractmethod
     def write(self, bytes) -> None:
         pass
@@ -74,7 +75,7 @@ class Uart:
     def __init__(self, uartSerial: Transport):
         self.messages: deque[Message] = deque()
         self.serial = uartSerial
-        self.key = 0xAF
+        self.key = 500
         self.crc_calc = Calculator(Crc16.MODBUS.value)
         self.self_address: Optional[int] = None
 
@@ -147,17 +148,14 @@ class Uart:
 
         crc = (self.crc_calc.checksum(bytesArr[1:])).to_bytes(2, "little")
         bytesArr.extend(crc)
-        for i in range(len(bytesArr)):
-            print(bytesArr[i])
-        print("\n\n\n")
         return bytes(bytesArr)
 
     def has_msg(self) -> bool:
         return len(self.messages) != 0
 
     def poll_data(self) -> int:
-        if self.serial.in_waiting:
-            buffer = self.serial.read(self.serial.in_waiting)
+        if self.serial.in_waiting():
+            buffer = self.serial.read(self.serial.in_waiting())
             next_begin = 0
             while next_begin < len(buffer):
                 next_begin = self.extract_frame(next_begin, buffer)
@@ -172,7 +170,7 @@ class Uart:
     def handle_incoming(self, msg: Message):
         match constants.Command(msg.command):
             case constants.Command.ADDRESSING:
-                if msg.data != self.key:
+                if msg.data[0] != self.key:
                     print(f"Addressing data key does not belong to program: {msg.data}")
                     return
                 print(f"Received given address of {msg.address}")
@@ -186,17 +184,21 @@ class Uart:
 def uart_task(uart: Uart):
     while True:
         try:
-            if not uart.self_address:
-                uart.broadcast_pairing_key()
-            elif uart.has_msg():
+            uart.poll_data()
+            if uart.has_msg():
                 print("message is had")
                 message = uart.messages.popleft()
                 uart.handle_incoming(message)
-
-            uart.poll_data()
-            time.sleep(3)
+            elif not uart.self_address:
+                uart.broadcast_pairing_key()
+            time.sleep(2)
 
         except ValueError as e:
             print(f"Location Operation Failed: {e}")
         except serial.SerialTimeoutException as e:
             print(f"Serial functionality failed: {e}")
+
+        except Exception as e:
+            print("Serial functionality failed:")
+            traceback.print_exc()
+            return
