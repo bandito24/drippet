@@ -83,12 +83,6 @@ class Uart:
     def connect(self) -> None:
         self.serial.connect()
 
-    def do_one(self):
-        return 1
-
-    def do_two(self):
-        return 2
-
     type NextFrameIndex = int
 
     def extract_frame(self, start_index: int, buffer: bytes) -> NextFrameIndex:
@@ -96,12 +90,12 @@ class Uart:
             start_index += 1
         data_length_index = start_index + constants.HeaderOrder.DATA_LENGTH
         if data_length_index > len(buffer):
-            raise IndexError("data length index is larger than buffer size")
+            raise IndexError("invalid frame index")
         data_length = buffer[data_length_index]
         frame_length = constants.HeaderOrder.HEADER_LENGTH + data_length + 2
         frame_end = start_index + frame_length
         if frame_end > len(buffer):
-            raise ValueError("Frame length extends past buffer")
+            raise IndexError("invalid frame index")
         address = buffer[start_index + constants.HeaderOrder.ADDRESS]
         command: constants.Command = constants.Command(
             buffer[start_index + constants.HeaderOrder.COMMAND]
@@ -130,26 +124,33 @@ class Uart:
         return frame_end
 
     def write_data(self, msg: Message) -> None:
-        order = constants.HeaderOrder
-        bytes = bytearray(order.HEADER_LENGTH)
-        bytes[order.START_BIT] = constants.START_BYTE
-        bytes[order.COMMAND] = msg.command
-        bytes[order.ADDRESS] = HEAD_ADDR  # Zero address is Head Node
-        bytes[order.DATA_LENGTH] = len(msg.data) * 2
-        for i in range(0, len(msg.data) - 1, 2):
-            endian = (msg.data[i]).to_bytes(2, "little")
-            bytes.extend(endian)
-
-        crc = (self.crc_calc.checksum(bytes[1:])).to_bytes(2, "little")
-        bytes.extend(crc)
+        outgoing_bytes = self.prepare_write(msg)
         try:
             if not self.serial:
                 raise RuntimeError("Must connect uart")
-            self.serial.write(bytes)
+            self.serial.write(outgoing_bytes)
         except serial.SerialTimeoutException:
             print("Write operation timed out")
         except Exception as e:
             print(f"Unknown write error occurred {e}")
+
+    def prepare_write(self, msg: Message) -> bytes:
+        order = constants.HeaderOrder
+        bytesArr = bytearray(order.HEADER_LENGTH)
+        bytesArr[order.START_BIT] = constants.START_BYTE
+        bytesArr[order.COMMAND] = msg.command
+        bytesArr[order.ADDRESS] = msg.address  # Zero address is Head Node
+        bytesArr[order.DATA_LENGTH] = len(msg.data) * 2
+        for i in range(0, len(msg.data)):
+            endian = (msg.data[i]).to_bytes(2, "little")
+            bytesArr.extend(endian)
+
+        crc = (self.crc_calc.checksum(bytesArr[1:])).to_bytes(2, "little")
+        bytesArr.extend(crc)
+        for i in range(len(bytesArr)):
+            print(bytesArr[i])
+        print("\n\n\n")
+        return bytes(bytesArr)
 
     def has_msg(self) -> bool:
         return len(self.messages) != 0

@@ -68,6 +68,28 @@ def test_data_is_entirely_read_from_buffer(uart, uart_msgs):
     assert uart.messages[2] == uart_msgs["empty"]
 
 
-def extract_frame_rejects_invalid_indexes(uart):
+def test_rejects_invalid_indexes(uart):
     exBytes1 = bytes([0, 0, 0, constants.START_BYTE, 0, 2, 4, 3])
     exBytes2 = bytes([constants.START_BYTE])
+    with pytest.raises(IndexError) as err1:
+        uart.extract_frame(0, exBytes1)
+    with pytest.raises(IndexError) as err2:
+        uart.extract_frame(0, exBytes2)
+    assert "invalid frame index" in str(err1.value)
+    assert "invalid frame index" in str(err2.value)
+    assert len(uart.messages) == 0
+
+
+def test_rejects_invalid_crc(uart):
+    invalid = bytearray(wateringBytes)
+    invalid[-1] = 0x11
+    with pytest.raises(ValueError) as err1:
+        uart.extract_frame(0, invalid)
+    assert "Crc16 does not match" in str(err1.value)
+    assert len(uart.messages) == 0
+
+
+def test_writes_uartMsg_correctly(uart, uart_msgs):
+    assert uart.prepare_write(uart_msgs["addressing"]) == addressingBytes
+    assert uart.prepare_write(uart_msgs["empty"]) == emptyDataBytes
+    assert uart.prepare_write(uart_msgs["watering"]) == wateringBytes
