@@ -1,9 +1,12 @@
 #include "head_task.hpp"
+#include "config.hpp"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
+#include "head.hpp"
 #include "logger.hpp"
 #include "node.hpp"
 #include "portmacro.h"
+#include "protocol.hpp"
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -19,21 +22,24 @@ void HeadTask::run() {
         // responds with ADDRESSING with address and received key (for
         // identification). Node responds with ADDRESSING and key for final
         // acknoledgement
-        uint16_t key = frame.data[0];
+        NodeKey_t key = frame.data[0];
         printf("key received is %d", key);
-        UartMessage msg = headNode.create_addressing_frame(key);
+
+        UartMessage msg;
+        std::optional<config::Address> address =
+            this->headNode.create_node_pending(key);
+        if (!address) { // Means system cannot index another spot for it. Maybe
+                        // make it sleep for a while
+          msg = this->headNode.terminate_endpoint(key);
+        } else {
+          msg = this->headNode.create_addressing_frame(key, *address);
+        }
         xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
       } else if (frame.command == CMD::ADDRESSING) {
-        printf("Got addressing command");
-        //  uint16_t key = frame.data[0];
-        //  if (frame.address != headNode.pending_node.address ||
-        //      key != headNode.pending_node.key) {
-        //    headNode.reset_pending_node();
-        //  } else {
-        //    NodeTypes::Node_Link new_node =
-        //        std::make_unique<Node>(frame.address, key);
-        //    headNode.add_node(std::move(new_node));
-        //  }
+
+        NodeKey_t key = frame.data[0];
+        NodeLinkStatus status =
+            this->headNode.confirm_node_pending(key, frame.address);
       } else {
         printf("unknown command of %d", static_cast<int>(frame.command));
       }

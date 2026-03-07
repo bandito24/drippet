@@ -11,7 +11,8 @@ enum class Command : uint8_t {
   DISCOVERY,
   ADDRESSING,
   BROADCAST,
-  INIT_WATER_DURATIONS
+  INIT_WATER_DURATIONS,
+  BUGGER_OFF
 };
 
 enum class HeaderOrder : uint8_t {

@@ -102,6 +102,7 @@ public:
 
   Node(config::Address index_address, NodeKey_t key);
   Node(std::array<Time::Time_Seconds, config::node_hose_count> hose_durations);
+
   config::Address get_address() const override;
 
   std::array<Time::Time_Seconds, config::node_hose_count>

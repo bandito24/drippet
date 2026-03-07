@@ -1,31 +1,46 @@
+#include "config.hpp"
+#include "node.hpp"
+#include "protocol.hpp"
 #include <assert.h>
 #include <cstddef>
 #include <head.hpp>
+#include <memory>
 
 Head::Head(iValve &waterFaucetMain, iClock &clock)
     : mainValve(waterFaucetMain), clock(clock){};
 
-NodeLinkStatus Head::add_node(NodeTypes::Node_Link node) {
-  if (this->node_count == config::max_nodes) {
-    return LINK_FULL;
+std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
+  auto next_address = this->get_available_address();
+  if (next_address) {
+    std::unique_ptr<iNode> new_node =
+        std::make_unique<Node>(*next_address, key);
+    this->node_link[*next_address] = std::move(new_node);
   }
+  return next_address;
+}
 
-  assert(node_count < config::max_nodes);
-  assert(node_link[node_count] == nullptr);
-  config::Address new_address = node->get_address();
-  for (NodeTypes::Node_Link &node : node_link) {
-    if (node == nullptr)
-      continue;
-    if (node->get_address() == new_address) {
-      node->set_node_status(NodeStatus::ERR);
-      return NodeLinkStatus::LINK_ERR_ADDRESS;
+// TODO:: Make sure the address and key are confirmed
+NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
+                                          config::Address address) {
+  if (address >= this->node_link.size()) {
+    return NodeLinkStatus::LINK_INVALID_INDEX;
+  }
+  NodeTypes::Node_Link &confirmed_node = this->node_link[address];
+  assert(confirmed_node != nullptr);
+  confirmed_node->set_node_status(NodeStatus::READY);
+  return NodeLinkStatus::LINK_OK;
+}
+
+std::optional<config::Address> Head::get_available_address() {
+
+  for (size_t i = 0; i < config::max_nodes; i++) {
+    if (this->node_link[i] == nullptr) {
+      return static_cast<config::Address>(i);
     }
   }
-
-  this->node_link[this->node_count] = std::move(node);
-  node_count++;
-  return LINK_OK;
+  return std::nullopt;
 }
+
 iNode *Head::get_node(std::size_t index) { return node_link.at(index).get(); }
 
 std::size_t Head::get_node_count() const { return node_count; }
@@ -77,11 +92,17 @@ void Head::update() {
     }
   }
 }
-UartMessage Head::create_addressing_frame(uint16_t key) {
-  uint8_t new_index_address = this->node_count + 1;
+UartMessage Head::create_addressing_frame(uint16_t key,
+                                          config::Address address) {
 
-  return {.address = new_index_address,
+  return {.address = address,
           .command = Protocol::Command::ADDRESSING,
+          .data = Protocol::FrameDataArray{key},
+          .data_length = 1};
+}
+UartMessage Head::terminate_endpoint(NodeKey_t key) {
+  return {.address = 0x00,
+          .command = Protocol::Command::BUGGER_OFF,
           .data = Protocol::FrameDataArray{key},
           .data_length = 1};
 }

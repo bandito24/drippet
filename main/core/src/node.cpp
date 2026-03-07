@@ -1,4 +1,5 @@
 #include "constants.hpp"
+#include "head.hpp"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -134,4 +135,4 @@ Node::Node(NodeTypes::HoseDurations hose_durations) {
 }
 Node::Node(config::Address index_address, NodeKey_t key)
     : hardware_address(index_address), id_key(key),
-      node_status(NodeStatus::READY) {}
+      node_status(NodeStatus::INITIALIZING) {}
