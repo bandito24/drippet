@@ -1,25 +1,21 @@
 
 #include "config.hpp"
+#include "driver.hpp"
 #include "fixtures.hpp"
 #include "head.hpp"
 #include "node.hpp"
-#include "time.hpp"
+#include "protocol.hpp"
+#include <algorithm>
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <fakeit.hpp>
-#include <memory>
-using namespace fakeit;
+#include <functional>
+#include <optional>
+
 using Fixture = HeadFixture;
-constexpr config::Address address_check = config::Address{255};
+constexpr NodeKey_t TEST_KEY = 500;
 
-NodeLinkStatus populate_head(Head &head, config::Address address_add = 0) {
-  config::Address address = address_check + address_add;
-  return head.add_node(std::make_unique<Node>(
-      Time::Day_In_Seconds, NodeTypes::create_durations({1, 1, 1, 1, 1, 1}),
-      address));
-}
-
-TEST_CASE("Head Node", "[head]") {
+TEST_CASE("create node pending behaves correctly", "[head]") {
 
   SECTION("Node Links all start as nullptr") {
 
@@ -35,49 +31,47 @@ TEST_CASE("Head Node", "[head]") {
     }
     REQUIRE(all_null == true);
   }
-  SECTION("Nodes are able to be added and removed") {
+  SECTION("successfully creates a node in initializing state") {
 
     Fixture fix;
     Head head = std::move(fix.head);
-    NodeLinkStatus status = populate_head(head, 0);
-    REQUIRE(status == NodeLinkStatus::LINK_OK);
-    iNode *node_check = head.get_node(0);
-
-    REQUIRE(node_check->get_address() == address_check);
-    REQUIRE(node_check->get_node_status() == NodeStatus::INITIALIZING);
-    REQUIRE(head.get_node_count() == 1);
-
-    head.remove_node(0);
-
-    iNode *node_check2 = head.get_node(0);
-
-    REQUIRE(head.get_node_count() == 0);
-    REQUIRE(node_check2 == nullptr);
+    auto address = head.create_node_pending(TEST_KEY);
+    REQUIRE(*address == 0); // First address location;
+    REQUIRE(head.get_node(0)->get_node_status() == NodeStatus::INITIALIZING);
   }
-  SECTION("Cannot add more nodes than permitted max") {
+  SECTION("head does not allow more than max addresses") {
+
     Fixture fix;
     Head head = std::move(fix.head);
-    NodeLinkStatus last;
-    for (std::size_t i = 0; i < config::max_nodes; i++) {
-      last = populate_head(head, i);
+    bool add_correct = true;
+    for (size_t i = 0; i < config::max_nodes; i++) {
+      auto address = head.create_node_pending(i);
+      if (!address) {
+        add_correct = false;
+        break;
+      }
     }
-    REQUIRE(head.get_node_count() == config::max_nodes);
-    REQUIRE(last == NodeLinkStatus::LINK_OK);
-    NodeLinkStatus newest = populate_head(head, 10);
-    REQUIRE(newest == LINK_FULL);
-    REQUIRE(head.get_node_count() == config::max_nodes);
+    REQUIRE(add_correct);
+    auto last_address = head.create_node_pending(TEST_KEY);
+    REQUIRE(last_address == std::nullopt);
   }
-  SECTION("Cannot add two nodes with the same physical address") {
-
+  SECTION("confirm node pending sets a node as ready if key and address match "
+          "for valid index") {
     Fixture fix;
     Head head = std::move(fix.head);
-    populate_head(head, 0);
+    auto address = head.create_node_pending(TEST_KEY);
 
-    NodeTypes::Node_Link new_node = std::make_unique<Node>(
-        Time::Day_In_Seconds, NodeTypes::create_durations({1, 1, 1, 1, 1, 1}),
-        address_check);
-    NodeLinkStatus fail = head.add_node(std::move(new_node));
-    REQUIRE(fail == NodeLinkStatus::LINK_ERR_ADDRESS);
-    REQUIRE(head.get_node_count() == 1);
+    auto address2 = head.create_node_pending(TEST_KEY + 1);
+
+    auto address3 = head.create_node_pending(TEST_KEY + 2);
+    auto status1 = head.confirm_node_pending(TEST_KEY + 1, 0);
+    REQUIRE(status1 == NodeLinkStatus::LINK_KEY_MISMATCH);
+    REQUIRE(head.get_node(1)->get_node_status() == NodeStatus::INITIALIZING);
+
+    auto status2 = head.confirm_node_pending(TEST_KEY + 1, 1);
+    REQUIRE(status2 == NodeLinkStatus::LINK_OK);
+    REQUIRE(head.get_node(1)->get_node_status() == NodeStatus::READY);
+    REQUIRE(head.get_node(0)->get_node_status() == NodeStatus::INITIALIZING);
+    REQUIRE(head.get_node(2)->get_node_status() == NodeStatus::INITIALIZING);
   }
 }

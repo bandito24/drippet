@@ -27,6 +27,8 @@ struct iValve {
   virtual HardwareStatus close_valve() = 0;
 };
 
+using NodeKey_t = uint16_t;
+
 // Todo: Complete these implementations
 class MainValve : public iValve {
   HardwareStatus open_valve() override { return HardwareStatus::ERR_NONE; };
@@ -67,9 +69,9 @@ struct iNode {
   virtual Time::Time_Seconds get_watering_interval() const = 0;
   virtual std::array<Time::Time_Seconds, config::node_hose_count>
   get_all_hose_durations() const = 0;
+  virtual NodeKey_t get_id_key() const = 0;
 };
 
-using NodeKey_t = uint16_t;
 class Node : public iNode {
 public:
   Time::Time_Point next_water_timepoint() const override;
@@ -109,7 +111,7 @@ public:
   get_all_hose_durations() const override;
 
   Time::Time_Seconds get_watering_interval() const override;
-  NodeKey_t get_id_key() { return id_key; }
+  NodeKey_t get_id_key() const override { return id_key; };
 
 private:
   config::Address hardware_address = config::invalid_address;

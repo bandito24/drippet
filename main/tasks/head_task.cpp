@@ -23,9 +23,7 @@ void HeadTask::run() {
         // identification). Node responds with ADDRESSING and key for final
         // acknoledgement
         NodeKey_t key = frame.data[0];
-        printf("key received is %d", key);
-
-        UartMessage msg;
+        UartMessage msg{};
         std::optional<config::Address> address =
             this->headNode.create_node_pending(key);
         if (!address) { // Means system cannot index another spot for it. Maybe
@@ -35,24 +33,25 @@ void HeadTask::run() {
           msg = this->headNode.create_addressing_frame(key, *address);
         }
         xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
-      } else if (frame.command == CMD::ADDRESSING) {
+      } else if (frame.command ==
+                 CMD::ADDRESSING) { // Means the node is attempting to reple
+                                    // with the same address and key for final
+                                    // confirmation
 
         NodeKey_t key = frame.data[0];
         NodeLinkStatus status =
             this->headNode.confirm_node_pending(key, frame.address);
+        if (status == NodeLinkStatus::LINK_OK) {
+          Logger::log_simple("Node Successfully connected");
+        } else {
+          Logger::log_error("Node connect unsuccessful");
+        }
+        // If unsuccessful do nothing and node will reattempt the broadcast
+        // after short period
       } else {
         printf("unknown command of %d", static_cast<int>(frame.command));
       }
       frame = {};
-    }
-
-    if (1 == 2) {
-
-      Logger::log_simple("TRYING TO SEND");
-      uint16_t test_key = 24;
-      UartMessage msg = headNode.create_addressing_frame(test_key);
-      headNode.pending_node = {.address = msg.address, .key = test_key};
-      xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
     }
 
     vTaskDelay(pdMS_TO_TICKS(1000));

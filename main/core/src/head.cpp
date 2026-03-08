@@ -8,7 +8,8 @@
 
 Head::Head(iValve &waterFaucetMain, iClock &clock)
     : mainValve(waterFaucetMain), clock(clock){};
-
+// Todo:
+// Need to disregard duplicate broadcast messages from the key
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
   auto next_address = this->get_available_address();
   if (next_address) {
@@ -19,7 +20,6 @@ std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
   return next_address;
 }
 
-// TODO:: Make sure the address and key are confirmed
 NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
                                           config::Address address) {
   if (address >= this->node_link.size()) {
@@ -27,6 +27,9 @@ NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
   }
   NodeTypes::Node_Link &confirmed_node = this->node_link[address];
   assert(confirmed_node != nullptr);
+  if (confirmed_node->get_id_key() != key) {
+    return NodeLinkStatus::LINK_KEY_MISMATCH;
+  }
   confirmed_node->set_node_status(NodeStatus::READY);
   return NodeLinkStatus::LINK_OK;
 }

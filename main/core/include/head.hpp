@@ -9,8 +9,10 @@ enum NodeLinkStatus {
   LINK_OK,
   LINK_FULL,
   LINK_INVALID_INDEX,
+  LINK_KEY_MISMATCH,
   LINK_ERR_ADDRESS,
   LINK_ERR
+
 };
 enum ValveStatus { VALVE_OPEN, VALVE_CLOSED };
 struct PendingNode {
