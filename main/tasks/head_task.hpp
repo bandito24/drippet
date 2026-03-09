@@ -1,8 +1,8 @@
+#pragma once
 #include "freertos/idf_additions.h"
 #include "head.hpp"
 #include "node.hpp"
 #include "task.hpp"
-#include "time.hpp"
 class HeadTask : public Task {
 
 public:

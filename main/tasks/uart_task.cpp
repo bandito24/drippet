@@ -32,7 +32,7 @@ void UartTask::run() {
       }
     }
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     UartMessage msg{};
     if (xQueueReceive(this->outgoing_queue, &msg, pdMS_TO_TICKS(5000))) {

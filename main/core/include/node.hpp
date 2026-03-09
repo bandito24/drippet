@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <initializer_list>
 #include <memory>
-#include <time.hpp>
 
 enum HardwareStatus {
   ERR_NONE,

@@ -3,7 +3,6 @@
 #include "protocol.hpp"
 #include <array>
 #include <node.hpp>
-#include <time.hpp>
 
 enum NodeLinkStatus {
   LINK_OK,
@@ -28,6 +27,7 @@ private:
   std::size_t node_count = 0;
   ValveStatus valve_status = VALVE_CLOSED;
   bool has_ready_valves();
+  std::optional<config::Address> get_node_by_key(NodeKey_t key);
 
 public:
   static constexpr std::size_t max_nodes = config::max_nodes;
@@ -39,7 +39,7 @@ public:
   std::optional<config::Address> create_node_pending(NodeKey_t key);
   NodeLinkStatus confirm_node_pending(NodeKey_t key, config::Address position);
 
-  std::optional<config::Address> get_available_address();
+  config::Address get_available_address();
   void reset_pending_node() { pending_node = {}; }
 
   UartMessage create_addressing_frame(uint16_t key, config::Address address);

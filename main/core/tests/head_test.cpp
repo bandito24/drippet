@@ -53,13 +53,19 @@ TEST_CASE("create node pending behaves correctly", "[head]") {
     }
     REQUIRE(add_correct);
     auto last_address = head.create_node_pending(TEST_KEY);
-    REQUIRE(last_address == std::nullopt);
+
+    auto last_address2 = head.create_node_pending(TEST_KEY + 5);
+    REQUIRE(last_address == config::max_nodes);
+    REQUIRE(last_address2 ==
+            config::max_nodes); // Means it full--this return means full
   }
   SECTION("confirm node pending sets a node as ready if key and address match "
           "for valid index") {
     Fixture fix;
     Head head = std::move(fix.head);
     auto address = head.create_node_pending(TEST_KEY);
+    auto addressAgain = head.create_node_pending(TEST_KEY);
+    REQUIRE(addressAgain == std::nullopt);
 
     auto address2 = head.create_node_pending(TEST_KEY + 1);
 

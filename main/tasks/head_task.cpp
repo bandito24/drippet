@@ -26,13 +26,20 @@ void HeadTask::run() {
         UartMessage msg{};
         std::optional<config::Address> address =
             this->headNode.create_node_pending(key);
-        if (!address) { // Means system cannot index another spot for it. Maybe
-                        // make it sleep for a while
-          msg = this->headNode.terminate_endpoint(key);
+        if (address) {
+          // No Address means key is recognized and it's a duplicate request
+          if (address ==
+              config::max_nodes) { // Means system cannot index another
+                                   // spot for it. Maybe
+                                   // make it sleep for a while
+            msg = this->headNode.terminate_endpoint(key);
+          } else {
+            msg = this->headNode.create_addressing_frame(key, *address);
+          }
+          xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
         } else {
-          msg = this->headNode.create_addressing_frame(key, *address);
+          Logger::log_simple("address is nullopt");
         }
-        xQueueSend(this->outgoing_queue, &msg, portMAX_DELAY);
       } else if (frame.command ==
                  CMD::ADDRESSING) { // Means the node is attempting to reple
                                     // with the same address and key for final

@@ -5,19 +5,31 @@
 #include <cstddef>
 #include <head.hpp>
 #include <memory>
+#include <optional>
 
 Head::Head(iValve &waterFaucetMain, iClock &clock)
     : mainValve(waterFaucetMain), clock(clock){};
-// Todo:
 // Need to disregard duplicate broadcast messages from the key
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
+
+  if (this->get_node_by_key(key)) {
+    return std::nullopt;
+  }
+  // Next address neing max size means its full, handler must hqndle accordingly
   auto next_address = this->get_available_address();
-  if (next_address) {
-    std::unique_ptr<iNode> new_node =
-        std::make_unique<Node>(*next_address, key);
-    this->node_link[*next_address] = std::move(new_node);
+  if (next_address != config::max_nodes) {
+    std::unique_ptr<iNode> new_node = std::make_unique<Node>(next_address, key);
+    this->node_link[next_address] = std::move(new_node);
   }
   return next_address;
+}
+std::optional<config::Address> Head::get_node_by_key(NodeKey_t key) {
+  for (config::Address addr = 0; addr < config::max_nodes; addr++) {
+    if (this->node_link[addr] && this->node_link[addr]->get_id_key() == key) {
+      return addr;
+    }
+  }
+  return std::nullopt;
 }
 
 NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
@@ -34,14 +46,15 @@ NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
   return NodeLinkStatus::LINK_OK;
 }
 
-std::optional<config::Address> Head::get_available_address() {
+config::Address Head::get_available_address() {
 
   for (size_t i = 0; i < config::max_nodes; i++) {
     if (this->node_link[i] == nullptr) {
       return static_cast<config::Address>(i);
     }
   }
-  return std::nullopt;
+  // Means it's full and handler must handle accordingly
+  return static_cast<config::Address>(config::max_nodes);
 }
 
 iNode *Head::get_node(std::size_t index) { return node_link.at(index).get(); }

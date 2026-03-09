@@ -1,4 +1,4 @@
-#include <time.hpp>
+#include <clock.hpp>
 #pragma once
 #include <array>
 #include <cstddef>

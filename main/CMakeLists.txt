@@ -4,7 +4,7 @@ file(GLOB TASK_SRC "tasks/*.cpp")
 file(GLOB ENV_ESP "core/env/esp32/*.cpp")
 #
 idf_component_register(SRCS "drippet.cpp"
-"core/env/esp32/time.cpp"
+"core/env/esp32/clock.cpp"
 ${CORE_SRC}
 ${ENV_ESP}
 ${TASK_SRC}

@@ -1,12 +1,10 @@
 #include "constants.hpp"
-#include "head.hpp"
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <config.hpp>
 #include <cstddef>
 #include <node.hpp>
-#include <time.hpp>
 
 Time::Time_Point Node::next_water_timepoint() const {
   return non_watering_interval_begin + watering_interval;

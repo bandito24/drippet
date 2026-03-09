@@ -189,9 +189,9 @@ def uart_task(uart: Uart):
                 print("message is had")
                 message = uart.messages.popleft()
                 uart.handle_incoming(message)
-            elif not uart.self_address:
+            elif not uart.self_address and uart.self_address != 0:
                 uart.broadcast_pairing_key()
-            time.sleep(2)
+            time.sleep(5)
 
         except ValueError as e:
             print(f"Location Operation Failed: {e}")
