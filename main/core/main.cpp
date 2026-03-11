@@ -28,7 +28,7 @@ int main() {
   time(&now);
   // Set timezone to China Standard Time
 
-  localtime_r(&now, &timeinfo);
+  gmtime_r(&now, &timeinfo);
   strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
   std::string s = strftime_buf;
 

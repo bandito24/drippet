@@ -10,6 +10,8 @@
 #include <memory>
 extern "C" void app_main(void) {
 
+  setenv("TZ", "UTC", 1);
+  tzset();
   UartDriver driver{};
   ESP_ERROR_CHECK(driver.init());
   UartProtocol uart{driver};

@@ -1,6 +1,7 @@
 #pragma once
 #include <chrono>
 #include <memory>
+#include <sys/time.h>
 
 namespace Time {
 using Time_Point = std::chrono::system_clock::time_point;
@@ -21,17 +22,31 @@ struct iClock {
 };
 std::unique_ptr<iClock> initialize_clock();
 
+struct iSysClock {
+  virtual Time::Time_Point now() const = 0;
+  virtual void change_system_clock(const timeval &time) = 0;
+};
+class SystemClock : public iSysClock {
+  void change_system_clock(const timeval &time) override;
+  Time::Time_Point now() const override;
+};
+
 class Esp32Clock : iClock {
 public:
   Time::Time_Point now() const override;
-  void setTime(int year, int month, int day, int hour, int min = 0,
-               int second = 0);
-  void setDailyWatering(uint8_t hour, uint8_t min);
-  time_t last_watering_ts = 0;
-  time_t next_watering_ts = 0;
+  time_t set_time(int year, int month, int day, int hour, int min,
+                  int second = 0);
+  time_t set_daily_watering(uint8_t hour, uint8_t min);
   Time::WateringSchedule watering_schedule{};
+  Esp32Clock(iSysClock &sysClock) : sys{sysClock} {};
+  static time_t makeTime(int year, int month, int day, int hour, int min,
+                         int second);
+  time_t get_next_watering_ts() { return this->next_watering_ts; }
+  bool next_watering_ready();
+  void clear_watering();
 
 private:
+  time_t next_watering_ts = 0;
+  iSysClock &sys;
   bool initalized = false;
-  time_t makeTime(int year, int month, int day, int hour, int min, int second);
 };
