@@ -2,10 +2,12 @@
 
 #include "clock.hpp"
 #include "fixtures.hpp"
+#include <__chrono/duration.h>
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <fakeit.hpp>
+#include <optional>
 
 using Fix = ClockFixture;
 using namespace std::chrono;
@@ -19,20 +21,19 @@ TEST_CASE("Clock and next watering durations set correctly", "[clock]") {
     Fix fix{};
     Esp32Clock &clock = fix.espClock;
     auto &sysMock = fix.sysMock;
-    REQUIRE(clock.get_next_watering_ts() == 0);
+    REQUIRE(clock.get_next_watering_point() == std::nullopt);
 
     clock.set_daily_watering(Fix::CURR_TIME_HR + 1, Fix::CURR_TIME_MIN);
-    time_t first_ts = fix.espClock.get_next_watering_ts();
-    time_t now_t = system_clock::to_time_t(fix.espClock.now());
+    auto first_watering = fix.espClock.get_next_watering_point();
 
-    REQUIRE((now_t + (ONE_HR)) == first_ts);
+    REQUIRE((fix.espClock.now() + std::chrono::hours{1}) == *first_watering);
 
     // Tests to make sure if the user changes the time to be later than the next
     // watering it doesn't just start watering immediately and sitches to the
     // next day
     fix.set_test_time(Fix::CURR_TIME_HR + 2, Fix::CURR_TIME_MIN);
-    time_t second_ts = fix.espClock.get_next_watering_ts();
-    REQUIRE((first_ts + (ONE_HR * 24)) == second_ts);
+    auto second_watering = fix.espClock.get_next_watering_point();
+    REQUIRE((*first_watering + std::chrono::days{1}) == *second_watering);
   }
   SECTION("Adjusts next_watering_ts is next_watering_ts is moved before "
           "curr_time") {
@@ -43,8 +44,9 @@ TEST_CASE("Clock and next watering durations set correctly", "[clock]") {
 
     clock.set_daily_watering(Fix::CURR_TIME_HR - 1, Fix::CURR_TIME_MIN);
 
-    time_t now_t = system_clock::to_time_t(fix.espClock.now());
-    time_t water_ts = fix.espClock.get_next_watering_ts();
-    REQUIRE((now_t + (ONE_HR * 23)) == water_ts); // Moved to the next_day
+    Time::Time_Point now_point = fix.espClock.now();
+    auto water_point = fix.espClock.get_next_watering_point();
+    REQUIRE((now_point + std::chrono::hours{23}) ==
+            *water_point); // Moved to the next_day
   }
 }

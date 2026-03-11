@@ -21,11 +21,12 @@ constexpr int SECONDS_PER_DAY = 24 * 60 * 60;
 time_t Esp32Clock::set_time(int year, int month, int day, int hour, int min,
                             int second) {
   time_t t = Esp32Clock::makeTime(year, month, day, hour, min, second);
+  Time::Time_Point t_point = system_clock::from_time_t(t);
   struct timeval now = {.tv_sec = t, .tv_usec = 0};
   this->sys.change_system_clock(now);
   this->initalized = true;
-  if (this->next_watering_ts && this->next_watering_ts < t) {
-    this->next_watering_ts += SECONDS_PER_DAY;
+  if (this->next_watering_point && *this->next_watering_point < t_point) {
+    *this->next_watering_point += std::chrono::days{1};
   }
   return t;
 }
@@ -41,21 +42,24 @@ Time::Time_Point Esp32Clock::now() const { return this->sys.now(); }
 time_t Esp32Clock::set_daily_watering(uint8_t hour, uint8_t min) {
   this->watering_schedule = {.hour = hour, .minute = min};
 
-  time_t now_time = system_clock::to_time_t(this->now());
+  Time::Time_Point now_point = this->now();
+  time_t now_ts = system_clock::to_time_t(now_point);
 
   tm timeinfo;
-  localtime_r(&now_time, &timeinfo);
+  localtime_r(&now_ts, &timeinfo);
 
   timeinfo.tm_hour = hour;
   timeinfo.tm_min = min;
   timeinfo.tm_sec = 0;
 
   time_t next_watering_ts = mktime(&timeinfo);
+  Time::Time_Point next_watering_point =
+      system_clock::from_time_t(next_watering_ts);
 
-  if (next_watering_ts <= now_time) {
-    next_watering_ts += SECONDS_PER_DAY;
+  if (next_watering_ts <= now_ts) {
+    next_watering_point += std::chrono::days{1};
   }
 
-  this->next_watering_ts = next_watering_ts;
+  this->next_watering_point = next_watering_point;
   return next_watering_ts;
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <sys/time.h>
 
 namespace Time {
@@ -41,12 +42,14 @@ public:
   Esp32Clock(iSysClock &sysClock) : sys{sysClock} {};
   static time_t makeTime(int year, int month, int day, int hour, int min,
                          int second);
-  time_t get_next_watering_ts() { return this->next_watering_ts; }
+  std::optional<Time::Time_Point> get_next_watering_point() {
+    return this->next_watering_point;
+  }
   bool next_watering_ready();
   void clear_watering();
 
 private:
-  time_t next_watering_ts = 0;
+  std::optional<Time::Time_Point> next_watering_point = std::nullopt;
   iSysClock &sys;
   bool initalized = false;
 };

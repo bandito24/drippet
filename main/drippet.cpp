@@ -9,15 +9,16 @@
 #include <iostream>
 #include <memory>
 extern "C" void app_main(void) {
-
   setenv("TZ", "UTC", 1);
   tzset();
+
   UartDriver driver{};
   ESP_ERROR_CHECK(driver.init());
   UartProtocol uart{driver};
+  SystemClock sys_clock{};
+  Esp32Clock clock{sys_clock};
+  clock.set_time(2026, 1, 1, 0, 0);
 
-  Esp32Clock clock{};
-  clock.setTime(2020, 12, 12, 12);
   Time::Time_Point now = clock.now();
   std::string s = std::format("{:%Y-%m-%d %H:%M:%S}", now);
 
