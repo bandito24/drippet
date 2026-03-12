@@ -35,17 +35,13 @@ public:
   NodeLinkStatus remove_node(std::size_t node_index);
   iNode *get_node(std::size_t node_index);
   std::size_t get_node_count() const;
-  PendingNode pending_node = {};
   std::optional<config::Address> create_node_pending(NodeKey_t key);
   NodeLinkStatus confirm_node_pending(NodeKey_t key, config::Address position);
 
   config::Address get_available_address();
-  void reset_pending_node() { pending_node = {}; }
 
   UartMessage create_addressing_frame(uint16_t key, config::Address address);
+  std::optional<UartMessage> create_watering_frame(config::Address address);
 
   UartMessage terminate_endpoint(NodeKey_t key);
-
-  void poll_nodes();
-  void update();
 };

@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "driver.hpp"
 #include "node.hpp"
 #include "protocol.hpp"
 #include <assert.h>
@@ -18,7 +19,7 @@ std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
   // Next address neing max size means its full, handler must hqndle accordingly
   auto next_address = this->get_available_address();
   if (next_address != config::max_nodes) {
-    std::unique_ptr<iNode> new_node = std::make_unique<Node>(next_address, key);
+    std::unique_ptr<iNode> new_node = std::make_unique<Node>(key);
     this->node_link[next_address] = std::move(new_node);
   }
   return next_address;
@@ -72,15 +73,6 @@ NodeLinkStatus Head::remove_node(std::size_t node_index) {
   node_count--;
   return LINK_OK;
 }
-void Head::poll_nodes() {
-  Time::Time_Point current_timepoint = this->clock.now();
-  for (std::size_t i = 0; i < this->node_count; i++) {
-    if (node_link[i]->get_node_status() == NodeStatus::IDLE &&
-        node_link[i]->next_water_timepoint() < current_timepoint) {
-      node_link[i]->set_node_status(NodeStatus::READY);
-    }
-  }
-}
 bool Head::has_ready_valves() {
   for (const NodeTypes::Node_Link &node : node_link) {
     if (node->get_node_status() == NodeStatus::READY) {
@@ -89,25 +81,20 @@ bool Head::has_ready_valves() {
   }
   return false;
 }
-void Head::update() {
-
-  if (this->valve_status == ValveStatus::VALVE_CLOSED) {
-    if (has_ready_valves()) {
-      mainValve.open_valve();
-    }
-  } else if (this->valve_status == ValveStatus::VALVE_OPEN) {
-    if (has_ready_valves()) {
-      for (const NodeTypes::Node_Link &node : node_link) {
-        if (node->get_node_status() == NodeStatus::READY) {
-          node->send_node_directions();
-          node->set_node_status(NodeStatus::COMMAND_SENT);
-        }
-      }
-    } else {
-      mainValve.close_valve();
-    }
+std::optional<UartMessage>
+Head::create_watering_frame(config::Address address) {
+  NodeTypes::Node_Link &node = this->node_link[address];
+  if (node->get_node_status() != NodeStatus::READY ||
+      node->all_durations_zero()) {
+    return std::nullopt;
   }
+
+  return UartMessage{.address = address,
+                     .command = Protocol::Command::INIT_WATER_DURATIONS,
+                     .data = node->get_all_hose_durations(),
+                     .data_length = config::node_hose_count};
 }
+
 UartMessage Head::create_addressing_frame(uint16_t key,
                                           config::Address address) {
 

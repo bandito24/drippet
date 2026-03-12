@@ -19,27 +19,21 @@ extern "C" void app_main(void) {
   Esp32Clock clock{sys_clock};
   clock.set_time(2026, 1, 1, 0, 0);
 
-  Time::Time_Point now = clock.now();
-  std::string s = std::format("{:%Y-%m-%d %H:%M:%S}", now);
-
-  std::cout << s << std::endl;
-
   //// For Queueing Incoming Messages From Peripherals and Sending Head Queued
   //// Messages
-  // Queue incoming_queue(10, sizeof(UartMessage));
-  // incoming_queue.init();
-  // Queue outgoing_queue(10, sizeof(UartMessage));
-  // outgoing_queue.init();
+  Queue incoming_queue(10, sizeof(UartMessage));
+  incoming_queue.init();
+  Queue outgoing_queue(10, sizeof(UartMessage));
+  outgoing_queue.init();
 
-  // UartTask uart_task{uart, outgoing_queue.get_handle(),
-  //                    incoming_queue.get_handle()};
-  // uart_task.start();
+  UartTask uart_task{uart, outgoing_queue.get_handle(),
+                     incoming_queue.get_handle()};
+  uart_task.start();
 
-  // MainValve main_valve{};
-  // std::unique_ptr<iClock> clock = initialize_clock();
-  // HeadTask head_task{main_valve, *clock, incoming_queue.get_handle(),
-  //                    outgoing_queue.get_handle()};
-  // head_task.start();
+  MainValve main_valve{};
+  HeadTask head_task{main_valve, clock, incoming_queue.get_handle(),
+                     outgoing_queue.get_handle()};
+  head_task.start();
 
   while (true) {
     vTaskDelay(pdMS_TO_TICKS(1000));
