@@ -20,6 +20,9 @@ struct WateringSchedule {
 struct iClock {
   virtual ~iClock() = default;
   virtual Time::Time_Point now() const = 0;
+
+  virtual bool is_watering_due() const;
+  virtual void progress_watering_due();
 };
 std::unique_ptr<iClock> initialize_clock();
 
@@ -39,7 +42,6 @@ public:
   Time::Time_Point now() const override;
   time_t set_time(int year, int month, int day, int hour, int min,
                   int second = 0);
-  // TODO: MAKE sure time_t is equal to time point for above and below
   time_t set_daily_watering(uint8_t hour, uint8_t min);
   Time::WateringSchedule watering_schedule{};
   Esp32Clock(iSysClock &sysClock) : sys{sysClock} {};
@@ -48,8 +50,8 @@ public:
   std::optional<Time::Time_Point> get_next_watering_point() {
     return this->next_watering_point;
   }
-  bool is_watering_due();
-  void progress_watering_due();
+  bool is_watering_due() const override;
+  void progress_watering_due() override;
 
 private:
   std::optional<Time::Time_Point> next_watering_point = std::nullopt;

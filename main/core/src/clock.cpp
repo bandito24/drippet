@@ -63,3 +63,14 @@ time_t Esp32Clock::set_daily_watering(uint8_t hour, uint8_t min) {
   this->next_watering_point = next_watering_point;
   return next_watering_ts;
 }
+bool Esp32Clock::is_watering_due() const {
+  if (!this->next_watering_point)
+    return false;
+
+  return this->now() > *this->next_watering_point;
+}
+void Esp32Clock::progress_watering_due() {
+  while (this->is_watering_due()) {
+    *this->next_watering_point += std::chrono::days{1};
+  }
+}

@@ -62,18 +62,5 @@ Time::Time_Seconds Node::get_hose_duration(std::size_t index) const {
   assert(index < config::node_hose_count);
   return node_hose_durations[index];
 }
-Node::Node(NodeTypes::HoseDurations hose_durations) {
-
-  Time::Time_Seconds water_duration =
-      calculate_cumulative_watering(hose_durations);
-  if (water_duration >= Time::Day_In_Seconds) {
-    node_status = NodeStatus::ERR_DURATION;
-  } else {
-    node_status = NodeStatus::INITIALIZING;
-  }
-
-  std::copy(hose_durations.begin(), hose_durations.end(),
-            node_hose_durations.begin());
-}
 Node::Node(NodeKey_t key)
     : id_key(key), node_status(NodeStatus::INITIALIZING) {}

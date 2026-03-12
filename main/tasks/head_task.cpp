@@ -61,6 +61,8 @@ void HeadTask::run() {
       frame = {};
     }
 
+    if (headNode.is_watering_due()) {
+    }
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }

@@ -38,7 +38,7 @@ NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
   if (address >= this->node_link.size()) {
     return NodeLinkStatus::LINK_INVALID_INDEX;
   }
-  NodeTypes::Node_Link &confirmed_node = this->node_link[address];
+  NodeTypes::Node &confirmed_node = this->node_link[address];
   assert(confirmed_node != nullptr);
   if (confirmed_node->get_id_key() != key) {
     return NodeLinkStatus::LINK_KEY_MISMATCH;
@@ -74,25 +74,20 @@ NodeLinkStatus Head::remove_node(std::size_t node_index) {
   return LINK_OK;
 }
 bool Head::has_ready_valves() {
-  for (const NodeTypes::Node_Link &node : node_link) {
+  for (const NodeTypes::Node &node : node_link) {
     if (node->get_node_status() == NodeStatus::READY) {
       return true;
     }
   }
   return false;
 }
-std::optional<UartMessage>
-Head::create_watering_frame(config::Address address) {
-  NodeTypes::Node_Link &node = this->node_link[address];
-  if (node->get_node_status() != NodeStatus::READY ||
-      node->all_durations_zero()) {
-    return std::nullopt;
-  }
+UartMessage Head::create_watering_frame(config::Address address) {
+  NodeTypes::Node &node = this->node_link[address];
 
-  return UartMessage{.address = address,
-                     .command = Protocol::Command::INIT_WATER_DURATIONS,
-                     .data = node->get_all_hose_durations(),
-                     .data_length = config::node_hose_count};
+  return {.address = address,
+          .command = Protocol::Command::INIT_WATER_DURATIONS,
+          .data = node->get_all_hose_durations(),
+          .data_length = config::node_hose_count};
 }
 
 UartMessage Head::create_addressing_frame(uint16_t key,

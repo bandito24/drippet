@@ -73,7 +73,7 @@ TEST_CASE("Head Node", "[head]") {
     Head head = std::move(fix.head);
     populate_head(head, 0);
 
-    NodeTypes::Node_Link new_node = std::make_unique<Node>(
+    NodeTypes::Node new_node = std::make_unique<Node>(
         Time::Day_In_Seconds, NodeTypes::create_durations({1, 1, 1, 1, 1, 1}),
         address_check);
     NodeLinkStatus fail = head.add_node(std::move(new_node));

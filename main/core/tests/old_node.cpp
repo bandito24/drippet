@@ -11,7 +11,7 @@ TEST_CASE("Node Test", "[node]") {
     config::Address add = 5;
     config::HoseDurations durations =
         NodeTypes::create_durations({1, 2, 3, 4, 5});
-    NodeTypes::Node_Link new_node =
+    NodeTypes::Node new_node =
         std::make_unique<Node>(Time::Day_In_Seconds, durations, add);
     REQUIRE(new_node->get_node_status() == NodeStatus::INITIALIZING);
     REQUIRE(new_node->get_address() == add);
@@ -26,7 +26,7 @@ TEST_CASE("Node Test", "[node]") {
     auto fail_duration = Time::Time_Seconds{4};
     config::HoseDurations durations =
         NodeTypes::create_durations({1, 1, 1, 1, 1});
-    NodeTypes::Node_Link new_node =
+    NodeTypes::Node new_node =
         std::make_unique<Node>(fail_duration, durations, config::Address{5});
     REQUIRE(new_node->get_node_status() == NodeStatus::ERR_DURATION);
   }

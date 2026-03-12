@@ -11,14 +11,10 @@ enum HardwareStatus {
   ERR_NONE,
 };
 enum class NodeStatus {
-  IDLE,
-  WATERING,
-  READY,
-  COMMAND_SENT,
   INITIALIZING,
-  INACTIVE,
-  ERR,
-  ERR_DURATION,
+  READY,
+  IN_QUEUE,
+  COMMAND_SENT,
   UNRESPONSIVE
 };
 enum Status { IS_GOOD };
@@ -56,6 +52,9 @@ struct iNode {
   get_all_hose_durations() const = 0;
   virtual bool all_durations_zero() const = 0;
   virtual NodeKey_t get_id_key() const = 0;
+
+  virtual uint8_t increase_retry_count() = 0;
+  virtual void clear_retry_count() = 0;
 };
 
 class Node : public iNode {
@@ -73,31 +72,31 @@ public:
   ActionStatus set_node_durations(
       const std::array<Time::Time_Seconds, config::node_hose_count> &durations)
       override;
-
   bool all_durations_zero() const override;
 
   Time::Time_Seconds get_hose_duration(std::size_t index) const override;
 
-  Node(Time::Time_Seconds watering_interval,
-       std::array<Time::Time_Seconds, config::node_hose_count> hose_durations,
-       config::Address hardwareAddress);
-
   Node(NodeKey_t key);
-  Node(std::array<Time::Time_Seconds, config::node_hose_count> hose_durations);
 
   std::array<Time::Time_Seconds, config::node_hose_count>
   get_all_hose_durations() const override;
 
   NodeKey_t get_id_key() const override { return id_key; };
+  uint8_t increase_retry_count() override {
+    this->retry_attempts += 1;
+    return this->retry_attempts;
+  }
+  void clear_retry_count() override { this->retry_attempts = 0; }
 
 private:
   std::array<Time::Time_Seconds, config::node_hose_count> node_hose_durations{};
   NodeKey_t id_key = 0;
   NodeStatus node_status = NodeStatus::INITIALIZING;
+  uint8_t retry_attempts = 0;
 };
 
 namespace NodeTypes {
-using Node_Link = std::unique_ptr<iNode>;
+using Node = std::unique_ptr<iNode>;
 using HoseDurations = std::array<Time::Time_Seconds, config::node_hose_count>;
 inline HoseDurations create_durations(std::initializer_list<int> seconds) {
   HoseDurations d{};
