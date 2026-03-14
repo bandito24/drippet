@@ -1,5 +1,6 @@
 #pragma once
 #include "config.hpp"
+#include "logger.hpp"
 #include "protocol.hpp"
 #include <array>
 #include <node.hpp>
@@ -33,8 +34,15 @@ private:
   bool has_ready_valves();
   std::optional<config::Address> get_node_by_key(NodeKey_t key);
 
+  void initialize_watering_states();
+
+  void progress_watering_due() { return this->clock.progress_watering_due(); }
+  HeadStatus head_status =
+      HeadStatus::STANDBY; // only is changed by initialize_watering_procedure
+                           // ane generate_next_watering_command
+
 public:
-  HeadStatus head_status = HeadStatus::STANDBY;
+  HeadStatus get_head_status() { return this->head_status; };
   static constexpr std::size_t max_nodes = config::max_nodes;
   Head(iValve &waterFaucetMain, iClock &clock);
   NodeLinkStatus remove_node(std::size_t node_index);
@@ -43,41 +51,7 @@ public:
   std::optional<config::Address> create_node_pending(NodeKey_t key);
   NodeLinkStatus confirm_node_pending(NodeKey_t key, config::Address position);
   bool is_watering_due() const { return this->clock.is_watering_due(); }
-  void progress_watering_due() { return this->clock.progress_watering_due(); }
-  void initialize_watering_procedure() {
-    for (NodeTypes::Node &node : this->node_link) {
-      if (!node->all_durations_zero() &&
-          node->get_node_status() == NodeStatus::READY) {
-        node->set_node_status(NodeStatus::IN_QUEUE);
-      }
-    }
-  }
-  std::optional<UartMessage> generate_next_watering_command() {
-
-    for (config::Address addr = 0; addr < config::max_nodes; addr++) {
-      NodeTypes::Node &node = this->node_link[addr];
-      NodeStatus status = node->get_node_status();
-
-      if (status == NodeStatus::IN_QUEUE) {
-        node->set_node_status(NodeStatus::COMMAND_SENT);
-        return this->create_watering_frame(addr);
-      } else if (status == NodeStatus::COMMAND_SENT) {
-        uint8_t retries = node->increase_retry_count();
-        if (retries < RETRY_NODE_MAX) {
-          node->increase_retry_count();
-          return this->create_watering_frame(addr);
-        } else {
-          this->head_status =
-              HeadStatus::FAULTY_NODE; // Will lock valve and require reboot
-          node->set_node_status(NodeStatus::UNRESPONSIVE);
-          this->mainValve.close_valve();
-          return std::nullopt;
-        }
-      }
-    }
-    this->head_status = HeadStatus::STANDBY; // No Faulty Nodes and No Nodes to
-    return std::nullopt;
-  }
+  std::optional<UartMessage> next_watering_frame();
 
   config::Address get_available_address();
 
@@ -85,4 +59,6 @@ public:
   UartMessage create_watering_frame(config::Address address);
 
   UartMessage terminate_endpoint(NodeKey_t key);
+  std::optional<UartMessage> handle_incoming_frame(UartMessage msg);
+  void process_watering_schedule();
 };

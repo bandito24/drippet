@@ -21,8 +21,8 @@ struct iClock {
   virtual ~iClock() = default;
   virtual Time::Time_Point now() const = 0;
 
-  virtual bool is_watering_due() const;
-  virtual void progress_watering_due();
+  virtual bool is_watering_due() const = 0;
+  virtual void progress_watering_due() = 0;
 };
 std::unique_ptr<iClock> initialize_clock();
 

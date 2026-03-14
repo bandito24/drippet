@@ -51,7 +51,7 @@ NodeTypes::HoseDurations Node::get_all_hose_durations() const {
 }
 bool Node::all_durations_zero() const {
   for (Time::Time_Seconds duration : this->node_hose_durations) {
-    if (duration == Time::Time_Seconds{0}) {
+    if (duration != Time::Time_Seconds{0}) {
       return false;
     }
   }

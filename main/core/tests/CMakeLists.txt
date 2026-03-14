@@ -14,7 +14,7 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(Catch2 fakeit)
-####
+######
 file(GLOB TEST_FILES ./*_test.cpp)
 add_executable(tests ${TEST_FILES})
 

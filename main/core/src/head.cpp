@@ -9,11 +9,11 @@
 #include <optional>
 
 Head::Head(iValve &waterFaucetMain, iClock &clock)
-    : mainValve(waterFaucetMain), clock(clock){};
+    : mainValve(waterFaucetMain), clock(clock) {};
 // Need to disregard duplicate broadcast messages from the key
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
-  if (this->get_node_by_key(key)) {
+  if (this->get_node_by_key(key)) { // Is dulicate, ignore
     return std::nullopt;
   }
   // Next address neing max size means its full, handler must hqndle accordingly
@@ -103,4 +103,98 @@ UartMessage Head::terminate_endpoint(NodeKey_t key) {
           .command = Protocol::Command::BUGGER_OFF,
           .data = Protocol::FrameDataArray{key},
           .data_length = 1};
+}
+
+std::optional<UartMessage> Head::next_watering_frame() {
+
+  for (config::Address addr = 0; addr < config::max_nodes; addr++) {
+    NodeTypes::Node &node = this->node_link[addr];
+    NodeStatus status = node->get_node_status();
+
+    if (status == NodeStatus::IN_QUEUE) {
+      node->set_node_status(NodeStatus::COMMAND_SENT);
+      return this->create_watering_frame(addr);
+    } else if (status == NodeStatus::COMMAND_SENT) {
+      uint8_t retries = node->increase_retry_count();
+      if (retries < RETRY_NODE_MAX) {
+        node->increase_retry_count();
+        return this->create_watering_frame(addr);
+      } else {
+        this->head_status =
+            HeadStatus::FAULTY_NODE; // Will lock valve and require reboot
+        node->set_node_status(NodeStatus::UNRESPONSIVE);
+        this->mainValve.close_valve();
+        return std::nullopt;
+      }
+    }
+  }
+  this->head_status = HeadStatus::STANDBY; // No Faulty Nodes and No Nodes to
+  return std::nullopt;
+}
+
+void Head::initialize_watering_states() {
+  for (NodeTypes::Node &node : this->node_link) {
+    if (!node) {
+      continue;
+    }
+    NodeStatus status = node->get_node_status();
+    if (status == NodeStatus::UNRESPONSIVE) {
+      this->head_status = HeadStatus::FAULTY_NODE;
+      return;
+    }
+
+    if (!node->all_durations_zero() && status == NodeStatus::READY) {
+      node->set_node_status(NodeStatus::IN_QUEUE);
+    }
+  }
+  this->head_status = HeadStatus::WATERING_CMDS;
+}
+
+using CMD = Protocol::Command;
+// tested
+std::optional<UartMessage> Head::handle_incoming_frame(UartMessage frame) {
+
+  if (frame.command == CMD::DISCOVERY) {
+    // Newly connected Node broadcasts DISCOVERY with key. Head Node
+    // responds with ADDRESSING with address and received key (for
+    // identification). Node responds with ADDRESSING and key for final
+    // acknoledgement
+    NodeKey_t key = frame.data[0];
+    std::optional<config::Address> address = this->create_node_pending(key);
+    if (address) {
+      if (address == config::max_nodes) { // Means system has max nodes
+        return this->terminate_endpoint(key);
+      } else {
+        return this->create_addressing_frame(key, *address);
+      }
+    } else {
+      // No Address means key is recognized and it's a duplicate request
+      return std::nullopt;
+    }
+  } else if (frame.command ==
+             CMD::ADDRESSING) { // Means the node is attempting to reply
+                                // with the same address and key for final
+                                // confirmation
+    NodeKey_t key = frame.data[0];
+    NodeLinkStatus status = this->confirm_node_pending(key, frame.address);
+    if (status == NodeLinkStatus::LINK_OK) {
+      Logger::log_simple("Node Successfully connected");
+    } else {
+      Logger::log_error("Node connect unsuccessful");
+    }
+    // If unsuccessful do nothing and node will reattempt the broadcast
+    // after short period
+  } else {
+    printf("unknown command of %d", static_cast<int>(frame.command));
+  }
+  return std::nullopt;
+}
+void Head::process_watering_schedule() {
+
+  if (this->is_watering_due()) {
+    if (this->head_status == HeadStatus::STANDBY) {
+      this->initialize_watering_states(); // For head status and nodes
+    }
+    this->progress_watering_due();
+  }
 }

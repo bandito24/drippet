@@ -3,13 +3,11 @@
 #include "driver.hpp"
 #include "fixtures.hpp"
 #include "head.hpp"
+#include "mocks.hpp"
 #include "node.hpp"
-#include "protocol.hpp"
-#include <algorithm>
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <fakeit.hpp>
-#include <functional>
 #include <optional>
 
 using Fixture = HeadFixture;
@@ -79,5 +77,65 @@ TEST_CASE("create node pending behaves correctly", "[head]") {
     REQUIRE(head.get_node(1)->get_node_status() == NodeStatus::READY);
     REQUIRE(head.get_node(0)->get_node_status() == NodeStatus::INITIALIZING);
     REQUIRE(head.get_node(2)->get_node_status() == NodeStatus::INITIALIZING);
+  }
+}
+
+TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
+
+  SECTION("handle_incoming_frame updates state and emits the correct response "
+          "from input") {
+    Fixture fix;
+    SECTION("reacts correctly to discovery incoming") {
+      auto incoming = Mocks::incoming_discovery_frame(Mocks::sample_key);
+      auto res = fix.head.handle_incoming_frame(incoming);
+      REQUIRE(res != std::nullopt);
+      auto r = *res;
+      iNode *node = fix.head.get_node(0);
+      REQUIRE(node->get_node_status() == NodeStatus::INITIALIZING);
+      REQUIRE(r.address == 0);
+      REQUIRE(r.data[0] == Mocks::sample_key);
+
+      // Disregard duplicates
+      auto res2 = fix.head.handle_incoming_frame(incoming);
+      REQUIRE(res2 == std::nullopt);
+      REQUIRE(fix.head.get_node(1) == nullptr);
+      SECTION("reacts correctly to addressing incoming") {
+
+        auto incoming2 = Mocks::incoming_adressing_frame(0, Mocks::sample_key);
+        auto res3 = fix.head.handle_incoming_frame(incoming2);
+        REQUIRE(node->get_node_status() == NodeStatus::READY);
+        REQUIRE(res3 == std::nullopt);
+      }
+    }
+  }
+  SECTION("correctly processes watering schedule") {
+    Fixture fix;
+    When(Method(fix.clockMock, is_watering_due)).AlwaysReturn(true);
+    When(Method(fix.clockMock, progress_watering_due)).AlwaysReturn();
+    Mocks::populate_head_nodes(fix.head);
+    config::Address add_check = config::max_nodes - 1;
+    config::Address add_check_2 = config::max_nodes - 2;
+    fix.head.get_node(add_check)->set_node_status(NodeStatus::INITIALIZING);
+    fix.head.get_node(add_check_2)->set_node_durations({});
+    fix.head.process_watering_schedule();
+
+    SECTION("initialize_watering_states test") {
+      // Fpr Making sure it doesnt queue empty or non-ready nodes
+
+      for (size_t addr = 0; addr < config::max_nodes; addr++) {
+        iNode *node = fix.head.get_node(addr);
+        if (addr != add_check && addr != add_check_2) {
+          REQUIRE(node->get_node_status() == NodeStatus::IN_QUEUE);
+        } else if (addr == add_check) {
+          REQUIRE(node->get_node_status() == NodeStatus::INITIALIZING);
+        } else {
+          REQUIRE(node->get_node_status() == NodeStatus::READY);
+        }
+      }
+      REQUIRE(fix.head.get_head_status() == HeadStatus::WATERING_CMDS);
+
+      Verify(Method(fix.clockMock, progress_watering_due)).Exactly(1);
+    }
+    SECTION("handling head state watering_cmds") {}
   }
 }
