@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <optional>
 #include <stdint.h>
-#include <valarray>
 
 struct SizedFrameBuffer {
   Protocol::Frame frame;

@@ -79,24 +79,6 @@ TEST_CASE("Messages can correctly receive and send", "[uart]") {
       std::optional<IndexedFrame> third_read =
           protocol.parse_uart_read(sizedBuffer, start_index);
 
-      printf("\nFIRST\n\n");
-      for (size_t i = 0; i < first_read->i.length; i++) {
-        printf("%d\n", first_read->frame[i]);
-      }
-      printf("\n\nSECOND\n");
-
-      for (size_t i = 0; i < second_read->i.length; i++) {
-        printf("%d\n", second_read->frame[i]);
-      }
-
-      printf("\n\nTHIRD\n");
-
-      for (size_t i = 0; i < third_read->i.length; i++) {
-        printf("%d\n", third_read->frame[i]);
-      }
-
-      printf("\n\nEND\n");
-
       start_index += third_read->i.length;
       std::optional<IndexedFrame> fourth_read =
           protocol.parse_uart_read(sizedBuffer, start_index);

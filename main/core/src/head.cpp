@@ -9,7 +9,7 @@
 #include <optional>
 
 Head::Head(iValve &waterFaucetMain, iClock &clock)
-    : mainValve(waterFaucetMain), clock(clock) {};
+    : mainValve(waterFaucetMain), clock(clock){};
 // Need to disregard duplicate broadcast messages from the key
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
@@ -58,29 +58,15 @@ config::Address Head::get_available_address() {
   return static_cast<config::Address>(config::max_nodes);
 }
 
-iNode *Head::get_node(std::size_t index) { return node_link.at(index).get(); }
+iNode *Head::get_node(std::size_t index) {
+  if (index >= config::max_nodes) {
+    return nullptr;
+  }
+  return node_link.at(index).get();
+}
 
 std::size_t Head::get_node_count() const { return node_count; }
 
-NodeLinkStatus Head::remove_node(std::size_t node_index) {
-  if (node_link[node_index] == nullptr) {
-    return NodeLinkStatus::LINK_OK;
-  };
-  node_link[node_index] = nullptr;
-  for (int i = node_index; i + 1 < node_count; i++) {
-    node_link[i] = std::move(node_link[i + 1]);
-  }
-  node_count--;
-  return LINK_OK;
-}
-bool Head::has_ready_valves() {
-  for (const NodeTypes::Node &node : node_link) {
-    if (node->get_node_status() == NodeStatus::READY) {
-      return true;
-    }
-  }
-  return false;
-}
 UartMessage Head::create_watering_frame(config::Address address) {
   NodeTypes::Node &node = this->node_link[address];
 
@@ -106,6 +92,9 @@ UartMessage Head::terminate_endpoint(NodeKey_t key) {
 }
 
 std::optional<UartMessage> Head::next_watering_frame() {
+  if (this->head_status != HeadStatus::WATERING_CMDS) {
+    return std::nullopt;
+  }
 
   for (config::Address addr = 0; addr < config::max_nodes; addr++) {
     NodeTypes::Node &node = this->node_link[addr];
@@ -117,7 +106,6 @@ std::optional<UartMessage> Head::next_watering_frame() {
     } else if (status == NodeStatus::COMMAND_SENT) {
       uint8_t retries = node->increase_retry_count();
       if (retries < RETRY_NODE_MAX) {
-        node->increase_retry_count();
         return this->create_watering_frame(addr);
       } else {
         this->head_status =
@@ -130,6 +118,12 @@ std::optional<UartMessage> Head::next_watering_frame() {
   }
   this->head_status = HeadStatus::STANDBY; // No Faulty Nodes and No Nodes to
   return std::nullopt;
+}
+UartMessage Head::ack_node_watering_confirmation(config::Address addr) {
+  iNode *node = this->get_node(addr);
+  assert(node != nullptr && addr < config::max_nodes);
+  node->set_node_status(NodeStatus::READY);
+  return {.address = addr, .command = Protocol::Command::ACK, .data_length = 0};
 }
 
 void Head::initialize_watering_states() {
@@ -184,6 +178,15 @@ std::optional<UartMessage> Head::handle_incoming_frame(UartMessage frame) {
     }
     // If unsuccessful do nothing and node will reattempt the broadcast
     // after short period
+  } else if (frame.command ==
+             CMD::ACK) { // Only received after sending a watering command. Will
+                         // send a final ack of ack
+
+    iNode *node = this->get_node(frame.address);
+    if (!node) {
+      return std::nullopt;
+    }
+
   } else {
     printf("unknown command of %d", static_cast<int>(frame.command));
   }

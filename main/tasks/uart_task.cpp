@@ -8,12 +8,10 @@
 
 void UartTask::run() {
 
-  Logger::log_simple("STARTING UP THE TASK");
   for (;;) {
     SizedReadBuffer incoming_buffer = this->uart.receive_bytes();
     if (incoming_buffer.length > 0) {
 
-      Logger::log_simple("something is comming in");
       size_t start_index = 0;
       while (true) {
         std::optional<IndexedFrame> indexedFrame =

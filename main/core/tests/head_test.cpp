@@ -5,6 +5,7 @@
 #include "head.hpp"
 #include "mocks.hpp"
 #include "node.hpp"
+#include "protocol.hpp"
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <fakeit.hpp>
@@ -136,6 +137,51 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
 
       Verify(Method(fix.clockMock, progress_watering_due)).Exactly(1);
     }
-    SECTION("handling head state watering_cmds") {}
+    SECTION("handling next_watering_frame with watering_cmds status") {
+
+      SECTION("starts with the first node and sets it to command sent status") {
+        auto msg = fix.head.next_watering_frame();
+        iNode *firstNode = fix.head.get_node(0);
+        REQUIRE(msg->address == 0);
+        REQUIRE(msg->data == Mocks::hose_durations);
+        REQUIRE(firstNode->get_node_status() == NodeStatus::COMMAND_SENT);
+
+        SECTION("max retries without response will reset node and head state") {
+
+          When(Method(fix.valveMock, close_valve)).AlwaysReturn();
+          std::optional<UartMessage> msg2;
+          for (size_t i = 0; i < RETRY_NODE_MAX - 1; i++) {
+            msg2 = fix.head.next_watering_frame();
+          }
+          REQUIRE(msg == msg2);
+
+          auto msg3 = fix.head.next_watering_frame();
+          REQUIRE(msg3 == std::nullopt);
+          REQUIRE(firstNode->get_node_status() == NodeStatus::UNRESPONSIVE);
+          REQUIRE(fix.head.get_head_status() == HeadStatus::FAULTY_NODE);
+          Verify(Method(fix.valveMock, close_valve)).AtLeastOnce();
+        }
+        SECTION("receiving an ack from node on watering will allow head to "
+                "move to next node") {
+          REQUIRE(firstNode->get_node_status() == NodeStatus::COMMAND_SENT);
+          auto ackMsg = fix.head.ack_node_watering_confirmation(0);
+          REQUIRE(firstNode->get_node_status() == NodeStatus::READY);
+          REQUIRE(ackMsg.address == 0);
+          REQUIRE(ackMsg.command == Protocol::Command::ACK);
+          auto second_node = fix.head.get_node(1);
+          auto next_msg = fix.head.next_watering_frame();
+          REQUIRE(second_node->get_node_status() == NodeStatus::COMMAND_SENT);
+        }
+        SECTION("once all nodes are reset back to ready state the head returns "
+                "to standby state") {
+          for (config::Address i = 0; i < config::max_nodes; i++) {
+            fix.head.get_node(i)->set_node_status(NodeStatus::READY);
+          }
+          auto finalRes = fix.head.next_watering_frame();
+          REQUIRE(finalRes == std::nullopt);
+          REQUIRE(fix.head.get_head_status() == HeadStatus::STANDBY);
+        }
+      }
+    }
   }
 }
