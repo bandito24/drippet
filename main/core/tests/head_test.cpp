@@ -100,7 +100,7 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
       auto res2 = fix.head.handle_incoming_frame(incoming);
       REQUIRE(res2 == std::nullopt);
       REQUIRE(fix.head.get_node(1) == nullptr);
-      SECTION("reacts correctly to addressing incoming") {
+      SECTION("will not set empty watering durations to in queue") {
 
         auto incoming2 = Mocks::incoming_adressing_frame(0, Mocks::sample_key);
         auto res3 = fix.head.handle_incoming_frame(incoming2);
@@ -164,10 +164,11 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
         SECTION("receiving an ack from node on watering will allow head to "
                 "move to next node") {
           REQUIRE(firstNode->get_node_status() == NodeStatus::COMMAND_SENT);
-          auto ackMsg = fix.head.ack_node_watering_confirmation(0);
+          auto ackMsg =
+              fix.head.handle_incoming_frame(Mocks::incoming_ack_frame(0));
           REQUIRE(firstNode->get_node_status() == NodeStatus::READY);
-          REQUIRE(ackMsg.address == 0);
-          REQUIRE(ackMsg.command == Protocol::Command::ACK);
+          REQUIRE(ackMsg->address == 0);
+          REQUIRE(ackMsg->command == Protocol::Command::ACK);
           auto second_node = fix.head.get_node(1);
           auto next_msg = fix.head.next_watering_frame();
           REQUIRE(second_node->get_node_status() == NodeStatus::COMMAND_SENT);

@@ -12,36 +12,22 @@ void Node::set_node_status(NodeStatus status) { this->node_status = status; }
 ActionStatus Node::edit_hose_duration(std::size_t index,
                                       Time::Time_Seconds new_duration) {
   assert(index < config::node_hose_count);
-  Time::Time_Seconds duration_check =
-      calculate_cumulative_watering(node_hose_durations) -
-      node_hose_durations[index] + new_duration;
-
-  if (duration_check >= Time::Day_In_Seconds) {
+  if (new_duration > config::MAX_HOSE_DURATION) {
     return ActionStatus::INVALID_TIME;
   }
   node_hose_durations[index] = new_duration;
   return ActionStatus::OK;
 }
 
-Time::Time_Seconds Node::calculate_cumulative_watering(
-    std::array<Time::Time_Seconds, config::node_hose_count> durations) const {
-
-  Time::Time_Seconds cumulative = Time::Time_Seconds{0};
-  for (Time::Time_Seconds seconds : durations) {
-    cumulative += seconds;
-  }
-  return cumulative;
-}
-
 ActionStatus Node::set_node_durations(
 
     const std::array<Time::Time_Seconds, config::node_hose_count> &durations) {
-
-  Time::Time_Seconds cumulative =
-      calculate_cumulative_watering(node_hose_durations);
-  if (cumulative >= Time::Day_In_Seconds) {
-    return ActionStatus::INVALID_TIME;
+  for (Time::Time_Seconds duration : durations) {
+    if (duration > config::MAX_HOSE_DURATION) {
+      return ActionStatus::INVALID_TIME;
+    }
   }
+
   std::copy(durations.begin(), durations.end(), node_hose_durations.begin());
   return ActionStatus::OK;
 }

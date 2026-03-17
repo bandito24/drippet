@@ -9,7 +9,7 @@
 #include <optional>
 
 Head::Head(iValve &waterFaucetMain, iClock &clock)
-    : mainValve(waterFaucetMain), clock(clock){};
+    : mainValve(waterFaucetMain), clock(clock) {};
 // Need to disregard duplicate broadcast messages from the key
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
@@ -182,10 +182,10 @@ std::optional<UartMessage> Head::handle_incoming_frame(UartMessage frame) {
              CMD::ACK) { // Only received after sending a watering command. Will
                          // send a final ack of ack
 
-    iNode *node = this->get_node(frame.address);
-    if (!node) {
+    if (!this->get_node(frame.address)) {
       return std::nullopt;
     }
+    return this->ack_node_watering_confirmation(frame.address);
 
   } else {
     printf("unknown command of %d", static_cast<int>(frame.command));

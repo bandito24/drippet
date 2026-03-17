@@ -1,3 +1,4 @@
+#include "driver.hpp"
 #include "head.hpp"
 
 #include "config.hpp"
@@ -20,6 +21,9 @@ inline UartMessage incoming_discovery_frame(NodeKey_t key = sample_key) {
           .command = Protocol::Command::DISCOVERY,
           .data = Protocol::FrameDataArray{key},
           .data_length = 1};
+}
+inline UartMessage incoming_ack_frame(config::Address addr) {
+  return {.address = addr, .command = Protocol::Command::ACK, .data_length = 0};
 }
 inline void populate_head_nodes(Head &head) {
 

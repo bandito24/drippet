@@ -39,6 +39,8 @@ private:
   HeadStatus head_status =
       HeadStatus::STANDBY; // only is changed by initialize_watering_procedure
                            // ane generate_next_watering_command
+                           //
+  UartMessage ack_node_watering_confirmation(config::Address addr);
 
 public:
   HeadStatus get_head_status() { return this->head_status; };
@@ -56,7 +58,6 @@ public:
   UartMessage create_addressing_frame(uint16_t key, config::Address address);
   UartMessage create_watering_frame(config::Address address);
 
-  UartMessage ack_node_watering_confirmation(config::Address addr);
   UartMessage terminate_endpoint(NodeKey_t key);
   std::optional<UartMessage> handle_incoming_frame(UartMessage msg);
   void process_watering_schedule();

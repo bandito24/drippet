@@ -1,6 +1,7 @@
 #pragma once
 #include "clock.hpp"
 #include <array>
+#include <chrono>
 #include <config.hpp>
 #include <constants.hpp>
 #include <cstdint>
@@ -39,9 +40,6 @@ struct iNode {
 
   virtual NodeStatus get_node_status() const = 0;
   virtual void set_node_status(NodeStatus status) = 0;
-  virtual Time::Time_Seconds calculate_cumulative_watering(
-      std::array<Time::Time_Seconds, config::node_hose_count> durations)
-      const = 0;
   virtual ActionStatus edit_hose_duration(std::size_t index,
                                           Time::Time_Seconds new_duration) = 0;
   virtual ActionStatus set_node_durations(
@@ -61,10 +59,6 @@ class Node : public iNode {
 public:
   NodeStatus get_node_status() const override;
   void set_node_status(NodeStatus status) override;
-
-  Time::Time_Seconds calculate_cumulative_watering(
-      std::array<Time::Time_Seconds, config::node_hose_count> durations)
-      const override;
 
   ActionStatus edit_hose_duration(std::size_t index,
                                   Time::Time_Seconds new_duration) override;
