@@ -30,7 +30,6 @@ private:
   iClock &clock;
   std::array<NodeTypes::Node, config::max_nodes> node_link{};
   std::size_t node_count = 0;
-  ValveStatus valve_status = VALVE_CLOSED;
   std::optional<config::Address> get_node_by_key(NodeKey_t key);
 
   void initialize_watering_states();
@@ -43,6 +42,7 @@ private:
   UartMessage ack_node_watering_confirmation(config::Address addr);
 
 public:
+  ValveStatus valve_status = VALVE_CLOSED;
   HeadStatus get_head_status() { return this->head_status; };
   static constexpr std::size_t max_nodes = config::max_nodes;
   Head(iValve &waterFaucetMain, iClock &clock);
