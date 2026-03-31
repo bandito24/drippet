@@ -1,18 +1,11 @@
 #include "bluetooth_task.hpp"
+#include "constants.hpp"
 #include "esp_err.h"
 #include "gatt_attribute.hpp"
-#include "gatt_service.hpp"
-#include "logger.hpp"
 
 #include "gap_manager.hpp"
 #include "nimble/nimble_port.h"
 #include "nvs_flash.h"
-
-static void nimble_task(void *param) {
-
-  nimble_port_run();
-  vTaskDelete(NULL);
-}
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,7 +21,7 @@ GapManager gap_manager;
 GattAttribute attr;
 GattService gatt_service{attr};
 
-void bluetooth_init() {
+Esp_Err_t BluetoothTask::init_stack() {
   Esp_Err_t rc;
 
   rc = nvs_flash_init();
@@ -41,17 +34,17 @@ void bluetooth_init() {
   rc = nimble_port_init();
   if (rc != ESP_OK) {
     Logger::log_error("failed to initialize nimble stack, error code: %d ", rc);
-    return;
+    return rc;
   }
   rc = gap_manager.init();
   if (rc != 0) {
     Logger::log_error("failed to initialize GAP service, error code: %d", rc);
-    return;
+    return rc;
   }
   rc = gatt_service.init();
   if (rc != 0) {
     Logger::log_error("failed to initialize GATT server, error code: %d", rc);
-    return;
+    return rc;
   }
 
   ble_hs_cfg.reset_cb = gap_manager.on_stack_reset;
@@ -61,6 +54,11 @@ void bluetooth_init() {
 
   ble_store_config_init();
 
-  xTaskCreate(nimble_task, "NIMBLE TASK", 4 * 1024, NULL, 5, NULL);
-  return;
+  this->stack_initialized = true;
+
+  return 0;
+}
+void BluetoothTask::run() {
+  assert(this->stack_initialized == true);
+  nimble_port_run();
 }

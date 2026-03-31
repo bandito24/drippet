@@ -8,8 +8,8 @@
 
 using CMD = Protocol::Command;
 void HeadTask::run() {
-  UartMessage frame{};
   for (;;) {
+    UartMessage frame{};
     if (xQueueReceive(this->incoming_queue, &frame, pdMS_TO_TICKS(100)) ==
         pdTRUE) {
       std::optional<UartMessage> response =

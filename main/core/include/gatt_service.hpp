@@ -10,10 +10,10 @@
 class GattService {
 public:
   Esp_Err_t init();
-
   static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt,
                                    void *arg);
-  GattAttribute attr;
+  GattAttribute &attr;
+  GattService(GattAttribute &attribute) : attr{attribute} {};
 
 private:
   static int handle_water_durations(uint16_t conn_handle, uint16_t attr_handle,
