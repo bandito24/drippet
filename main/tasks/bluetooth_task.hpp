@@ -9,7 +9,7 @@ class BluetoothTask : public Task {
 
 public:
   BluetoothTask(Head &head, GattAttribute &gatt_att)
-      : Task("BLE", 4096, 4), head{head}, gap_manager{}, gatt_att{gatt_att},
+      : Task("BLE", 4096, 4), gap_manager{}, gatt_att{gatt_att},
         gatt_svc(gatt_att){};
 
 protected:
@@ -18,7 +18,6 @@ protected:
 
 private:
   bool stack_initialized = false;
-  Head &head;
   GapManager gap_manager;
   GattAttribute &gatt_att;
   GattService gatt_svc;

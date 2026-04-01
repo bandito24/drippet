@@ -54,7 +54,7 @@ include(CTest)
 include(Catch)
 catch_discover_tests(tests)
 
-# Coverage files
+# Coverage files#
 set(PROFRAW_TESTS "tests.profraw")
 set(PROFDATA_FILE "coverage.profdata")
 
