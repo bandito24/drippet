@@ -1,6 +1,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <span>
 namespace Util {
 inline void put_le16(void *buf, uint16_t x) {
@@ -37,5 +38,13 @@ inline void le8_to_le16(std::span<uint16_t> out, std::span<uint8_t> in) {
     out[insert_idx] = val;
     insert_idx += 1;
   }
+}
+template <typename T>
+inline void print_array(std::span<T> arr, size_t starting_index = 0) {
+  printf("Printing array: [");
+  for (size_t i = starting_index; i < arr.size(); i++) {
+    printf("%d, ", arr[i]);
+  }
+  printf("]\n");
 }
 } // namespace Util

@@ -8,17 +8,15 @@
 class BluetoothTask : public Task {
 
 public:
-  BluetoothTask(Head &head, GattAttribute &gatt_att)
-      : Task("BLE", 4096, 4), gap_manager{}, gatt_att{gatt_att},
-        gatt_svc(gatt_att){};
+  BluetoothTask(GattAttribute &gatt_att)
+      : Task("BLE", 4096, 4), gap_manager{}, gatt_svc(gatt_att){};
+  Esp_Err_t init_stack();
 
 protected:
   void run() override;
-  Esp_Err_t init_stack();
 
 private:
   bool stack_initialized = false;
   GapManager gap_manager;
-  GattAttribute &gatt_att;
   GattService gatt_svc;
 };

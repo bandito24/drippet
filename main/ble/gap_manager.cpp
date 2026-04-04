@@ -2,7 +2,6 @@
 #include "constants.hpp"
 #include "gatt_service.hpp"
 #include "host/util/util.h"
-#include "logger.hpp"
 #include "services/gap/ble_svc_gap.h"
 
 Esp_Err_t GapManager::init() {

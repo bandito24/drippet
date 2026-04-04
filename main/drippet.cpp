@@ -1,13 +1,21 @@
 #include "clock.hpp"
+#include "constants.hpp"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "freertos/idf_additions.h"
+#include "gatt_attribute.hpp"
 #include "node.hpp"
 #include "queues/queue.hpp"
+#include "tasks/bluetooth_task.hpp"
 #include "tasks/head_task.hpp"
 #include "tasks/uart_task.hpp"
 #include <iostream>
 #include <memory>
+
+// TESTING ONLY FUNCTIONS
+inline NodeTypes::HoseDurations get_new_hose_durations(int increaser);
+inline void populate_head_nodes(Head &head, size_t node_count);
+
 extern "C" void app_main(void) {
   setenv("TZ", "UTC", 1);
   tzset();
@@ -31,11 +39,46 @@ extern "C" void app_main(void) {
   uart_task.start();
 
   MainValve main_valve{};
-  HeadTask head_task{main_valve, clock, incoming_queue.get_handle(),
+  Head head_node{main_valve, clock};
+  HeadTask head_task{head_node, incoming_queue.get_handle(),
                      outgoing_queue.get_handle()};
   head_task.start();
 
+  GattAttribute durations_attr{head_node};
+  BluetoothTask ble_task{durations_attr};
+
+  Esp_Err_t ble_rc = ble_task.init_stack();
+  ESP_ERROR_CHECK(ble_rc);
+  ble_task.start();
+
+  // For testing only
+  populate_head_nodes(head_node, 3);
+
   while (true) {
     vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+}
+
+// TESTING ONLY FUNCTIONS
+inline NodeTypes::HoseDurations get_new_hose_durations(int increaser) {
+
+  NodeTypes::HoseDurations hose_durations = {1, 2, 3, 4, 5};
+  NodeTypes::HoseDurations ret{};
+  for (size_t i = 0; i < hose_durations.size(); i++) {
+    ret[i] = hose_durations[i] * (1 + increaser);
+  }
+  return ret;
+}
+
+// TODO: delete this
+inline void populate_head_nodes(Head &head,
+                                size_t node_count = config::max_nodes) {
+
+  assert(node_count <= config::max_nodes);
+  for (size_t addr = 0; addr < node_count; addr++) {
+    head.create_node_pending(addr);
+    head.confirm_node_pending(addr, addr);
+    auto new_durations = get_new_hose_durations(addr);
+    head.get_node(addr)->set_node_durations(new_durations);
   }
 }

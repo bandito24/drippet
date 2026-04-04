@@ -7,12 +7,10 @@
 class HeadTask : public Task {
 
 public:
-  HeadTask(MainValve &valve, iClock &clock, QueueHandle_t incomingQueueHandle,
+  HeadTask(Head &head, QueueHandle_t incomingQueueHandle,
            QueueHandle_t outgoingQueueHandle)
       : Task("HEAD", 4096, 2), incoming_queue(incomingQueueHandle),
-        outgoing_queue(outgoingQueueHandle),
-
-        headNode(valve, clock){};
+        outgoing_queue(outgoingQueueHandle), headNode(head) {}
 
 protected:
   void run() override;
@@ -20,5 +18,5 @@ protected:
 private:
   QueueHandle_t incoming_queue;
   QueueHandle_t outgoing_queue;
-  Head headNode;
+  Head &headNode;
 };

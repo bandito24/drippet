@@ -1,9 +1,8 @@
 #include "gatt_service.hpp"
 #include "gatt_attribute.hpp"
 #include "host/ble_gatt.h"
-#include "logger.hpp"
-#include "os/endian.h"
 #include "os/os_mbuf.h"
+#include "util.hpp"
 
 Esp_Err_t GattService::init() {
 
@@ -51,9 +50,8 @@ int GattService::handle_water_durations(uint16_t conn_handle,
   switch (ctxt->op) {
   case BLE_GATT_ACCESS_OP_READ_CHR: {
 
-    Logger::log_simple("Reading data\n");
-    int rc =
-        os_mbuf_append(ctxt->om, attr->duration_buffer, BLE::DURATION_BUFF_LEN);
+    int rc = os_mbuf_append(ctxt->om, attr->duration_buffer.data(),
+                            BLE::DURATION_BUFF_LEN);
     // for(uint8_t val : self->duration_buffer){
     //   Logger::log_error( "val is: %d", val);
     // }
@@ -63,17 +61,16 @@ int GattService::handle_water_durations(uint16_t conn_handle,
     return rc;
   }
   case BLE_GATT_ACCESS_OP_WRITE_CHR: {
-    uint8_t raw_data[BLE::MAX_LEN]{};
+    uint8_t raw_data[BLE::MAX_PKT_LEN]{};
     if (ctxt->om->om_len) {
       uint8_t header[2];
-      rc = os_mbuf_copydata(ctxt->om, 0, 2, header);
+      rc = os_mbuf_copydata(ctxt->om, 0, BLE::HEADER_LEN, header);
       if (rc) {
         Logger::log_error("Could not allocate enough data for BLE header");
         return rc;
       }
-      rc = os_mbuf_copydata(ctxt->om, 0,
-                            header[static_cast<size_t>(BLE::Header::DATA_LEN)],
-                            raw_data);
+      size_t needed_len = BLE::HEADER_LEN + header[BLE::DATA_LEN_IDX];
+      rc = os_mbuf_copydata(ctxt->om, 0, needed_len, raw_data);
 
       if (rc) {
         Logger::log_error("Could not allocate enough data for BLE data");

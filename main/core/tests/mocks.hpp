@@ -69,7 +69,7 @@ inline std::array<uint8_t, 6> pkt_write_cell = {
     0,                                   // ROW
     0,                                   // COLUMN
 
-    136,
-    19 // 5000 (little-endian)
+    235,
+    0 // (little-endian)
 };
 } // namespace BleMocks

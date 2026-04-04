@@ -44,6 +44,7 @@ emptyDataBytes = bytes(
     ]
 )
 
+
 addressing_message = Message(
     address=2,
     command=constants.Command.ADDRESSING,
