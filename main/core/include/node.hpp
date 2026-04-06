@@ -16,7 +16,9 @@ enum class NodeStatus {
   READY,
   IN_QUEUE,
   COMMAND_SENT,
-  UNRESPONSIVE
+  UNRESPONSIVE,
+  NODE_NONEXISTANT // This value is used for nodes that do not exist yet (not
+                   // connected)
 };
 enum Status { IS_GOOD };
 struct iValve {

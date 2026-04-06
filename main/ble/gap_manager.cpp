@@ -4,7 +4,12 @@
 #include "host/util/util.h"
 #include "services/gap/ble_svc_gap.h"
 
-Esp_Err_t GapManager::init() {
+bool GapManager::has_conn_handle = false;
+
+Esp_Err_t GapManager::init(ConnContext &conn_ctxt) {
+  GapManager::conn_context = conn_ctxt;
+  GapManager::has_conn_handle = true;
+  GapManager &gap_manager = GapManager::get_instance();
   Esp_Err_t rc;
   ble_svc_gap_init();
   /* Set GAP device name */
@@ -16,10 +21,9 @@ Esp_Err_t GapManager::init() {
   return rc;
 }
 
-std::array<uint8_t, 6> GapManager::self_addr{};
-uint8_t GapManager::own_addr_type;
-
 void GapManager::on_stack_sync() {
+
+  GapManager &gap_manager = GapManager::get_instance();
 
   int rc = 0;
   char addr_str[18] = {0};
@@ -29,21 +33,24 @@ void GapManager::on_stack_sync() {
     Logger::log_error("device does not have any available bt address!");
     return;
   }
-  rc = ble_hs_id_infer_auto(0, &own_addr_type);
+  rc = ble_hs_id_infer_auto(0, &gap_manager.own_addr_type);
   if (rc != 0) {
     Logger::log_error("failed to infer address type, error code: %d", rc);
     return;
   }
 
-  rc = ble_hs_id_copy_addr(own_addr_type, self_addr.data(), NULL);
+  rc = ble_hs_id_copy_addr(gap_manager.own_addr_type,
+                           gap_manager.self_addr.data(), NULL);
   if (rc != 0) {
     Logger::log_error("failed to copy device address, error code: %d", rc);
     return;
   }
   Logger::log_simple("device address: %s", addr_str);
-  start_advertising();
+  GapManager::start_advertising();
 }
 void GapManager::start_advertising() {
+
+  GapManager &gap_manager = GapManager::get_instance();
 
   const char *name;
   ble_hs_adv_fields adv_field = {};
@@ -67,8 +74,8 @@ void GapManager::start_advertising() {
     return;
   }
 
-  rsp_fields.device_addr = self_addr.data();
-  rsp_fields.device_addr_type = own_addr_type;
+  rsp_fields.device_addr = gap_manager.self_addr.data();
+  rsp_fields.device_addr_type = gap_manager.own_addr_type;
   rsp_fields.device_addr_is_present = 1;
 
   /* Set advertising interval */
@@ -90,8 +97,9 @@ void GapManager::start_advertising() {
   adv_params.itvl_max = BLE_GAP_ADV_ITVL_MS(510);
 
   /* Start advertising */
-  rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER, &adv_params,
-                         GapManager::gap_event_handler, NULL);
+  rc = ble_gap_adv_start(gap_manager.own_addr_type, NULL, BLE_HS_FOREVER,
+                         &adv_params, GapManager::gap_event_handler,
+                         &gap_manager);
   if (rc != 0) {
     Logger::log_error("failed to start advertising, error code: %d", rc);
     return;
@@ -100,6 +108,8 @@ void GapManager::start_advertising() {
 }
 
 int GapManager::gap_event_handler(ble_gap_event *event, void *arg) {
+
+  auto gap_manager = static_cast<GapManager *>(arg);
 
   /* Local variables */
   int rc = 0;
@@ -192,20 +202,24 @@ int GapManager::gap_event_handler(ble_gap_event *event, void *arg) {
     return rc;
 
   /* Subscribe event */
-  case BLE_GAP_EVENT_SUBSCRIBE:
-    Logger::log_error("NEED TO IMPLEMENT SUBSCRIBE");
+  case BLE_GAP_EVENT_SUBSCRIBE: {
     //    /* Print subscription info to log */
-    //    Logger::log_simple(
-    //             "subscribe event; conn_handle=%d attr_handle=%d "
-    //             "reason=%d prevn=%d curn=%d previ=%d curi=%d",
-    //             event->subscribe.conn_handle, event->subscribe.attr_handle,
-    //             event->subscribe.reason, event->subscribe.prev_notify,
-    //             event->subscribe.cur_notify, event->subscribe.prev_indicate,
-    //             event->subscribe.cur_indicate);
-    //
+    Logger::log_simple(
+        "subscribe event; conn_handle=%d attr_handle=%d "
+        "reason=%d prevn=%d curn=%d previ=%d curi=%d",
+        event->subscribe.conn_handle, event->subscribe.attr_handle,
+        event->subscribe.reason, event->subscribe.prev_notify,
+        event->subscribe.cur_notify, event->subscribe.prev_indicate,
+        event->subscribe.cur_indicate);
+
     //    /* GATT subscribe event callback */
     //    gatt_svr_subscribe_cb(event);
+    ConnContext &ctxt = gap_manager->conn_context;
+    ctxt.conn_handle = event->subscribe.conn_handle;
+    ctxt.indicate_status = event->subscribe.cur_indicate;
+
     return rc;
+  }
 
   /* MTU update event */
   case BLE_GAP_EVENT_MTU:

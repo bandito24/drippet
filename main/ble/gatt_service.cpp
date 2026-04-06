@@ -1,5 +1,6 @@
 #include "gatt_service.hpp"
 #include "gatt_attribute.hpp"
+#include "head.hpp"
 #include "host/ble_gatt.h"
 #include "os/os_mbuf.h"
 #include "util.hpp"
@@ -13,7 +14,15 @@ Esp_Err_t GattService::init() {
       .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
       .val_handle = &duration_chr_handle,
   };
-  this->gatt_chr_defs[1] = {};
+
+  this->gatt_chr_defs[1] = {
+      .uuid = &node_status_chr_uuid.u,
+      .access_cb = handle_read_node_status,
+      .arg = &this->desc_attr,
+      .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_INDICATE,
+      .val_handle = &node_status_chr_handle,
+  };
+  this->gatt_chr_defs[2] = {};
 
   this->gatt_svc_table[0] = {
       .type = BLE_GATT_SVC_TYPE_PRIMARY,
@@ -52,9 +61,6 @@ int GattService::handle_water_durations(uint16_t conn_handle,
 
     int rc = os_mbuf_append(ctxt->om, attr->duration_buffer.data(),
                             BLE::DURATION_BUFF_LEN);
-    // for(uint8_t val : self->duration_buffer){
-    //   Logger::log_error( "val is: %d", val);
-    // }
     if (rc != 0) {
       Logger::log_error("Could not write data into mbuf");
     }
@@ -92,39 +98,61 @@ int GattService::handle_water_durations(uint16_t conn_handle,
   }
 }
 
-void GattService::gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt,
-                                       void *arg) {
-  /* Local variables */
-  char buf[BLE_UUID_STR_LEN];
+int GattService::handle_read_node_status(uint16_t conn_handle,
+                                         uint16_t attr_handle,
+                                         struct ble_gatt_access_ctxt *ctxt,
+                                         void *arg) {
+  auto desc_attr = static_cast<NodeDescAttr *>(arg);
 
-  /* Handle GATT attributes register events */
   switch (ctxt->op) {
+  case BLE_GATT_ACCESS_OP_READ_CHR: {
 
-  /* Service register event */
-  case BLE_GATT_REGISTER_OP_SVC:
-    Logger::log_simple("registered service %s with handle=%d",
-                       ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
-                       ctxt->svc.handle);
-    break;
-
-  /* Characteristic register event */
-  case BLE_GATT_REGISTER_OP_CHR:
-    Logger::log_simple("registering characteristic %s with "
-                       "def_handle=%d val_handle=%d",
-                       ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf),
-                       ctxt->chr.def_handle, ctxt->chr.val_handle);
-    break;
-
-  /* Descriptor register event */
-  case BLE_GATT_REGISTER_OP_DSC:
-    Logger::log_simple("registering descriptor %s with handle=%d",
-                       ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
-                       ctxt->dsc.handle);
-    break;
-
-  /* Unknown event */
-  default:
-    assert(0);
-    break;
+    int rc = os_mbuf_append(ctxt->om, attr->duration_buffer.data(),
+                            BLE::DURATION_BUFF_LEN);
+    if (rc != 0) {
+      Logger::log_error("Could not write data into mbuf");
+    }
+    return rc;
   }
-}
+  default:
+
+    Logger::log_error("Unresolved op event of %d", ctxt->op);
+    return 1;
+  }
+
+  void GattService::gatt_svr_register_cb(struct ble_gatt_register_ctxt * ctxt,
+                                         void *arg) {
+    /* Local variables */
+    char buf[BLE_UUID_STR_LEN];
+
+    /* Handle GATT attributes register events */
+    switch (ctxt->op) {
+
+    /* Service register event */
+    case BLE_GATT_REGISTER_OP_SVC:
+      Logger::log_simple("registered service %s with handle=%d",
+                         ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
+                         ctxt->svc.handle);
+      break;
+
+    /* Characteristic register event */
+    case BLE_GATT_REGISTER_OP_CHR:
+      Logger::log_simple("registering characteristic %s with "
+                         "def_handle=%d val_handle=%d",
+                         ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf),
+                         ctxt->chr.def_handle, ctxt->chr.val_handle);
+      break;
+
+    /* Descriptor register event */
+    case BLE_GATT_REGISTER_OP_DSC:
+      Logger::log_simple("registering descriptor %s with handle=%d",
+                         ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
+                         ctxt->dsc.handle);
+      break;
+
+    /* Unknown event */
+    default:
+      assert(0);
+      break;
+    }
+  }

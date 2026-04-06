@@ -44,8 +44,7 @@ extern "C" void app_main(void) {
                      outgoing_queue.get_handle()};
   head_task.start();
 
-  GattAttribute durations_attr{head_node};
-  BluetoothTask ble_task{durations_attr};
+  BluetoothTask ble_task{head_node};
 
   Esp_Err_t ble_rc = ble_task.init_stack();
   ESP_ERROR_CHECK(ble_rc);
