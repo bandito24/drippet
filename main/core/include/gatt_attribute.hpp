@@ -39,6 +39,7 @@ enum class Status {
   INVALID_PKT_LEN
 };
 } // namespace BLE
+  //
 
 class GattAttribute {
 private:
@@ -53,4 +54,5 @@ public:
 
   BLE::Status handle_incoming_write(std::span<uint8_t> raw_data);
   BLE::Status set_node_duration(size_t node, size_t hose, uint16_t duration);
+  uint16_t duration_chr_handle;
 };

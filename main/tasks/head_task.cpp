@@ -1,6 +1,7 @@
 #include "head_task.hpp"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
+
 #include "head.hpp"
 #include "portmacro.h"
 #include "protocol.hpp"
@@ -9,6 +10,8 @@
 using CMD = Protocol::Command;
 void HeadTask::run() {
   for (;;) {
+    all_node_status_t before_status = this->headNode.get_node_statuses();
+
     UartMessage frame{};
     if (xQueueReceive(this->incoming_queue, &frame, pdMS_TO_TICKS(100)) ==
         pdTRUE) {
@@ -29,6 +32,12 @@ void HeadTask::run() {
         xQueueSend(this->outgoing_queue, &m, portMAX_DELAY);
       }
     }
-    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    all_node_status_t after_status = this->headNode.get_node_statuses();
+    if (before_status != after_status) {
+      Logger::log_simple("Should be sending an indication");
+      xTaskNotifyGive(this->cccd_task_handle);
+    }
   }
+  vTaskDelay(pdMS_TO_TICKS(1000));
 }

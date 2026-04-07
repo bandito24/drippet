@@ -1,6 +1,7 @@
 #include "bluetooth_task.hpp"
 #include "constants.hpp"
 #include "esp_err.h"
+#include "status_task.hpp"
 
 #include "gap_manager.hpp"
 #include "nimble/nimble_port.h"
@@ -42,7 +43,7 @@ Esp_Err_t BluetoothTask::init_stack() {
     return rc;
   }
 
-  ble_hs_cfg.reset_cb = this->gap_manager->on_stack_reset;
+  ble_hs_cfg.reset_cb = gap_manager.on_stack_reset;
   ble_hs_cfg.sync_cb = gap_manager.on_stack_sync;
   ble_hs_cfg.gatts_register_cb = this->gatt_svc.gatt_svr_register_cb;
   ble_hs_cfg.store_status_cb = ble_store_util_status_rr;
@@ -55,5 +56,6 @@ Esp_Err_t BluetoothTask::init_stack() {
 }
 void BluetoothTask::run() {
   assert(this->stack_initialized == true);
+  this->cccd_subtask.start();
   nimble_port_run();
 }

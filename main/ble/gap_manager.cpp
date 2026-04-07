@@ -6,10 +6,7 @@
 
 bool GapManager::has_conn_handle = false;
 
-Esp_Err_t GapManager::init(ConnContext &conn_ctxt) {
-  GapManager::conn_context = conn_ctxt;
-  GapManager::has_conn_handle = true;
-  GapManager &gap_manager = GapManager::get_instance();
+Esp_Err_t GapManager::init() {
   Esp_Err_t rc;
   ble_svc_gap_init();
   /* Set GAP device name */

@@ -9,7 +9,7 @@
 #include <optional>
 
 Head::Head(iValve &waterFaucetMain, iClock &clock)
-    : mainValve(waterFaucetMain), clock(clock) {};
+    : mainValve(waterFaucetMain), clock(clock){};
 // Need to disregard duplicate broadcast messages from the key
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
@@ -200,4 +200,18 @@ void Head::process_watering_schedule() {
     }
     this->progress_watering_due();
   }
+}
+
+all_node_status_t Head::get_node_statuses() {
+  all_node_status_t result{};
+
+  for (size_t addr = 0; addr < config::max_nodes; addr++) {
+    iNode *node = this->get_node(addr);
+    if (!node) {
+      result[addr] = static_cast<uint8_t>(NodeStatus::NODE_NONEXISTANT);
+    } else {
+      result[addr] = static_cast<uint8_t>(node->get_node_status());
+    }
+  }
+  return result;
 }

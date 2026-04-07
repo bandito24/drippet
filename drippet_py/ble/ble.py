@@ -8,6 +8,7 @@ from enum import Enum
 
 ESP_ADDR = "9C891099-DFFD-39B2-7509-0247C708220F"
 GATT_CHAR = "00000025-1212-efde-1523-785feabcd123"
+NODE_STAT_CHAR = "01000025-1212-efde-1523-785feabcd123"
 MAX_NODE_COUNT = 5
 HOSE_COUNT = 5
 NODE_HOSE_COUNT = 5
@@ -23,6 +24,7 @@ class Ble_Cmd(Enum):
     WRITE_ROW_CMD = 1
     WRITE_CELL_CMD = 2
     READ_BUFF_CMD = 3
+    READ_NODE_STAT = 4
 
 
 class HeaderIdx(Enum):
@@ -96,6 +98,10 @@ async def ble_task(client: BleakClient):
                     num = int.from_bytes(raw_bytes[i : i + 2], "little")
                     res.append(num)
                 print(f"response from ble peripheral: {res}")
+            elif user_input == Ble_Cmd.READ_NODE_STAT.value:
+                raw_bytes = await client.read_gatt_char(NODE_STAT_CHAR)
+                res = [int(x) for x in raw_bytes]
+                print(f"Node Status: {res}")
             elif user_input == Ble_Cmd.LOAD_ROW_CMD.value:
                 ui = input("Please enter row: ")
                 args = f"{Ble_Cmd.LOAD_ROW_CMD.value} 1 {ui}"  # Data length of four is row, col, 2 duration bytes for uint16

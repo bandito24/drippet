@@ -1,12 +1,8 @@
 #include "task.hpp"
 #include "freertos/idf_additions.h"
+#include "freertos/projdefs.h"
 #include "portmacro.h"
 
-Task::Task(const char *const process_name, configSTACK_DEPTH_TYPE stack_depth,
-           UBaseType_t priority)
-    : pcName(process_name), uxStackDepth(stack_depth), uxPriority(priority) {
-  task_handle = nullptr;
-}
 BaseType_t Task::start() {
   return xTaskCreate(run_task, pcName, uxStackDepth, this, uxPriority,
                      &task_handle);

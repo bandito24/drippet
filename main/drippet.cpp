@@ -3,6 +3,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "freertos/idf_additions.h"
+#include "gap_manager.hpp"
 #include "gatt_attribute.hpp"
 #include "node.hpp"
 #include "queues/queue.hpp"
@@ -40,20 +41,31 @@ extern "C" void app_main(void) {
 
   MainValve main_valve{};
   Head head_node{main_valve, clock};
-  HeadTask head_task{head_node, incoming_queue.get_handle(),
-                     outgoing_queue.get_handle()};
-  head_task.start();
 
+  // Starting the bluetooth task and stack
   BluetoothTask ble_task{head_node};
-
   Esp_Err_t ble_rc = ble_task.init_stack();
   ESP_ERROR_CHECK(ble_rc);
   ble_task.start();
 
-  // For testing only
-  populate_head_nodes(head_node, 3);
+  // Starting the head task that contacts nodes and updates accordingly
+  TaskHandle_t head_task_handle{};
+  HeadTask head_task{head_node, incoming_queue.get_handle(),
+                     outgoing_queue.get_handle(),
+                     ble_task.get_cccd_subtask_handle(), head_task_handle};
+  head_task.start();
 
+  // For testing only
+  // TODO: delete all but vtaskdelay
+  populate_head_nodes(head_node, 3);
+  int testint = 0;
   while (true) {
+    if (testint % 2 == 0) {
+      head_node.get_node(0)->set_node_status(NodeStatus::COMMAND_SENT);
+    } else {
+      head_node.get_node(0)->set_node_status(NodeStatus::IN_QUEUE);
+    }
+    testint += 1;
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }

@@ -23,6 +23,7 @@ struct PendingNode {
   config::Address address{};
   NodeKey_t key{};
 };
+using all_node_status_t = std::array<uint8_t, config::max_nodes>;
 
 class Head {
 private:
@@ -52,6 +53,7 @@ public:
   NodeLinkStatus confirm_node_pending(NodeKey_t key, config::Address position);
   bool is_watering_due() const { return this->clock.is_watering_due(); }
   std::optional<UartMessage> next_watering_frame();
+  all_node_status_t get_node_statuses();
 
   config::Address get_available_address();
 

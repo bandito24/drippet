@@ -12,7 +12,7 @@ Esp_Err_t GattService::init() {
       .access_cb = handle_water_durations,
       .arg = &this->attr,
       .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
-      .val_handle = &duration_chr_handle,
+      .val_handle = &this->attr.duration_chr_handle,
   };
 
   this->gatt_chr_defs[1] = {
@@ -20,7 +20,7 @@ Esp_Err_t GattService::init() {
       .access_cb = handle_read_node_status,
       .arg = &this->desc_attr,
       .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_INDICATE,
-      .val_handle = &node_status_chr_handle,
+      .val_handle = &this->desc_attr.node_status_chr_handle,
   };
   this->gatt_chr_defs[2] = {};
 
@@ -106,9 +106,9 @@ int GattService::handle_read_node_status(uint16_t conn_handle,
 
   switch (ctxt->op) {
   case BLE_GATT_ACCESS_OP_READ_CHR: {
+    all_node_status_t nodes_state = desc_attr->head_node.get_node_statuses();
 
-    int rc = os_mbuf_append(ctxt->om, attr->duration_buffer.data(),
-                            BLE::DURATION_BUFF_LEN);
+    int rc = os_mbuf_append(ctxt->om, nodes_state.data(), nodes_state.size());
     if (rc != 0) {
       Logger::log_error("Could not write data into mbuf");
     }
@@ -119,40 +119,41 @@ int GattService::handle_read_node_status(uint16_t conn_handle,
     Logger::log_error("Unresolved op event of %d", ctxt->op);
     return 1;
   }
+}
 
-  void GattService::gatt_svr_register_cb(struct ble_gatt_register_ctxt * ctxt,
-                                         void *arg) {
-    /* Local variables */
-    char buf[BLE_UUID_STR_LEN];
+void GattService::gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt,
+                                       void *arg) {
+  /* Local variables */
+  char buf[BLE_UUID_STR_LEN];
 
-    /* Handle GATT attributes register events */
-    switch (ctxt->op) {
+  /* Handle GATT attributes register events */
+  switch (ctxt->op) {
 
-    /* Service register event */
-    case BLE_GATT_REGISTER_OP_SVC:
-      Logger::log_simple("registered service %s with handle=%d",
-                         ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
-                         ctxt->svc.handle);
-      break;
+  /* Service register event */
+  case BLE_GATT_REGISTER_OP_SVC:
+    Logger::log_simple("registered service %s with handle=%d",
+                       ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
+                       ctxt->svc.handle);
+    break;
 
-    /* Characteristic register event */
-    case BLE_GATT_REGISTER_OP_CHR:
-      Logger::log_simple("registering characteristic %s with "
-                         "def_handle=%d val_handle=%d",
-                         ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf),
-                         ctxt->chr.def_handle, ctxt->chr.val_handle);
-      break;
+  /* Characteristic register event */
+  case BLE_GATT_REGISTER_OP_CHR:
+    Logger::log_simple("registering characteristic %s with "
+                       "def_handle=%d val_handle=%d",
+                       ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf),
+                       ctxt->chr.def_handle, ctxt->chr.val_handle);
+    break;
 
-    /* Descriptor register event */
-    case BLE_GATT_REGISTER_OP_DSC:
-      Logger::log_simple("registering descriptor %s with handle=%d",
-                         ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
-                         ctxt->dsc.handle);
-      break;
+  /* Descriptor register event */
+  case BLE_GATT_REGISTER_OP_DSC:
+    Logger::log_simple("registering descriptor %s with handle=%d",
+                       ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
+                       ctxt->dsc.handle);
+    break;
 
-    /* Unknown event */
-    default:
-      assert(0);
-      break;
-    }
+  /* Unknown event */
+  default:
+    assert(0);
+    break;
   }
+}
