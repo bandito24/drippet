@@ -10,9 +10,10 @@ using namespace fakeit;
 struct HeadFixture {
   fakeit::Mock<iValve> valveMock;
   fakeit::Mock<iClock> clockMock;
+  fakeit::Mock<Storage> storageMock;
   Head head;
 
-  HeadFixture() : head{valveMock.get(), clockMock.get()} {};
+  HeadFixture() : head{valveMock.get(), clockMock.get(), storageMock.get()} {};
 };
 struct ClockFixture {
   fakeit::Mock<iSysClock> sysMock;

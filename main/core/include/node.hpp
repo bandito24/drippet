@@ -48,13 +48,13 @@ struct iNode {
       const std::array<Time::Time_Seconds, config::node_hose_count>
           &durations) = 0;
   virtual Time::Time_Seconds get_hose_duration(std::size_t index) const = 0;
-  virtual std::array<Time::Time_Seconds, config::node_hose_count>
+  virtual const std::array<Time::Time_Seconds, config::node_hose_count> &
   get_all_hose_durations() const = 0;
   virtual bool all_durations_zero() const = 0;
   virtual NodeKey_t get_id_key() const = 0;
-
   virtual uint8_t increase_retry_count() = 0;
   virtual void clear_retry_count() = 0;
+  virtual uint8_t get_retry_count() = 0;
 };
 
 class Node : public iNode {
@@ -74,7 +74,7 @@ public:
 
   Node(NodeKey_t key);
 
-  std::array<Time::Time_Seconds, config::node_hose_count>
+  const std::array<Time::Time_Seconds, config::node_hose_count> &
   get_all_hose_durations() const override;
 
   NodeKey_t get_id_key() const override { return id_key; };
@@ -83,6 +83,7 @@ public:
     return this->retry_attempts;
   }
   void clear_retry_count() override { this->retry_attempts = 0; }
+  uint8_t get_retry_count() override { return this->retry_attempts; }
 
 private:
   std::array<Time::Time_Seconds, config::node_hose_count> node_hose_durations{};
@@ -94,13 +95,4 @@ private:
 namespace NodeTypes {
 using Node = std::unique_ptr<iNode>;
 using HoseDurations = std::array<Time::Time_Seconds, config::node_hose_count>;
-inline HoseDurations create_durations(std::initializer_list<int> seconds) {
-  HoseDurations d{};
-  std::size_t i = 0;
-
-  for (Time::Time_Seconds v : seconds) {
-    d[i++] = Time::Time_Seconds{v};
-  }
-  return d;
-}
 } // namespace NodeTypes

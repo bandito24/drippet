@@ -1,3 +1,4 @@
+#include "clock.hpp"
 #include "config.hpp"
 #include "driver.hpp"
 #include "node.hpp"
@@ -8,8 +9,6 @@
 #include <memory>
 #include <optional>
 
-Head::Head(iValve &waterFaucetMain, iClock &clock)
-    : mainValve(waterFaucetMain), clock(clock){};
 // Need to disregard duplicate broadcast messages from the key
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
@@ -123,6 +122,7 @@ UartMessage Head::ack_node_watering_confirmation(config::Address addr) {
   iNode *node = this->get_node(addr);
   assert(node != nullptr && addr < config::max_nodes);
   node->set_node_status(NodeStatus::READY);
+  node->clear_retry_count();
   return {.address = addr, .command = Protocol::Command::ACK, .data_length = 0};
 }
 
@@ -214,4 +214,40 @@ all_node_status_t Head::get_node_statuses() {
     }
   }
   return result;
+}
+
+void Head::set_node_status(size_t index, NodeStatus status) {
+  auto node = this->get_node(index);
+  if (node) {
+    node->set_node_status(status);
+  }
+}
+ActionStatus Head::set_node_durations(size_t index,
+                                      NodeTypes::HoseDurations &durations) {
+  auto node = this->get_node(index);
+  if (node) {
+    return node->set_node_durations(durations);
+  } else {
+    return ActionStatus::INVALID_NODE;
+  }
+}
+std::optional<NodeTypes::HoseDurations>
+Head::get_node_hose_durations(size_t addr) {
+
+  auto node = this->get_node(addr);
+  if (node) {
+    return node->get_all_hose_durations();
+  } else {
+    return std::nullopt;
+  }
+}
+all_durations_t Head::retrieve_all_durations() {
+  all_durations_t all_durs{};
+  for (size_t addr = 0; addr < config::max_nodes; addr++) {
+    auto durations = this->get_node_hose_durations(addr);
+    all_durs.at(addr) =
+        durations ? durations.value()
+                  : std::array<Time::Time_Seconds, config::node_hose_count>{};
+  }
+  return all_durs;
 }

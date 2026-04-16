@@ -1,17 +1,12 @@
 #include "clock.hpp"
 #include "constants.hpp"
 #include "esp_err.h"
-#include "esp_log.h"
 #include "freertos/idf_additions.h"
-#include "gap_manager.hpp"
-#include "gatt_attribute.hpp"
 #include "node.hpp"
 #include "queues/queue.hpp"
 #include "tasks/bluetooth_task.hpp"
 #include "tasks/head_task.hpp"
 #include "tasks/uart_task.hpp"
-#include <iostream>
-#include <memory>
 
 // TESTING ONLY FUNCTIONS
 inline NodeTypes::HoseDurations get_new_hose_durations(int increaser);
@@ -61,9 +56,9 @@ extern "C" void app_main(void) {
   int testint = 0;
   while (true) {
     if (testint % 2 == 0) {
-      head_node.get_node(0)->set_node_status(NodeStatus::COMMAND_SENT);
+      head_node.set_node_status(0, NodeStatus::COMMAND_SENT);
     } else {
-      head_node.get_node(0)->set_node_status(NodeStatus::IN_QUEUE);
+      head_node.set_node_status(0, NodeStatus::IN_QUEUE);
     }
     testint += 1;
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -90,6 +85,6 @@ inline void populate_head_nodes(Head &head,
     head.create_node_pending(addr);
     head.confirm_node_pending(addr, addr);
     auto new_durations = get_new_hose_durations(addr);
-    head.get_node(addr)->set_node_durations(new_durations);
+    head.set_node_durations(addr, new_durations);
   }
 }

@@ -60,4 +60,15 @@ TEST_CASE("config functions", "[node_config]") {
     REQUIRE(status == ActionStatus::INVALID_TIME);
     REQUIRE(node.get_all_hose_durations() == empty_dur);
   }
+  SECTION("clear retry count clears the recount") {
+
+    Node node{Mocks::sample_key};
+    node.increase_retry_count();
+    uint8_t count = node.increase_retry_count();
+    REQUIRE(count == 2);
+    node.clear_retry_count();
+
+    uint8_t count2 = node.increase_retry_count();
+    REQUIRE(count2 == 1);
+  }
 }

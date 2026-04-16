@@ -37,25 +37,6 @@ struct UartMessage {
                       (this->data.begin() + this->data_length),
                       msg.data.begin());
   }
-  // TODO: Remove this an iostream
-  friend std::ostream &operator<<(std::ostream &out, const UartMessage &msg) {
-    out << "UartMessage {\n";
-    out << "  address: " << static_cast<unsigned>(msg.address) << "\n";
-    out << "  command: " << static_cast<unsigned>(msg.command) << "\n";
-    out << "  data_length: " << msg.data_length << "\n";
-    out << "  data: [";
-
-    for (size_t i = 0; i < msg.data_length; ++i) {
-      out << msg.data[i];
-      if (i + 1 < msg.data_length)
-        out << ", ";
-    }
-
-    out << "]\n";
-    out << "}";
-
-    return out;
-  }
 };
 
 struct FrameIndexes {

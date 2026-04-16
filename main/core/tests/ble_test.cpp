@@ -39,17 +39,9 @@ TEST_CASE("BLE tests", "[ble]") {
       check_buffer_duration(fix, attr, 1);
     }
   }
-  SECTION("set_node_duration alters head node durations") {
-    auto node = fix.head.get_node(2);
-    auto dur1 = node->get_all_hose_durations();
-    attr.set_node_duration(2, 1, 900);
-    auto dur2 = node->get_all_hose_durations();
-    REQUIRE(dur1 != dur2);
-    REQUIRE(dur2[1] == 900);
-  }
   SECTION("Testing handle_incoming_write main entrypoint") {
     SECTION("handles load row operations") {
-      auto load_row1 = BleMocks::pkt_load_row;
+      auto load_row1 = BleMocks::pkt_load_row();
       load_row1[BLE::TGT_ROW_IDX] = 3;
       BLE::Status res1 = attr.handle_incoming_write(load_row1);
       check_buffer_duration(fix, attr, 3);
@@ -65,23 +57,24 @@ TEST_CASE("BLE tests", "[ble]") {
       }
     }
     SECTION("Handles write cell commands") {
-      auto cell1 = BleMocks::pkt_write_cell;
+      auto cell1 = BleMocks::pkt_write_cell();
       uint16_t val = Util::get_le16(&cell1[BLE::TGT_CELL_IDX + 1]);
       auto target_node = cell1[BLE::TGT_ROW_IDX];
       auto target_hose = cell1[BLE::TGT_CELL_IDX];
-      auto durations1 = head.get_node(target_node)->get_all_hose_durations();
+
+      auto durations1 = head.get_node_hose_durations(target_node);
       auto res = attr.handle_incoming_write(cell1);
-      auto durations2 = head.get_node(target_node)->get_all_hose_durations();
-      REQUIRE(durations1 != durations2);
-      durations1[target_hose] = val;
-      REQUIRE(durations1 == durations2);
+      auto durations2 = head.get_node_hose_durations(target_node);
+      REQUIRE(durations1.value() != durations2.value());
+      durations1.value()[target_hose] = val;
+      REQUIRE(durations1.value() == durations2.value());
       check_buffer_duration(fix, attr, target_node);
     }
     SECTION("Handles write row commands") {
-      auto row_add = BleMocks::pkt_write_row;
+      auto row_add = BleMocks::pkt_write_row();
       NodeTypes::HoseDurations durations_add{};
       auto target_node = row_add[BLE::TGT_ROW_IDX];
-      auto durations1 = head.get_node(target_node)->get_all_hose_durations();
+      auto durations1 = head.get_node_hose_durations(target_node);
       size_t addr = 0;
       for (size_t i = BLE::TGT_ROW_IDX + 1; i < row_add.size(); i += 2) {
         uint16_t val = Util::get_le16(&row_add[i]);
@@ -90,23 +83,23 @@ TEST_CASE("BLE tests", "[ble]") {
       }
       auto rc1 = attr.handle_incoming_write(row_add);
       REQUIRE(rc1 == BLE::Status::OP_OK);
-      auto durations2 = head.get_node(target_node)->get_all_hose_durations();
-      REQUIRE(durations1 != durations2);
-      REQUIRE(durations2 == durations_add);
+      auto durations2 = head.get_node_hose_durations(target_node);
+      REQUIRE(durations1.value() != durations2.value());
+      REQUIRE(durations2.value() == durations_add);
       check_buffer_duration(fix, attr, target_node);
     }
     SECTION("invalid commands not processed") {
 
-      auto row_add = BleMocks::pkt_write_row;
+      auto row_add = BleMocks::pkt_write_row();
       row_add[0] = 9;
       auto res = attr.handle_incoming_write(row_add);
       REQUIRE(res == BLE::Status::INVALID_CMD);
     }
     SECTION("invalid packet lengths not processed") {
 
-      auto row_add = BleMocks::pkt_write_row;
-      auto cel_add = BleMocks::pkt_write_cell;
-      auto load = BleMocks::pkt_load_row;
+      auto row_add = BleMocks::pkt_write_row();
+      auto cel_add = BleMocks::pkt_write_cell();
+      auto load = BleMocks::pkt_load_row();
       std::array<std::span<uint8_t>, 3> vals = {row_add, cel_add, load};
       auto buff1 = attr.duration_buffer;
       bool failed = false;
@@ -129,8 +122,10 @@ void check_buffer_duration(HeadFixture &fix, GattAttribute &attr,
                            size_t node_index) {
 
   std::array<uint8_t, config::node_hose_count * 2> check{};
-  auto durations = fix.head.get_node(node_index)->get_all_hose_durations();
-  Util::le16_to_le8(check, durations);
+
+  auto durations = fix.head.get_node_hose_durations(node_index);
+
+  Util::le16_to_le8(check, durations.value());
 
   std::array<uint8_t, config::node_hose_count * 2> buff{};
   std::copy(attr.duration_buffer.begin() + 1, attr.duration_buffer.end(),

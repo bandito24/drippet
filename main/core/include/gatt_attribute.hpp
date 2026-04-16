@@ -1,6 +1,7 @@
 #pragma once
 #include "config.hpp"
 #include "head.hpp"
+#include "node.hpp"
 #include <span>
 namespace BLE {
 
@@ -53,6 +54,5 @@ public:
   // 2 uint8_t bytes for each duration with a first addr specifier
 
   BLE::Status handle_incoming_write(std::span<uint8_t> raw_data);
-  BLE::Status set_node_duration(size_t node, size_t hose, uint16_t duration);
   uint16_t duration_chr_handle;
 };

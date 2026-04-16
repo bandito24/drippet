@@ -1,7 +1,10 @@
 #pragma once
+#include "clock.hpp"
 #include "config.hpp"
+#include "constants.hpp"
 #include "logger.hpp"
 #include "protocol.hpp"
+#include "storage.hpp"
 #include <array>
 #include <node.hpp>
 #include <optional>
@@ -29,6 +32,7 @@ class Head {
 private:
   iValve &mainValve;
   iClock &clock;
+  Storage &storage;
   std::array<NodeTypes::Node, config::max_nodes> node_link{};
   std::size_t node_count = 0;
   std::optional<config::Address> get_node_by_key(NodeKey_t key);
@@ -41,19 +45,35 @@ private:
                            // ane generate_next_watering_command
                            //
   UartMessage ack_node_watering_confirmation(config::Address addr);
+  iNode *get_node(std::size_t node_index);
+  Time::Time_Seconds boot_persisted_durations[config::max_nodes]
+                                             [config::node_hose_count] = {};
 
 public:
+  Head(iValve &waterFaucetMain, iClock &clock, Storage &store)
+      : mainValve{waterFaucetMain}, clock{clock}, storage{store} {};
   ValveStatus valve_status = VALVE_CLOSED;
   HeadStatus get_head_status() { return this->head_status; };
   static constexpr std::size_t max_nodes = config::max_nodes;
-  Head(iValve &waterFaucetMain, iClock &clock);
-  iNode *get_node(std::size_t node_index);
   std::size_t get_node_count() const;
   std::optional<config::Address> create_node_pending(NodeKey_t key);
   NodeLinkStatus confirm_node_pending(NodeKey_t key, config::Address position);
   bool is_watering_due() const { return this->clock.is_watering_due(); }
   std::optional<UartMessage> next_watering_frame();
   all_node_status_t get_node_statuses();
+  void set_node_status(size_t index, NodeStatus status);
+  ActionStatus set_node_durations(size_t index,
+                                  NodeTypes::HoseDurations &durations);
+  NodeStatus get_node_status(size_t addr) {
+    if (this->get_node(addr)) {
+      return this->get_node(addr)->get_node_status();
+    } else {
+      return NodeStatus::NODE_NONEXISTANT;
+    }
+  }
+  bool node_exists(size_t addr) { return this->get_node(addr) != nullptr; }
+
+  std::optional<NodeTypes::HoseDurations> get_node_hose_durations(size_t index);
 
   config::Address get_available_address();
 
@@ -63,4 +83,12 @@ public:
   UartMessage terminate_endpoint(NodeKey_t key);
   std::optional<UartMessage> handle_incoming_frame(UartMessage msg);
   void process_watering_schedule();
+  int get_node_retry_count(size_t addr) {
+    if (this->get_node(addr)) {
+      return this->get_node(addr)->get_retry_count();
+    } else {
+      return -1;
+    }
+  }
+  all_durations_t retrieve_all_durations();
 };

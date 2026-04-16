@@ -42,34 +42,41 @@ inline void populate_head_nodes(Head &head,
     head.create_node_pending(addr);
     head.confirm_node_pending(addr, addr);
     auto new_durations = get_new_hose_durations(addr);
-    head.get_node(addr)->set_node_durations(new_durations);
+    head.set_node_durations(addr, new_durations);
   }
 }
 
 inline uint8_t uint8(BLE::Cmds cmd) { return static_cast<uint8_t>(cmd); }
 
 } // namespace Mocks
+  //
+
 namespace BleMocks {
-inline std::array<uint8_t, 13> pkt_write_row = {
-    Mocks::uint8(BLE::Cmds::WRITE_ROW), // COMMAND
-    11,                                 // DATA_LEN
-    0,                                  // ROW INDEX
-    // durations (little-endian)
-    6, 0, 7, 0, 8, 0, 9, 0, 10, 1};
+inline std::array<uint8_t, 13> pkt_write_row() {
+  return {Mocks::uint8(BLE::Cmds::WRITE_ROW), // COMMAND
+          11,                                 // DATA_LEN
+          0,                                  // ROW INDEX
+          // durations (little-endian)
+          6, 0, 7, 0, 8, 0, 9, 0, 10, 1};
+}
 
-inline std::array<uint8_t, 3> pkt_load_row = {
-    Mocks::uint8(BLE::Cmds::LOAD_ROW), // COMMAND
-    1,                                 // DATA_LEN
-    0                                  // ROW
+inline std::array<uint8_t, 3> pkt_load_row() {
+  return {
+      Mocks::uint8(BLE::Cmds::LOAD_ROW), // COMMAND
+      1,                                 // DATA_LEN
+      0                                  // ROW
+  };
+}
+inline std::array<uint8_t, 6> pkt_write_cell() {
+  return {
+      Mocks::uint8(BLE::Cmds::WRITE_CELL), // COMMAND
+      4,                                   // DATA_LEN
+      0,                                   // ROW
+      0,                                   // COLUMN
 
-};
-inline std::array<uint8_t, 6> pkt_write_cell = {
-    Mocks::uint8(BLE::Cmds::WRITE_CELL), // COMMAND
-    4,                                   // DATA_LEN
-    0,                                   // ROW
-    0,                                   // COLUMN
-
-    235,
-    0 // (little-endian)
-};
+      235,
+      0 // (little-endian)
+        // }
+  };
+}
 } // namespace BleMocks

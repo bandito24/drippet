@@ -20,19 +20,19 @@ ActionStatus Node::edit_hose_duration(std::size_t index,
 }
 
 ActionStatus Node::set_node_durations(
-
     const std::array<Time::Time_Seconds, config::node_hose_count> &durations) {
+
   for (Time::Time_Seconds duration : durations) {
     if (duration > config::MAX_HOSE_DURATION) {
       return ActionStatus::INVALID_TIME;
     }
   }
 
-  std::copy(durations.begin(), durations.end(), node_hose_durations.begin());
+  node_hose_durations = durations; // simpler than std::copy
   return ActionStatus::OK;
 }
 
-NodeTypes::HoseDurations Node::get_all_hose_durations() const {
+const NodeTypes::HoseDurations &Node::get_all_hose_durations() const {
   return node_hose_durations;
 }
 bool Node::all_durations_zero() const {
