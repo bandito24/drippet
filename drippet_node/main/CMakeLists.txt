@@ -1,2 +1,3 @@
-idf_component_register(SRCS "drippet_node.c"
-                    INCLUDE_DIRS ".")
+idf_component_register(SRCS "main.cpp"
+REQUIRES esp_driver_uart
+                    INCLUDE_DIRS "include")
