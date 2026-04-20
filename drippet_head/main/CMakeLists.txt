@@ -1,5 +1,3 @@
-
-
 set(ABS_PROJ_ROOT "/Users/char/esp/drippet")
 
 file(GLOB ENV_ESP "${ABS_PROJ_ROOT}/shared/env/esp32/*.cpp")
@@ -18,7 +16,6 @@ REQUIRES bt nvs_flash esp_driver_uart
 #
 INCLUDE_DIRS
 "core/include" "${ABS_PROJ_ROOT}/shared/include" "${ABS_PROJ_ROOT}/shared/env/esp32"
-
 )
 #
 #
