@@ -46,8 +46,6 @@ private:
                            //
   UartMessage ack_node_watering_confirmation(config::Address addr);
   iNode *get_node(std::size_t node_index);
-  Time::Time_Seconds boot_persisted_durations[config::max_nodes]
-                                             [config::node_hose_count] = {};
 
 public:
   Head(iValve &waterFaucetMain, iClock &clock, Storage &store)
@@ -91,4 +89,5 @@ public:
     }
   }
   all_durations_t retrieve_all_durations();
+  void print_node_durations();
 };

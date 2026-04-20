@@ -50,3 +50,10 @@ Time::Time_Seconds Node::get_hose_duration(std::size_t index) const {
 }
 Node::Node(NodeKey_t key)
     : id_key(key), node_status(NodeStatus::INITIALIZING) {}
+void Node::print_hose_durations(size_t addr) {
+  printf("Node %d |", addr);
+  for (size_t hose = 0; hose < config::node_hose_count; ++hose) {
+    printf("%5u ", (unsigned)this->node_hose_durations[hose]);
+  }
+  printf("\n");
+}

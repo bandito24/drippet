@@ -38,6 +38,8 @@ void HeadTask::run() {
       Logger::log_simple("Should be sending an indication");
       xTaskNotifyGive(this->cccd_task_handle);
     }
+
+    headNode.print_node_durations();
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
-  vTaskDelay(pdMS_TO_TICKS(1000));
 }

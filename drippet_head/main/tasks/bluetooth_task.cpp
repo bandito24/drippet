@@ -20,13 +20,6 @@ void ble_store_config_init(void);
 Esp_Err_t BluetoothTask::init_stack() {
   Esp_Err_t rc;
 
-  rc = nvs_flash_init();
-  if (rc == ESP_ERR_NVS_NO_FREE_PAGES || rc == ESP_ERR_NO_MEM) {
-    nvs_flash_erase();
-    rc = nvs_flash_init();
-    ESP_ERROR_CHECK(rc);
-  }
-
   rc = nimble_port_init();
   if (rc != ESP_OK) {
     Logger::log_error("failed to initialize nimble stack, error code: %d ", rc);

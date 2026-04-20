@@ -55,6 +55,7 @@ struct iNode {
   virtual uint8_t increase_retry_count() = 0;
   virtual void clear_retry_count() = 0;
   virtual uint8_t get_retry_count() = 0;
+  virtual void print_hose_durations(size_t self_addr) = 0;
 };
 
 class Node : public iNode {
@@ -84,6 +85,8 @@ public:
   }
   void clear_retry_count() override { this->retry_attempts = 0; }
   uint8_t get_retry_count() override { return this->retry_attempts; }
+
+  void print_hose_durations(size_t self_addr) override;
 
 private:
   std::array<Time::Time_Seconds, config::node_hose_count> node_hose_durations{};

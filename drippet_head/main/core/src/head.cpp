@@ -1,5 +1,6 @@
 #include "clock.hpp"
 #include "config.hpp"
+#include "constants.hpp"
 #include "driver.hpp"
 #include "node.hpp"
 #include "protocol.hpp"
@@ -9,7 +10,6 @@
 #include <memory>
 #include <optional>
 
-// Need to disregard duplicate broadcast messages from the key
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
   if (this->get_node_by_key(key)) { // Is dulicate, ignore
@@ -20,6 +20,9 @@ std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
   if (next_address != config::max_nodes) {
     std::unique_ptr<iNode> new_node = std::make_unique<Node>(key);
     this->node_link[next_address] = std::move(new_node);
+    // Reads from nvs storage--if not previously set then is just zeros
+    this->node_link[next_address]->set_node_durations(
+        this->storage.read_boot_durations(next_address));
   }
   return next_address;
 }
@@ -226,7 +229,12 @@ ActionStatus Head::set_node_durations(size_t index,
                                       NodeTypes::HoseDurations &durations) {
   auto node = this->get_node(index);
   if (node) {
-    return node->set_node_durations(durations);
+    ActionStatus rc = node->set_node_durations(durations);
+    if (rc == ActionStatus::OK) {
+      this->storage.save_durations(index, durations);
+    }
+    return rc;
+
   } else {
     return ActionStatus::INVALID_NODE;
   }
@@ -250,4 +258,14 @@ all_durations_t Head::retrieve_all_durations() {
                   : std::array<Time::Time_Seconds, config::node_hose_count>{};
   }
   return all_durs;
+}
+void Head::print_node_durations() {
+  for (size_t i = 0; i < config::max_nodes; i++) {
+    auto node = this->get_node(i);
+    if (node) {
+      node->print_hose_durations(i);
+    } else {
+      printf("Node %d not initialized\n", i);
+    }
+  }
 }
