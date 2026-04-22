@@ -26,8 +26,6 @@ struct iValve {
   virtual HardwareStatus close_valve() = 0;
 };
 
-using NodeKey_t = uint16_t;
-
 // Todo: Complete these implementations
 class MainValve : public iValve {
   HardwareStatus open_valve() override { return HardwareStatus::ERR_NONE; };

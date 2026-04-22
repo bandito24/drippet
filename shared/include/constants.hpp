@@ -21,3 +21,5 @@ struct WateringSchedule {
 };
 
 } // namespace Time
+  //
+using NodeKey_t = uint16_t;
