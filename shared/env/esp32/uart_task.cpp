@@ -2,7 +2,6 @@
 #include "driver.hpp"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
-#include "logger.hpp"
 #include "protocol.hpp"
 #include <optional>
 
@@ -25,7 +24,6 @@ void UartTask::run() {
         if (!uart_msg) {
           continue;
         }
-        Logger::log_simple("queued it up");
         xQueueSend(this->incoming_queue, &uart_msg, pdMS_TO_TICKS(100));
       }
     }

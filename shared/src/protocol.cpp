@@ -2,8 +2,6 @@
 #include "constants.hpp"
 #include "driver.hpp"
 #include <assert.h>
-
-#include "logger.hpp"
 #include <cstdio>
 #include <optional>
 

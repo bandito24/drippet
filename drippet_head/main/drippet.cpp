@@ -4,10 +4,10 @@
 #include "freertos/idf_additions.h"
 #include "node.hpp"
 #include "nvs_storage.hpp"
-#include "queues/queue.hpp"
+#include "queue.hpp"
 #include "tasks/bluetooth_task.hpp"
 #include "tasks/head_task.hpp"
-#include "tasks/uart_task.hpp"
+#include "uart_task.hpp"
 
 // TESTING ONLY FUNCTIONS
 inline NodeTypes::HoseDurations get_new_hose_durations(int increaser);
