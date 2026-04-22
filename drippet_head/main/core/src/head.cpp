@@ -87,7 +87,7 @@ UartMessage Head::create_addressing_frame(uint16_t key,
           .data_length = 1};
 }
 UartMessage Head::terminate_endpoint(NodeKey_t key) {
-  return {.address = 0x00,
+  return {.address = ADDR_UNSET,
           .command = Protocol::Command::BUGGER_OFF,
           .data = Protocol::FrameDataArray{key},
           .data_length = 1};

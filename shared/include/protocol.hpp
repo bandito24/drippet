@@ -1,4 +1,5 @@
 #pragma once
+#include "config.hpp"
 #include "driver.hpp"
 #include <algorithm>
 #include <cstddef>
@@ -23,6 +24,7 @@ struct UartHeader {
   UartHeader(uint8_t _address, Protocol::Command _command)
       : address{_address}, command{_command} {}
 };
+constexpr uint8_t ADDR_UNSET = config::max_nodes;
 
 struct UartMessage {
   uint8_t address{};
