@@ -11,15 +11,17 @@
 enum HardwareStatus {
   ERR_NONE,
 };
-enum class NodeStatus {
-  INITIALIZING,
-  READY,
-  IN_QUEUE,
-  COMMAND_SENT,
-  UNRESPONSIVE,
-  NODE_NONEXISTANT // This value is used for nodes that do not exist yet (not
-                   // connected)
+
+namespace NodeTypes {
+using HoseDurations = std::array<Time::Time_Seconds, config::node_hose_count>;
+using WateringSchedule = std::array<bool, days_in_week>;
+struct DurationSchedule {
+  NodeTypes::HoseDurations durations{};
+  NodeTypes::WateringSchedule schedule{true, true, true, true,
+                                       true, true, true};
 };
+} // namespace NodeTypes
+
 enum Status { IS_GOOD };
 struct iValve {
   virtual HardwareStatus open_valve() = 0;
@@ -42,18 +44,23 @@ struct iNode {
   virtual void set_node_status(NodeStatus status) = 0;
   virtual ActionStatus edit_hose_duration(std::size_t index,
                                           Time::Time_Seconds new_duration) = 0;
-  virtual ActionStatus set_node_durations(
-      const std::array<Time::Time_Seconds, config::node_hose_count>
-          &durations) = 0;
+  virtual ActionStatus
+  set_node_durations(const NodeTypes::HoseDurations &durations) = 0;
+
+  virtual ActionStatus
+  set_node_durations(const NodeTypes::DurationSchedule &dur_sch) = 0;
+
   virtual Time::Time_Seconds get_hose_duration(std::size_t index) const = 0;
-  virtual const std::array<Time::Time_Seconds, config::node_hose_count> &
-  get_all_hose_durations() const = 0;
+  virtual const NodeTypes::HoseDurations &get_all_hose_durations() const = 0;
   virtual bool all_durations_zero() const = 0;
   virtual NodeKey_t get_id_key() const = 0;
   virtual uint8_t increase_retry_count() = 0;
   virtual void clear_retry_count() = 0;
   virtual uint8_t get_retry_count() = 0;
   virtual void print_hose_durations(size_t self_addr) = 0;
+  virtual std::array<bool, days_in_week> &get_weekly_waterings();
+  virtual void
+  set_weekly_waterings(const NodeTypes::WateringSchedule &new_water);
 };
 
 class Node : public iNode {
@@ -67,11 +74,22 @@ public:
   ActionStatus set_node_durations(
       const std::array<Time::Time_Seconds, config::node_hose_count> &durations)
       override;
+
+  ActionStatus
+  set_node_durations(const NodeTypes::DurationSchedule &dur_sch) override;
   bool all_durations_zero() const override;
 
   Time::Time_Seconds get_hose_duration(std::size_t index) const override;
 
   Node(NodeKey_t key);
+
+  std::array<bool, days_in_week> &get_weekly_waterings() override {
+    return this->weekly_waterings;
+  };
+  void
+  set_weekly_waterings(const NodeTypes::WateringSchedule &new_water) override {
+    this->weekly_waterings = new_water;
+  }
 
   const std::array<Time::Time_Seconds, config::node_hose_count> &
   get_all_hose_durations() const override;
@@ -87,6 +105,9 @@ public:
   void print_hose_durations(size_t self_addr) override;
 
 private:
+  std::array<bool, days_in_week> weekly_waterings{true, true, true, true,
+                                                  true, true, true};
+
   std::array<Time::Time_Seconds, config::node_hose_count> node_hose_durations{};
   NodeKey_t id_key = 0;
   NodeStatus node_status = NodeStatus::INITIALIZING;
@@ -95,5 +116,4 @@ private:
 
 namespace NodeTypes {
 using Node = std::unique_ptr<iNode>;
-using HoseDurations = std::array<Time::Time_Seconds, config::node_hose_count>;
 } // namespace NodeTypes

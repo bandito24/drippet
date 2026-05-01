@@ -7,9 +7,11 @@ using all_durations_t =
                config::max_nodes>;
 struct Storage {
   virtual ~Storage() = default;
-  virtual Esp_Err_t save_durations(size_t addr,
-                                   NodeTypes::HoseDurations &arg) = 0;
+  virtual Esp_Err_t
+  save_durations(size_t addr, const NodeTypes::HoseDurations &durations,
+                 const NodeTypes::WateringSchedule &schedule) = 0;
 
-  virtual NodeTypes::HoseDurations read_boot_durations(size_t addr) const = 0;
+  virtual NodeTypes::DurationSchedule
+  read_boot_durations(size_t addr) const = 0;
   virtual Esp_Err_t init() = 0;
 };

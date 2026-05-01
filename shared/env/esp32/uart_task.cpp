@@ -24,16 +24,16 @@ void UartTask::run() {
         if (!uart_msg) {
           continue;
         }
-        xQueueSend(this->incoming_queue, &uart_msg, pdMS_TO_TICKS(100));
+        xQueueSend(this->incoming_queue, &uart_msg, 0);
       }
     }
 
-    vTaskDelay(pdMS_TO_TICKS(100));
-
     UartMessage msg{};
-    if (xQueueReceive(this->outgoing_queue, &msg, pdMS_TO_TICKS(5000))) {
+    if (xQueueReceive(this->outgoing_queue, &msg, 0)) {
       SizedFrameBuffer buffer = this->uart.prepare_bytes(msg);
       this->uart.write_bytes(buffer);
     }
+
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 }

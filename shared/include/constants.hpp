@@ -21,5 +21,28 @@ struct WateringSchedule {
 };
 
 } // namespace Time
-  //
-using NodeKey_t = uint16_t;
+
+enum class Weekdays {
+  SUNDAY,
+  MONDAY,
+  TUESDAY,
+  WEDNESDAY,
+  THURSDAY,
+  FRIDAY,
+  SATURDAY,
+};
+inline constexpr int days_in_week = 7;
+
+enum class NodeStatus {
+  INITIALIZING,
+  READY,
+  IN_QUEUE,
+  COMMAND_SENT,
+  WATERING,
+  ERR,
+  INVALID_TIME,
+  NODE_NONEXISTANT // This value is used for nodes that do not exist yet (not
+                   // connected)
+};
+
+using NodeKey_t = uint32_t;

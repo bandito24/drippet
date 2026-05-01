@@ -33,9 +33,11 @@ private:
   iValve &mainValve;
   iClock &clock;
   Storage &storage;
+  Time::Long time_pool = config::MAX_WATERING_SECONDS;
   std::array<NodeTypes::Node, config::max_nodes> node_link{};
   std::size_t node_count = 0;
   std::optional<config::Address> get_node_by_key(NodeKey_t key);
+  std::optional<size_t> active_watering_index = std::nullopt;
 
   void initialize_watering_states();
 
@@ -44,7 +46,7 @@ private:
       HeadStatus::STANDBY; // only is changed by initialize_watering_procedure
                            // ane generate_next_watering_command
                            //
-  UartMessage ack_node_watering_confirmation(config::Address addr);
+  void ack_node_watering_confirmation(config::Address addr);
   iNode *get_node(std::size_t node_index);
 
 public:
@@ -61,7 +63,11 @@ public:
   all_node_status_t get_node_statuses();
   void set_node_status(size_t index, NodeStatus status);
   ActionStatus set_node_durations(size_t index,
-                                  NodeTypes::HoseDurations &durations);
+                                  const NodeTypes::HoseDurations &durations);
+
+  ActionStatus
+  set_weekly_waterings(size_t index,
+                       const NodeTypes::WateringSchedule &schedule);
   NodeStatus get_node_status(size_t addr) {
     if (this->get_node(addr)) {
       return this->get_node(addr)->get_node_status();
@@ -69,6 +75,7 @@ public:
       return NodeStatus::NODE_NONEXISTANT;
     }
   }
+  void advance_active_watering_index();
   bool node_exists(size_t addr) { return this->get_node(addr) != nullptr; }
 
   std::optional<NodeTypes::HoseDurations> get_node_hose_durations(size_t index);
@@ -78,8 +85,14 @@ public:
   UartMessage create_addressing_frame(uint16_t key, config::Address address);
   UartMessage create_watering_frame(config::Address address);
 
+  UartMessage create_status_frame(config::Address address) const;
+
+  int calculate_new_time_pool(size_t index,
+                              const NodeTypes::HoseDurations &new_durations);
+  bool is_node_watering_today(size_t addr, Weekdays todays_day);
+
   UartMessage terminate_endpoint(NodeKey_t key);
-  std::optional<UartMessage> handle_incoming_frame(UartMessage msg);
+  std::optional<UartMessage> handle_incoming_frame(const UartMessage &msg);
   void process_watering_schedule();
   int get_node_retry_count(size_t addr) {
     if (this->get_node(addr)) {
@@ -90,4 +103,5 @@ public:
   }
   all_durations_t retrieve_all_durations();
   void print_node_durations();
+  void handle_incoming_node_status(const UartMessage &frame);
 };

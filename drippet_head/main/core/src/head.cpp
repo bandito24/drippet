@@ -4,16 +4,24 @@
 #include "driver.hpp"
 #include "node.hpp"
 #include "protocol.hpp"
+#include "util.hpp"
 #include <assert.h>
+#include <chrono>
 #include <cstddef>
 #include <head.hpp>
 #include <memory>
+#include <numeric>
 #include <optional>
 
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
-  if (this->get_node_by_key(key)) { // Is dulicate, ignore
-    return std::nullopt;
+  std::optional<size_t> exising_addr = this->get_node_by_key(key);
+  if (exising_addr) { // Has already requested, send back addr used
+    auto node = this->get_node(*exising_addr);
+    if (node->get_node_status() == NodeStatus::INITIALIZING) {
+      return *exising_addr;
+    }
+    return std::nullopt; // Means its a duplicate request
   }
   // Next address neing max size means its full, handler must hqndle accordingly
   auto next_address = this->get_available_address();
@@ -28,11 +36,22 @@ std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 }
 std::optional<config::Address> Head::get_node_by_key(NodeKey_t key) {
   for (config::Address addr = 0; addr < config::max_nodes; addr++) {
-    if (this->node_link[addr] && this->node_link[addr]->get_id_key() == key) {
+    NodeTypes::Node &node = this->node_link[addr];
+    if (node && node->get_id_key() == key) {
       return addr;
     }
   }
   return std::nullopt;
+}
+
+bool Head::is_node_watering_today(size_t addr, Weekdays todays_day) {
+  auto node = this->get_node(addr);
+  if (!node) {
+    return false;
+  }
+  size_t day_index = static_cast<size_t>(todays_day);
+  NodeTypes::WateringSchedule schedule = node->get_weekly_waterings();
+  return schedule[day_index];
 }
 
 NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
@@ -70,12 +89,17 @@ iNode *Head::get_node(std::size_t index) {
 std::size_t Head::get_node_count() const { return node_count; }
 
 UartMessage Head::create_watering_frame(config::Address address) {
+  assert(this->get_node(address) != nullptr);
   NodeTypes::Node &node = this->node_link[address];
 
   return {.address = address,
           .command = Protocol::Command::INIT_WATER_DURATIONS,
           .data = node->get_all_hose_durations(),
           .data_length = config::node_hose_count};
+}
+
+UartMessage Head::create_status_frame(config::Address address) const {
+  return {.address = address, .command = Protocol::Command::STATUS};
 }
 
 UartMessage Head::create_addressing_frame(uint16_t key,
@@ -97,59 +121,77 @@ std::optional<UartMessage> Head::next_watering_frame() {
   if (this->head_status != HeadStatus::WATERING_CMDS) {
     return std::nullopt;
   }
+  if (!this->active_watering_index ||
+      !this->get_node(*this->active_watering_index)) {
+    this->head_status = HeadStatus::STANDBY;
+    this->active_watering_index = std::nullopt;
+    return std::nullopt;
+  }
+  auto node = this->get_node(*this->active_watering_index);
+  size_t active_idx = *this->active_watering_index;
+  NodeStatus status = node->get_node_status();
 
-  for (config::Address addr = 0; addr < config::max_nodes; addr++) {
-    NodeTypes::Node &node = this->node_link[addr];
-    NodeStatus status = node->get_node_status();
-
-    if (status == NodeStatus::IN_QUEUE) {
-      node->set_node_status(NodeStatus::COMMAND_SENT);
-      return this->create_watering_frame(addr);
-    } else if (status == NodeStatus::COMMAND_SENT) {
-      uint8_t retries = node->increase_retry_count();
-      if (retries < RETRY_NODE_MAX) {
-        return this->create_watering_frame(addr);
-      } else {
-        this->head_status =
-            HeadStatus::FAULTY_NODE; // Will lock valve and require reboot
-        node->set_node_status(NodeStatus::UNRESPONSIVE);
-        this->mainValve.close_valve();
-        return std::nullopt;
+  if (status == NodeStatus::IN_QUEUE) {
+    node->set_node_status(NodeStatus::COMMAND_SENT);
+    return this->create_watering_frame(active_idx);
+  } else if (status == NodeStatus::COMMAND_SENT ||
+             status == NodeStatus::WATERING) {
+    uint8_t retries = node->increase_retry_count();
+    if (retries < RETRY_NODE_MAX) {
+      if (status == NodeStatus::COMMAND_SENT) {
+        return this->create_watering_frame(active_idx);
+      } else if (status == NodeStatus::WATERING) {
+        return this->create_status_frame(active_idx);
       }
+    } else {
+      this->head_status =
+          HeadStatus::FAULTY_NODE; // Will lock valve and require reboot
+      node->set_node_status(NodeStatus::ERR);
+      this->mainValve.close_valve();
+      return std::nullopt;
     }
   }
-  this->head_status = HeadStatus::STANDBY; // No Faulty Nodes and No Nodes to
+
+  this->head_status = HeadStatus::STANDBY;
   return std::nullopt;
 }
-UartMessage Head::ack_node_watering_confirmation(config::Address addr) {
+void Head::ack_node_watering_confirmation(config::Address addr) {
   iNode *node = this->get_node(addr);
   assert(node != nullptr && addr < config::max_nodes);
-  node->set_node_status(NodeStatus::READY);
+  node->set_node_status(NodeStatus::WATERING);
   node->clear_retry_count();
-  return {.address = addr, .command = Protocol::Command::ACK, .data_length = 0};
 }
 
 void Head::initialize_watering_states() {
-  for (NodeTypes::Node &node : this->node_link) {
+  for (size_t i = 0; i < this->node_link.size(); i++) {
+    auto node = this->get_node(i);
     if (!node) {
       continue;
     }
     NodeStatus status = node->get_node_status();
-    if (status == NodeStatus::UNRESPONSIVE) {
+    if (status == NodeStatus::ERR) {
       this->head_status = HeadStatus::FAULTY_NODE;
       return;
     }
+    Weekdays curr_day = this->clock.get_day_of_week();
 
-    if (!node->all_durations_zero() && status == NodeStatus::READY) {
+    if (!node->all_durations_zero() && status == NodeStatus::READY &&
+        this->is_node_watering_today(i, curr_day)) {
       node->set_node_status(NodeStatus::IN_QUEUE);
+      if (!this->active_watering_index) {
+        this->active_watering_index = i;
+      }
     }
   }
   this->head_status = HeadStatus::WATERING_CMDS;
 }
 
 using CMD = Protocol::Command;
-// tested
-std::optional<UartMessage> Head::handle_incoming_frame(UartMessage frame) {
+
+// This method is in charge of updating node state in response to messages
+//  Next_waterin_frame is in change of reacting to the updated node state
+std::optional<UartMessage>
+Head::handle_incoming_frame(const UartMessage &frame) {
 
   if (frame.command == CMD::DISCOVERY) {
     // Newly connected Node broadcasts DISCOVERY with key. Head Node
@@ -159,7 +201,7 @@ std::optional<UartMessage> Head::handle_incoming_frame(UartMessage frame) {
     NodeKey_t key = frame.data[0];
     std::optional<config::Address> address = this->create_node_pending(key);
     if (address) {
-      if (address == config::max_nodes) { // Means system has max nodes
+      if (address >= config::max_nodes) { // Means system has max nodes
         return this->terminate_endpoint(key);
       } else {
         return this->create_addressing_frame(key, *address);
@@ -182,19 +224,58 @@ std::optional<UartMessage> Head::handle_incoming_frame(UartMessage frame) {
     // If unsuccessful do nothing and node will reattempt the broadcast
     // after short period
   } else if (frame.command ==
-             CMD::ACK) { // Only received after sending a watering command. Will
-                         // send a final ack of ack
+             CMD::ACK) { // Only received after sending a watering command.
+                         // Nothing to do after.
+    this->ack_node_watering_confirmation(frame.address);
 
-    if (!this->get_node(frame.address)) {
-      return std::nullopt;
-    }
-    return this->ack_node_watering_confirmation(frame.address);
+  } else if (frame.command == CMD::STATUS) {
+    this->handle_incoming_node_status(frame);
+  }
 
-  } else {
+  else {
     printf("unknown command of %d", static_cast<int>(frame.command));
   }
   return std::nullopt;
 }
+
+void Head::handle_incoming_node_status(const UartMessage &frame) {
+
+  // Node will only send values , READY (completed, watering, or err)
+  // We only react to two of them
+  assert(frame.data[0] < static_cast<int>(NodeStatus::NODE_NONEXISTANT));
+  NodeStatus status = static_cast<NodeStatus>(frame.data[0]);
+  this->set_node_status(frame.address, status);
+  switch (status) {
+  case NodeStatus::READY: // Sends ready only after completing the watering
+    this->advance_active_watering_index();
+    break;
+  case NodeStatus::ERR:
+    this->head_status = HeadStatus::FAULTY_NODE;
+    break;
+  default:
+    Logger::log_error("Invalid incoming node status value of %d",
+                      frame.data[0]);
+    break;
+  }
+}
+
+void Head::advance_active_watering_index() {
+  size_t starting_point;
+  if (!this->active_watering_index) {
+    starting_point = 0;
+  } else {
+    starting_point = *this->active_watering_index;
+  }
+  for (size_t i = starting_point; i < this->node_link.size(); i++) {
+    auto status = this->get_node_status(i);
+    if (status == NodeStatus::IN_QUEUE) {
+      this->active_watering_index = i;
+      return;
+    }
+  }
+  this->active_watering_index = std::nullopt;
+}
+
 void Head::process_watering_schedule() {
 
   if (this->is_watering_due()) {
@@ -225,20 +306,67 @@ void Head::set_node_status(size_t index, NodeStatus status) {
     node->set_node_status(status);
   }
 }
-ActionStatus Head::set_node_durations(size_t index,
-                                      NodeTypes::HoseDurations &durations) {
+ActionStatus
+Head::set_node_durations(size_t index,
+                         const NodeTypes::HoseDurations &durations) {
   auto node = this->get_node(index);
-  if (node) {
-    ActionStatus rc = node->set_node_durations(durations);
-    if (rc == ActionStatus::OK) {
-      this->storage.save_durations(index, durations);
-    }
-    return rc;
-
-  } else {
+  if (!node) {
     return ActionStatus::INVALID_NODE;
   }
+  int new_time_pool = this->calculate_new_time_pool(index, durations);
+  if (new_time_pool < 0) {
+    NodeTypes::HoseDurations empty{};
+    if (durations != empty) { // Don't remove the infinite loop protection
+      this->set_node_durations(index, empty);
+    }
+    node->set_node_status(NodeStatus::INVALID_TIME);
+    return ActionStatus::INVALID_TIME;
+  }
+  ActionStatus rc = node->set_node_durations(durations);
+  if (rc == ActionStatus::OK) {
+    this->time_pool = new_time_pool;
+    this->storage.save_durations(index, durations,
+                                 node->get_weekly_waterings());
+  }
+  return rc;
 }
+
+ActionStatus
+Head::set_weekly_waterings(size_t index,
+                           const NodeTypes::WateringSchedule &schedule) {
+
+  auto node = this->get_node(index);
+  if (!node) {
+    return ActionStatus::INVALID_NODE;
+  }
+
+  node->set_weekly_waterings(schedule);
+
+  this->storage.save_durations(index, node->get_all_hose_durations(),
+                               node->get_weekly_waterings());
+  return ActionStatus::OK;
+}
+
+int Head::calculate_new_time_pool(
+    size_t index, const NodeTypes::HoseDurations &new_durations) {
+  int duration_pool = config::MAX_WATERING_SECONDS;
+  for (size_t addr = 0; addr < config::max_nodes; addr++) {
+    int sum = 0;
+    if (addr == index) {
+      sum = std::accumulate(new_durations.begin(), new_durations.end(), 0);
+    } else {
+      iNode *node = this->get_node(addr);
+      if (node) {
+        const NodeTypes::HoseDurations &durations =
+            node->get_all_hose_durations();
+        sum = std::accumulate(durations.begin(), durations.end(), 0);
+      }
+    }
+    duration_pool -= sum;
+  }
+  return duration_pool;
+}
+
 std::optional<NodeTypes::HoseDurations>
 Head::get_node_hose_durations(size_t addr) {
 

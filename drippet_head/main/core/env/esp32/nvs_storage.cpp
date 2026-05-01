@@ -5,6 +5,7 @@
 #include "head.hpp"
 #include "node.hpp"
 #include "nvs_flash.h"
+#include "util.hpp"
 #include <cstring>
 
 Esp_Err_t NvsStorage::init() {
@@ -12,6 +13,7 @@ Esp_Err_t NvsStorage::init() {
   Esp_Err_t err{};
 
   err = nvs_flash_init();
+
   if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NO_MEM) {
     nvs_flash_erase();
     err = nvs_flash_init();
@@ -30,7 +32,7 @@ Esp_Err_t NvsStorage::init() {
 }
 Esp_Err_t NvsStorage::load_durations() {
   Esp_Err_t rc;
-  rc = handle->get_blob(this->handle_name, this->boot_persisted_durations,
+  rc = handle->get_blob(this->handle_name, &this->boot_persisted_durations,
                         sizeof(this->boot_persisted_durations));
 
   if (rc == ESP_ERR_NVS_NOT_FOUND) {
@@ -43,27 +45,31 @@ Esp_Err_t NvsStorage::load_durations() {
   }
   return rc;
 }
-NodeTypes::HoseDurations NvsStorage::read_boot_durations(size_t addr) const {
+NodeTypes::DurationSchedule NvsStorage::read_boot_durations(size_t addr) const {
   if (!this->initialized) {
     Logger::log_error("Storage not properly initalized");
+    return {};
   }
-  NodeTypes::HoseDurations durations{};
-  memcpy(durations.data(), this->boot_persisted_durations[addr],
-         sizeof(this->boot_persisted_durations[addr]));
-  return durations;
+  NodeTypes::DurationSchedule durations_sch{
+      this->boot_persisted_durations[addr]};
+
+  return durations_sch;
 }
-Esp_Err_t NvsStorage::save_durations(size_t addr,
-                                     NodeTypes::HoseDurations &durations) {
+Esp_Err_t
+NvsStorage::save_durations(size_t addr,
+                           const NodeTypes::HoseDurations &durations,
+                           const NodeTypes::WateringSchedule &schedule) {
   Esp_Err_t rc{};
   if (!this->initialized) {
     Logger::log_error("Storage not properly initalized");
   }
 
   assert(addr < config::max_nodes);
-  memcpy(this->boot_persisted_durations[addr], durations.data(),
-         sizeof(this->boot_persisted_durations[addr]));
 
-  rc = handle->set_blob(this->handle_name, this->boot_persisted_durations,
+  this->boot_persisted_durations[addr] = {.durations = durations,
+                                          .schedule = schedule};
+
+  rc = handle->set_blob(this->handle_name, &this->boot_persisted_durations,
                         sizeof(this->boot_persisted_durations));
 
   if (rc != ESP_OK) {
@@ -80,10 +86,20 @@ Esp_Err_t NvsStorage::save_durations(size_t addr,
 }
 void NvsStorage::print_boot_persisted_durations() const {
   for (size_t node = 0; node < config::max_nodes; ++node) {
-    printf("Node %2u | ", (unsigned)node);
+    printf("Durations for Node %2u | ", (unsigned)node);
 
     for (size_t hose = 0; hose < config::node_hose_count; ++hose) {
-      printf("%5u ", (unsigned)this->boot_persisted_durations[node][hose]);
+      printf("%5u ",
+             (unsigned)this->boot_persisted_durations[node].durations[hose]);
+    }
+
+    printf("\n");
+
+    printf("Schedule for Node %2u | ", (unsigned)node);
+
+    for (size_t hose = 0; hose < days_in_week; ++hose) {
+      printf("%5u ",
+             (unsigned)this->boot_persisted_durations[node].schedule[hose]);
     }
 
     printf("\n");

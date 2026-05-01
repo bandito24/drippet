@@ -10,11 +10,12 @@ constexpr std::size_t node_hose_count = 5;
 using Address = uint8_t;
 constexpr uint8_t invalid_address = 0xFF;
 
-constexpr uint16_t MAX_HOSE_DURATION =
+constexpr uint32_t MAX_WATERING_SECONDS =
     std::chrono::duration_cast<std::chrono::seconds>(std::chrono::days{1})
-            .count() /
-        (config::max_nodes - 1) -
-    300;
+        .count() -
+    (5 * 60); //% minute buffer for communication retries
+constexpr uint16_t MAX_HOSE_DURATION =
+    MAX_WATERING_SECONDS / (config::max_nodes - 1) - 300;
 // 86400 seconds in a day
 // Each hose can at most have an equal fraction of a whole day, 5 min buffer
 // (16980 seconds for five hoses, 283 mins, 4.71 hours)

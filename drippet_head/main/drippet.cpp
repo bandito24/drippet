@@ -5,6 +5,7 @@
 #include "node.hpp"
 #include "nvs_storage.hpp"
 #include "queue.hpp"
+#include "self_node.hpp"
 #include "tasks/bluetooth_task.hpp"
 #include "tasks/head_task.hpp"
 #include "uart_task.hpp"
@@ -19,6 +20,7 @@ extern "C" void app_main(void) {
 
   UartDriver driver{};
   ESP_ERROR_CHECK(driver.init());
+
   NvsStorage storage;
   storage.init();
   UartProtocol uart{driver};
@@ -26,6 +28,9 @@ extern "C" void app_main(void) {
   Esp32Clock clock{sys_clock};
   MainValve main_valve{};
   clock.set_time(2026, 1, 1, 0, 0);
+
+  SteadyEspClock steadyClock{};
+  SelfNode selfNode{driver, steadyClock};
 
   //// For Queueing Incoming Messages From Peripherals and Sending Head Queued
   //// Messages
@@ -88,4 +93,6 @@ inline void populate_head_nodes(Head &head,
     // auto new_durations = get_new_hose_durations(addr);
     // head.set_node_durations(addr, new_durations);
   }
+
+  // head.set_weekly_waterings(1, {false, false, false, true, true});
 }

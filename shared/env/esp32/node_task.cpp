@@ -1,5 +1,6 @@
 
 #include "node_task.hpp"
+#include "constants.hpp"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 
@@ -26,6 +27,6 @@ void NodeTask::run() {
       this->self_node.process_watering_schedule();
     }
 
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(200));
   }
 }

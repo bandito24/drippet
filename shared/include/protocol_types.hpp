@@ -13,6 +13,7 @@ enum class Command : uint8_t {
   BROADCAST,
   INIT_WATER_DURATIONS,
   ACK,
+  STATUS,
   BUGGER_OFF
 };
 

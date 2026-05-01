@@ -1,21 +1,18 @@
-#include "clock.hpp"
 #include "config.hpp"
 #include "constants.hpp"
 #include "driver.hpp"
 #include "protocol.hpp"
+#include "steady_clock.hpp"
 #include <array>
 #include <cstdint>
 #include <optional>
 
-enum class NodeStatus { INITIALIZING, READY, WATERING, ERR };
 enum class RC { OK, ERR };
 
 // seed with uint32_t xTaskGetTickCount()
 class SelfNode {
 public:
-  SelfNode(Driver &driver, Clock &clk, uint32_t randomKeySeed)
-      : uart{driver}, clock{clk} {
-    this->self_key = static_cast<uint16_t>(randomKeySeed);
+  SelfNode(Driver &driver, Clock &clk) : uart{driver}, clock{clk} {
     this->update_last_evt_time();
   };
   Esp_Err_t init();
@@ -28,7 +25,7 @@ private:
   Driver &uart;
   Clock &clock;
   config::Address self_addr = ADDR_UNSET;
-  NodeKey_t self_key;
+  NodeKey_t self_key = 0;
   std::array<Time::Long, config::node_hose_count> hose_durations{};
   size_t active_hose_index =
       config::node_hose_count; // means that its not on any hose (closed)
@@ -42,5 +39,9 @@ private:
   void conclude_watering();
   NodeStatus status = NodeStatus::INITIALIZING;
   void complete_initialization();
+  std::optional<UartMessage> handle_unsynced_message(UartMessage &msg);
+  // Just little endian key for convenient with uart mesages
+  std::array<uint16_t, 2> serial_key{};
+
   bool deactivate = false;
 };

@@ -12,6 +12,7 @@ struct iClock {
 
   virtual bool is_watering_due() const = 0;
   virtual void progress_watering_due() = 0;
+  virtual Weekdays get_day_of_week() const = 0;
 };
 std::unique_ptr<iClock> initialize_clock();
 
@@ -39,6 +40,11 @@ public:
   std::optional<Time::Time_Point> get_next_watering_point() {
     return this->next_watering_point;
   }
+
+  Weekdays get_day_of_week() const override {
+    // TODO: implement this
+    return Weekdays::MONDAY;
+  };
   bool is_watering_due() const override;
   void progress_watering_due() override;
 
