@@ -1,8 +1,8 @@
 #include "constants.hpp"
 
-struct Clock {
+struct SteadyClock {
   virtual Time::Long now() const = 0;
 };
-struct SteadyEspClock : public Clock {
+struct SteadyEspClock : public SteadyClock {
   Time::Long now() const override;
 };

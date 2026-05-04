@@ -1,12 +1,13 @@
 #include "clock.hpp"
 #include "config.hpp"
+#include "conn_context.hpp"
 #include "constants.hpp"
 #include "driver.hpp"
 #include "node.hpp"
 #include "protocol.hpp"
 #include "util.hpp"
 #include <assert.h>
-#include <chrono>
+#include <config.hpp>
 #include <cstddef>
 #include <head.hpp>
 #include <memory>
@@ -111,9 +112,10 @@ UartMessage Head::create_addressing_frame(uint16_t key,
           .data_length = 1};
 }
 UartMessage Head::terminate_endpoint(NodeKey_t key) {
+  auto ser_key = Util::serialize_key(key);
   return {.address = ADDR_UNSET,
           .command = Protocol::Command::BUGGER_OFF,
-          .data = Protocol::FrameDataArray{key},
+          .data = Protocol::FrameDataArray{ser_key[0], ser_key[1]},
           .data_length = 1};
 }
 

@@ -1,3 +1,4 @@
+#
 include(FetchContent)
 
 FetchContent_Declare(
@@ -20,25 +21,25 @@ add_executable(tests ${TEST_FILES})
 
 target_link_libraries(tests
     PRIVATE
-    SRC
+    HEAD_SRC
+    NODE_SRC
+    SHARED_DPT
     Catch2::Catch2WithMain
 )
 
 target_include_directories(tests PRIVATE
     ${fakeit_SOURCE_DIR}/single_header/catch
-    ${PROJECT_SOURCE_DIR}/include
 )
 
-target_compile_definitions(tests PRIVATE
-    PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
-)
 
 # Coverage instrumentation
 if(COVERAGE)
-  target_compile_options(SRC PRIVATE
-        -fprofile-instr-generate
-        -fcoverage-mapping
+  foreach(target HEAD_SRC NODE_SRC SHARED_DPT tests)
+    target_compile_options(${target} PRIVATE
+      -fprofile-instr-generate
+      -fcoverage-mapping
     )
+  endforeach()
 
   target_compile_options(tests PRIVATE
         -fprofile-instr-generate

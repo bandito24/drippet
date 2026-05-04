@@ -1,7 +1,10 @@
 #pragma once
 
+#include "self_node.hpp"
+
 #include "clock.hpp"
 #include "head.hpp"
+#include "node.hpp"
 #include <chrono>
 #include <fakeit.hpp>
 
@@ -13,7 +16,21 @@ struct HeadFixture {
   fakeit::Mock<Storage> storageMock;
   Head head;
 
-  HeadFixture() : head{valveMock.get(), clockMock.get(), storageMock.get()} {};
+  HeadFixture() : head{valveMock.get(), clockMock.get(), storageMock.get()} {
+
+    When(Method(storageMock, save_durations)).AlwaysReturn();
+
+    When(Method(storageMock, read_boot_durations))
+        .AlwaysReturn(NodeTypes::DurationSchedule{});
+  };
+};
+struct SelfNodeFixture {
+  fakeit::Mock<SteadyClock> steady_clock;
+  SelfNode self_node;
+  SelfNodeFixture() : self_node{steady_clock.get()} {
+
+    When(Method(this->steady_clock, now)).AlwaysReturn(500);
+  };
 };
 struct ClockFixture {
   fakeit::Mock<iSysClock> sysMock;

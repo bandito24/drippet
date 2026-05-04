@@ -58,9 +58,9 @@ struct iNode {
   virtual void clear_retry_count() = 0;
   virtual uint8_t get_retry_count() = 0;
   virtual void print_hose_durations(size_t self_addr) = 0;
-  virtual std::array<bool, days_in_week> &get_weekly_waterings();
+  virtual std::array<bool, days_in_week> &get_weekly_waterings() = 0;
   virtual void
-  set_weekly_waterings(const NodeTypes::WateringSchedule &new_water);
+  set_weekly_waterings(const NodeTypes::WateringSchedule &new_water) = 0;
 };
 
 class Node : public iNode {

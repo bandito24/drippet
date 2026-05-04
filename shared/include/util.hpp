@@ -1,4 +1,4 @@
-
+#pragma once
 #include "constants.hpp"
 #include <cassert>
 #include <cstdint>
@@ -35,7 +35,7 @@ inline uint16_t get_le16(const void *buf) {
 inline std::array<uint16_t, 2> serialize_key(NodeKey_t key) {
   std::array<uint16_t, 2> res{};
   res[0] = static_cast<uint16_t>(key);
-  res[1] = static_cast<uint16_t>(key);
+  res[1] = static_cast<uint16_t>(key >> 16);
   return res;
 }
 inline NodeKey_t deserialize_key(std::span<uint16_t> input) {

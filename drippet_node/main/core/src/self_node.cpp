@@ -28,8 +28,7 @@ std::optional<UartMessage> SelfNode::handle_incoming_frame(UartMessage &msg) {
     this->complete_initialization();
     break;
   case CMD::INIT_WATER_DURATIONS:
-    this->initialize_watering(msg.data);
-    return UartMessage{.address = self_addr, .command = CMD::ACK};
+    return this->initialize_watering(msg.data);
   case CMD::STATUS:
     return UartMessage{.address = self_addr,
                        .command = CMD::STATUS,
@@ -70,12 +69,10 @@ std::optional<UartMessage> SelfNode::handle_unsynced_message(UartMessage &msg) {
   return std::nullopt;
 }
 
-void SelfNode::initialize_watering(Protocol::FrameDataArray &durations) {
-  for (auto &duration : durations) {
-    // Head will be validating this, just a final failsafe
-    if (duration > config::MAX_HOSE_DURATION) {
-      duration = config::MAX_HOSE_DURATION;
-    }
+std::optional<UartMessage>
+SelfNode::initialize_watering(Protocol::FrameDataArray &durations) {
+  if (this->get_status() == NodeStatus::INITIALIZING) {
+    return std::nullopt;
   }
   Time::Long time_point = this->clock.now();
   std::array<Time::Long, config::node_hose_count> intervals{};
@@ -86,6 +83,8 @@ void SelfNode::initialize_watering(Protocol::FrameDataArray &durations) {
   this->status = NodeStatus::WATERING;
   this->hose_durations = intervals;
   this->change_active_hose(0);
+
+  return UartMessage{.address = self_addr, .command = CMD::ACK};
 }
 void SelfNode::process_watering_schedule() {
 

@@ -1,6 +1,7 @@
 #include "driver.hpp"
 #include "gatt_attribute.hpp"
 #include "head.hpp"
+#include "util.hpp"
 #include <assert.h>
 
 #include "config.hpp"
@@ -19,16 +20,19 @@ inline NodeTypes::HoseDurations get_new_hose_durations(int increaser) {
 }
 inline UartMessage incoming_adressing_frame(config::Address addr,
                                             NodeKey_t key = sample_key) {
+  auto key_arr = Util::serialize_key(key);
   return {.address = addr,
           .command = Protocol::Command::ADDRESSING,
-          .data = Protocol::FrameDataArray{key},
+          .data = Protocol::FrameDataArray{key_arr[0], key_arr[1]},
           .data_length = 1};
 }
 
 inline UartMessage incoming_discovery_frame(NodeKey_t key = sample_key) {
+
+  auto key_arr = Util::serialize_key(key);
   return {.address = config::max_nodes,
           .command = Protocol::Command::DISCOVERY,
-          .data = Protocol::FrameDataArray{key},
+          .data = Protocol::FrameDataArray{key_arr[0], key_arr[1]},
           .data_length = 1};
 }
 inline UartMessage incoming_ack_frame(config::Address addr) {

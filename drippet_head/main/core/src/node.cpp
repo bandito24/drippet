@@ -42,13 +42,9 @@ Node::set_node_durations(const NodeTypes::DurationSchedule &dur_sch) {
     return rc;
   }
 
-  Logger::log_simple("THID IS THING");
-  Util::print_schedule(dur_sch.schedule);
   this->weekly_waterings = dur_sch.schedule;
   this->node_hose_durations = dur_sch.durations;
 
-  Logger::log_simple("THID IS THING 2");
-  Util::print_schedule(this->weekly_waterings);
   return ActionStatus::OK;
 };
 

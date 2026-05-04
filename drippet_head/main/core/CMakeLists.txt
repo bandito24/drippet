@@ -1,16 +1,12 @@
 
-cmake_minimum_required(VERSION 3.16)
-# Enable coverage flags in Debug mode or when a COVERAGE option is enabled
-option(COVERAGE "Enable coverage reporting" ON)
+file(GLOB source_files CONFIGURE_DEPENDS src/*.cpp)
+add_library(HEAD_SRC ${source_files})
 
-#
+target_link_libraries(HEAD_SRC PUBLIC SHARED_DPT)
+target_include_directories(HEAD_SRC PUBLIC
+${CMAKE_CURRENT_SOURCE_DIR}/include
+${PROJECT_SOURCE_DIR}/shared/include
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-project(waterfall)
-set (CMAKE_CXX_STANDARD 20)
-
-
-add_subdirectory(src)
-add_subdirectory(tests)
-
+)
+####*###
 

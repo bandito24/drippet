@@ -19,4 +19,12 @@ TEST_CASE("utils test", "[utils]") {
     Util::le8_to_le16(arr16_2, arr8);
     REQUIRE(arr16_2 == arr16);
   }
+
+  SECTION("serialize key and deserialize key works") {
+    NodeKey_t key = 20;
+    auto val = Util::serialize_key(key);
+    REQUIRE(val[1] == 0); // Asserts little endian
+    NodeKey_t key2 = Util::deserialize_key(val);
+    REQUIRE(key == key2);
+  }
 }
