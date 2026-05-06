@@ -1,5 +1,6 @@
 #pragma once
 
+#include "constants.hpp"
 #include "self_node.hpp"
 
 #include "clock.hpp"
@@ -27,9 +28,14 @@ struct HeadFixture {
 struct SelfNodeFixture {
   fakeit::Mock<SteadyClock> steady_clock;
   SelfNode self_node;
-  SelfNodeFixture() : self_node{steady_clock.get()} {
 
-    When(Method(this->steady_clock, now)).AlwaysReturn(500);
+  void set_mock_now(Time::Long return_time) {
+    // Custom
+    When(Method(this->steady_clock, now)).AlwaysReturn(return_time);
+  }
+  SelfNodeFixture() : self_node{steady_clock.get()} {
+    // Default
+    set_mock_now(500);
   };
 };
 struct ClockFixture {

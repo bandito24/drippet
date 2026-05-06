@@ -93,17 +93,20 @@ void SelfNode::process_watering_schedule() {
   }
   size_t curr_hose = this->active_hose_index;
   Time::Long time_point = this->clock.now();
-  if (time_point > this->hose_durations[curr_hose]) {
-    size_t next_index = curr_hose + 1;
-    if (next_index < config::node_hose_count) {
-      this->change_active_hose(next_index);
+  if (time_point >= this->hose_durations[curr_hose]) {
+    while (curr_hose < config::node_hose_count &&
+           time_point >= this->hose_durations[curr_hose]) {
+      curr_hose += 1;
+    }
+    if (curr_hose < config::node_hose_count) {
+      this->change_active_hose(curr_hose);
     } else {
       this->conclude_watering();
     }
   }
 }
 void SelfNode::conclude_watering() {
-  this->active_hose_index = config::node_hose_count;
+  this->active_hose_index = HOSE_INACTIVE_IDX;
   this->status = NodeStatus::READY;
 }
 

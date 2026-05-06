@@ -18,7 +18,23 @@ Protocol::FrameDataArray key_data{
 config::Address test_addr = 5;
 NodeTypes::HoseDurations test_durs = Mocks::get_new_hose_durations(10);
 
+UartMessage status_request = {.address = test_addr, .command = CMD::STATUS};
 config::Address wrong_addr = test_addr + 1;
+
+void mock_node_ready(SelfNode &self_node) {
+
+  UartMessage msg1{
+      .command = CMD::DISCOVERY, .data = key_data, .data_length = 2};
+  UartMessage msg2{.address = test_addr,
+                   .command = CMD::ADDRESSING,
+                   .data = key_data,
+                   .data_length = 2};
+  UartMessage msg4{.address = test_addr, .command = CMD::ACK};
+  UartMessage msgs[] = {msg1, msg2, msg4};
+  for (auto msg : msgs) {
+    self_node.handle_incoming_frame(msg);
+  }
+}
 
 TEST_CASE("self_hode all", "[self_node]") {
   SelfNodeFixture fix{};
@@ -111,6 +127,75 @@ TEST_CASE("self_hode all", "[self_node]") {
           }
         }
       }
+    }
+  }
+  SECTION("process_watering_schedule") {
+
+    Time::Long time = 300;
+    mock_node_ready(fix.self_node);
+    REQUIRE(fix.steady_clock.get().now() == 500);
+
+    SECTION("populates the list correctly") {
+
+      Time::Long time = 300;
+      fix.set_mock_now(time);
+
+      Protocol::FrameDataArray arr1 = {1, 1, 1, 1, 1};
+      UartMessage msg{.address = test_addr,
+                      .command = CMD::INIT_WATER_DURATIONS,
+                      .data = arr1};
+      OptMsg rm = fix.self_node.handle_incoming_frame(msg);
+
+      REQUIRE(rm != std::nullopt);
+      REQUIRE(rm->command == CMD::ACK);
+
+      // Responds that it is watering if requested
+      OptMsg rm2 = fix.self_node.handle_incoming_frame(status_request);
+      REQUIRE(rm2->data[0] == static_cast<uint16_t>(NodeStatus::WATERING));
+      auto durations = fix.self_node.get_hose_durations();
+      auto conf_durs = SelfHoseDurations{};
+      for (size_t i = 0; i < config::node_hose_count; i++) {
+        time += arr1[i];
+        conf_durs[i] = time;
+      }
+      REQUIRE(conf_durs == durations);
+
+      SECTION("progresses through list correctly") {
+
+        Time::Long time = 300;
+        fix.set_mock_now(time);
+        for (size_t i = 0; i < durations.size(); i++) {
+          fix.set_mock_now(++time);
+          node.process_watering_schedule();
+          REQUIRE(node.get_active_hose_index() == i + 1);
+        }
+
+        fix.set_mock_now(++time);
+        node.process_watering_schedule();
+        REQUIRE(node.get_active_hose_index() == HOSE_INACTIVE_IDX);
+        REQUIRE(node.get_status() == NodeStatus::READY);
+      }
+    }
+
+    SECTION("Will progress though an empty list immediately") {
+
+      Time::Long time = 300;
+      fix.set_mock_now(time);
+      auto empty = Protocol::FrameDataArray{};
+      UartMessage msg{.address = test_addr,
+                      .command = CMD::INIT_WATER_DURATIONS,
+                      .data = empty};
+      OptMsg rm = fix.self_node.handle_incoming_frame(msg);
+      REQUIRE(rm->command == CMD::ACK);
+
+      node.process_watering_schedule();
+      REQUIRE(node.get_active_hose_index() == HOSE_INACTIVE_IDX);
+
+      REQUIRE(node.get_status() == NodeStatus::READY);
+
+      // Responds that it is done if requested
+      OptMsg rm2 = fix.self_node.handle_incoming_frame(status_request);
+      REQUIRE(rm2->data[0] == static_cast<uint16_t>(NodeStatus::READY));
     }
   }
 }

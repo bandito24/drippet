@@ -10,6 +10,7 @@
 enum class RC { OK, ERR };
 using OptMsg = std::optional<UartMessage>;
 using SelfHoseDurations = std::array<Time::Long, config::node_hose_count>;
+constexpr size_t HOSE_INACTIVE_IDX = config::node_hose_count;
 
 // seed with uint32_t xTaskGetTickCount()
 class SelfNode {
@@ -32,8 +33,7 @@ private:
   config::Address self_addr = ADDR_UNSET;
   NodeKey_t self_key = 0;
   SelfHoseDurations hose_durations{};
-  size_t active_hose_index =
-      config::node_hose_count; // means that its not on any hose (closed)
+  size_t active_hose_index = HOSE_INACTIVE_IDX;
   void change_active_hose(size_t hose_index);
 
   std::optional<UartMessage>
