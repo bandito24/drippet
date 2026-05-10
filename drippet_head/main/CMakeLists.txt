@@ -28,7 +28,7 @@ ${NODE_TASK}
 ${CORE_SRC}
 ${TASK_SRC}
 ${BLE}
-REQUIRES bt nvs_flash esp_driver_uart
+REQUIRES bt nvs_flash esp_driver_uart esp_driver_gpio
 #
 INCLUDE_DIRS
 "core/include" "${NODE_CORE_INCLUDE}" "${ABS_PROJ_ROOT}/shared/include" "${ABS_PROJ_ROOT}/shared/env/esp32" "core/env/esp32" ${NODE_ENV}

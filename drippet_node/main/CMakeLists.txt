@@ -18,7 +18,7 @@ ${NODE_CORE_SRC}
 
 ${NODE_ENV_SRC}
 ${SHARE_SRC}
-REQUIRES esp_driver_uart
+REQUIRES esp_driver_uart esp_driver_gpio
 INCLUDE_DIRS
 "${NODE_CORE_INCLUDE}" "${ABS_PROJ_ROOT}/shared/include" "${ABS_PROJ_ROOT}/shared/env/esp32" "${NODE_ENV}"
 )

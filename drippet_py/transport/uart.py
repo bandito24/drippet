@@ -1,6 +1,5 @@
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
-import time
 from typing import Optional
 import serial
 import constants
@@ -75,9 +74,10 @@ class Uart:
     def __init__(self, uartSerial: Transport):
         self.messages: deque[Message] = deque()
         self.serial = uartSerial
-        self.key = 500
         self.crc_calc = Calculator(Crc16.MODBUS.value)
-        self.self_address: Optional[int] = None
+        #NOTE: for node
+       # self.self_address: Optional[int] = None
+       # self.key = 500
 
         self.serial.connect()
 
@@ -162,37 +162,17 @@ class Uart:
             return next_begin
         return 0
 
-    def broadcast_pairing_key(self):
-        print("Broadcasting pariring key")
-        msg = Message(HEAD_ADDR, constants.Command.DISCOVERY, [self.key])
-        self.write_data(msg)
-
-    def handle_incoming(self, msg: Message):
-        match constants.Command(msg.command):
-            case constants.Command.ADDRESSING:
-                if msg.data[0] != self.key:
-                    print(f"Addressing data key does not belong to program: {msg.data}")
-                    return
-                print(f"Received given address of {msg.address}")
-                self.self_address = msg.address
-                self.write_data(msg)
-                # Write Same Frame Back To Confirm It was Received
-            case _:
-                print(f"Unknown incoming message of {msg.command}")
 
 
-def uart_task(uart: Uart):
+
+
+
+
+
+def uart_task_wrapper(uart: Uart):
     while True:
         try:
-            uart.poll_data()
-            if uart.has_msg():
-                print("message is had")
-                message = uart.messages.popleft()
-                uart.handle_incoming(message)
-            elif not uart.self_address and uart.self_address != 0:
-                uart.broadcast_pairing_key()
-            time.sleep(5)
-
+            uart.head_uart_task()
         except ValueError as e:
             print(f"Location Operation Failed: {e}")
         except serial.SerialTimeoutException as e:
@@ -202,3 +182,29 @@ def uart_task(uart: Uart):
             print("Serial functionality failed:")
             traceback.print_exc()
             return
+def mock_head_uart_task(uart: Uart):
+    while True:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+k

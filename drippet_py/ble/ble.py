@@ -4,16 +4,14 @@ from typing import Optional
 from bleak import BleakClient
 from bleak.exc import BleakCharacteristicNotFoundError
 from enum import Enum
+import constants as const
 
 
 ESP_ADDR = "9C891099-DFFD-39B2-7509-0247C708220F"
 GATT_CHAR = "00000025-1212-efde-1523-785feabcd123"
 NODE_STAT_CHAR = "01000025-1212-efde-1523-785feabcd123"
-MAX_NODE_COUNT = 5
-HOSE_COUNT = 5
-NODE_HOSE_COUNT = 5
 WRITE_CELL_PKT_LEN = 5  # CMD, DATA_LEN, ROW, COL, DURATION
-WRITE_ROW_PKT_LEN = 3 + NODE_HOSE_COUNT  # CMD, DATA_LEN, ROW, NODE_HOSE_COUNTS
+WRITE_ROW_PKT_LEN = 3 + const.NODE_HOSE_COUNT  # CMD, DATA_LEN, ROW, NODE_HOSE_COUNTS
 LOAD_ROW_PKT_LEN = 3  # CMD, DATA_LEN, ROW
 VAL_THRESHOLD = 65535
 GATT_CHR_HANDLE = None
@@ -47,12 +45,12 @@ def prepare_write_bytes(input: str, cmd: Ble_Cmd) -> bytearray:
     argArray = input.split(" ")
     print(argArray)
     packet = [int(x) for x in argArray]
-    if int(packet[ROW_OP_IDX]) >= MAX_NODE_COUNT:
+    if int(packet[ROW_OP_IDX]) >= const.MAX_NODE_COUNT:
         raise RuntimeError("invalid row provided")
 
     match cmd:
         case Ble_Cmd.WRITE_CELL_CMD:
-            if packet[COL_OP_IDX] >= HOSE_COUNT:
+            if packet[COL_OP_IDX] >= const.NODE_HOSE_COUNT:
                 raise RuntimeError(f"Invalid column index of {packet[COL_OP_IDX]}")
             data_start = DUR_IDX_START_CELL
             needed_len = WRITE_CELL_PKT_LEN

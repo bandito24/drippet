@@ -1,8 +1,10 @@
+#pragma once
 #include "config.hpp"
 #include "constants.hpp"
 #include "driver.hpp"
 #include "protocol.hpp"
 #include "steady_clock.hpp"
+#include "switch.hpp"
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -15,10 +17,10 @@ constexpr size_t HOSE_INACTIVE_IDX = config::node_hose_count;
 // seed with uint32_t xTaskGetTickCount()
 class SelfNode {
 public:
-  SelfNode(SteadyClock &clk) : clock{clk} {};
+  SelfNode(SteadyClock &clk, SolenoidManager &solenoidManager)
+      : clock{clk}, solenoid_manager{solenoidManager} {};
   Esp_Err_t init();
   std::optional<UartMessage> handle_incoming_frame(UartMessage &msg);
-  UartMessage generate_discovery_message();
   NodeStatus get_status() const { return this->status; }
   void process_watering_schedule();
   NodeKey_t get_key() const { return this->self_key; };
@@ -30,6 +32,7 @@ public:
 
 private:
   SteadyClock &clock;
+  SolenoidManager &solenoid_manager;
   config::Address self_addr = ADDR_UNSET;
   NodeKey_t self_key = 0;
   SelfHoseDurations hose_durations{};
