@@ -10,7 +10,6 @@ constexpr uint8_t head_address = 0x00;
 enum class Command : uint8_t {
   DISCOVERY,
   ADDRESSING,
-  BROADCAST,
   INIT_WATER_DURATIONS,
   ACK,
   STATUS,

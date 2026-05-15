@@ -1,6 +1,7 @@
 
 #pragma once
 #include "freertos/idf_additions.h"
+#include "node_status_task.hpp"
 #include "self_node.hpp"
 #include "switch.hpp"
 #include "task.hpp"
@@ -23,4 +24,5 @@ private:
   QueueHandle_t outgoing_queue;
   std::unique_ptr<SolenoidManager> solenoid_manager;
   std::unique_ptr<SelfNode> self_node;
+  std::unique_ptr<NodeStatusTask> led_status_indication;
 };

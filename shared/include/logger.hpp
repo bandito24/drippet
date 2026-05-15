@@ -1,3 +1,4 @@
+#pragma once
 class Logger {
 public:
   static void log_simple(const char *fmt, ...);

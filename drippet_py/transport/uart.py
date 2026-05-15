@@ -1,11 +1,13 @@
 from abc import abstractmethod, ABC
-from dataclasses import dataclass
-from typing import Optional
+
+from dataclasses import dataclass, field
+from typing import Optional, Callable
 import serial
 import constants
 from crc import Calculator, Crc16
 from collections import deque
-import traceback
+import time
+
 
 HEAD_ADDR = 0x00
 
@@ -14,7 +16,10 @@ HEAD_ADDR = 0x00
 class Message:
     address: int
     command: constants.Command
-    data: list[int]
+    data: list[int] = field(default_factory=list)
+
+    def __str__(self):
+        return f"Address: {self.address}\nCommand: {self.command.name}\nData: {self.data}\n-------\n"
 
 
 class Transport(ABC):
@@ -75,9 +80,9 @@ class Uart:
         self.messages: deque[Message] = deque()
         self.serial = uartSerial
         self.crc_calc = Calculator(Crc16.MODBUS.value)
-        #NOTE: for node
-       # self.self_address: Optional[int] = None
-       # self.key = 500
+        # NOTE: for node
+        # self.self_address: Optional[int] = None
+        # self.key = 500
 
         self.serial.connect()
 
@@ -163,48 +168,122 @@ class Uart:
         return 0
 
 
+@dataclass
+class MockNode:
+    address: int
+    key: int
+    status: constants.NodeStatus = constants.NodeStatus.INITIALIZING
+
+    def __str__(self):
+        return (
+            f"mock node: address={self.address}, key: {self.key}, status: {self.status}"
+        )
 
 
+class HeadUart(Uart):
+    def __init__(self, uartSerial: Transport):
+        Uart.__init__(self, uartSerial)
+        self.mock_nodes: dict[int, MockNode] = {}
+        self.addr_locations: list[int] = []
+        self.mock_tick = 0
 
+    def handle_incoming_head(self, msg: Message) -> Optional[Message]:
+        match constants.Command(msg.command):
+            case constants.Command.DISCOVERY.value:
+                key = (msg.data[1] << 16) | msg.data[0]
+                if key in self.mock_nodes:
+                    node_addr = self.mock_nodes[key].address
+                else:
+                    newMock = MockNode(len(self.mock_nodes), key)
+                    node_addr = newMock.address
+                    self.mock_nodes[key] = newMock
 
+                return Message(
+                    address=node_addr,
+                    command=constants.Command.ADDRESSING,
+                    data=[key, 0],
+                )
+            case constants.Command.ADDRESSING.value:
+                # Write Same Frame Back To Confirm It was Received
+                key = (msg.data[1] << 16) | msg.data[0]
+                if key not in self.mock_nodes:
+                    raise RuntimeError(f"key of {key} was not recognized by head")
+                if msg.address != self.mock_nodes[key].address:
+                    raise RuntimeError(
+                        f"key address mismatch. Got addr {msg.address} for {self.mock_nodes[key]}"
+                    )
+                self.mock_nodes[key].status = constants.NodeStatus.READY
+                self.addr_locations.append(key)
+                return Message(
+                    address=self.mock_nodes[key].address, command=constants.Command.ACK
+                )
+            case constants.Command.STATUS.value:
+                status = constants.NodeStatus(msg.data[0])
+                print(f"Received a status of {status.name} from index {msg.address}")
+            case _:
+                print(f"Received Message: {msg}")
+                return None
 
-
-def uart_task_wrapper(uart: Uart):
-    while True:
-        try:
-            uart.head_uart_task()
-        except ValueError as e:
-            print(f"Location Operation Failed: {e}")
-        except serial.SerialTimeoutException as e:
-            print(f"Serial functionality failed: {e}")
-
-        except Exception as e:
-            print("Serial functionality failed:")
-            traceback.print_exc()
+    def prompt_input(self) -> Optional[Message]:
+        msg = None
+        command = int(
+            input(
+                "select command: 0 -> discovery, 2 -> init_water_durations, 4 -> status\n"
+            )
+        )
+        if command not in [0, 2, 4]:
+            print("invalid option")
             return
-def mock_head_uart_task(uart: Uart):
-    while True:
+        match command:
+            case constants.Command.DISCOVERY.value:
+                msg = Message(
+                    address=constants.ADDR_UNSET,
+                    command=constants.Command.DISCOVERY,
+                    data=[self.mock_tick, 0],
+                )
+            case constants.Command.INIT_WATER_DURATIONS.value:
+                durs = input("Enter all values separated by space\n").split()
 
+                durs = [int(x) for x in durs]
+                if len(durs) > constants.NODE_HOSE_COUNT:
+                    print("too many durations")
+                    return
+                # index = int(input("enter index for durations\n"))
+                index = 0
 
+                if index >= len(self.addr_locations):
+                    print("This node index does not exist")
+                    return
+                msg = Message(
+                    self.mock_nodes[self.addr_locations[index]].address,
+                    constants.Command.INIT_WATER_DURATIONS,
+                    durs,
+                )
 
+            case constants.Command.STATUS.value:
+                # index = int(input("enter index for status\n"))
+                index = 0
 
+                if index >= len(self.addr_locations):
+                    print("This node index does not exist")
+                    return
+                msg = Message(
+                    self.mock_nodes[self.addr_locations[index]].address,
+                    constants.Command.STATUS,
+                )
+        return msg
 
+    def uart_task(self):
+        self.mock_tick += 1
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-k
+        time.sleep(0.3)
+        self.poll_data()
+        if self.has_msg():
+            message = self.messages.popleft()
+            print(f"incoming message: {message}")
+            msg = self.handle_incoming_head(message)
+        else:
+            msg = self.prompt_input()
+        if msg:
+            print(f"Outgoing message: {msg}")
+            self.write_data(msg)

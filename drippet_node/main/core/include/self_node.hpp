@@ -21,7 +21,7 @@ public:
       : clock{clk}, solenoid_manager{solenoidManager} {};
   Esp_Err_t init();
   std::optional<UartMessage> handle_incoming_frame(UartMessage &msg);
-  NodeStatus get_status() const { return this->status; }
+  const NodeStatus &get_status() const { return this->status; }
   void process_watering_schedule();
   NodeKey_t get_key() const { return this->self_key; };
   size_t get_active_hose_index() const { return this->active_hose_index; }

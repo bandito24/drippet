@@ -1,0 +1,24 @@
+#include "logger.hpp"
+
+#include "constants.hpp"
+#include "node_status_task.hpp"
+#include "protocol_types.hpp"
+
+void NodeStatusTask::run() {
+  this->led_indication.init();
+  for (;;) {
+
+    switch (this->self_node_status) {
+    case NodeStatus::INITIALIZING:
+      this->led_indication.toggle();
+      break;
+    case NodeStatus::ERR:
+      this->led_indication.disable();
+      break;
+    default:
+      this->led_indication.enable();
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+}
