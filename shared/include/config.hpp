@@ -26,3 +26,5 @@ using HoseDurations = std::array<Time::Time_Seconds, config::node_hose_count>;
 } // namespace config
   //
   //
+
+constexpr size_t HOSE_INACTIVE_IDX = config::node_hose_count;

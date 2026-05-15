@@ -1,6 +1,7 @@
 #pragma once
 #include "config.hpp"
 #include "constants.hpp"
+#include <cassert>
 #include <memory>
 struct Switch {
   virtual Esp_Err_t enable() = 0;
@@ -36,6 +37,14 @@ public:
       valve->disable();
     }
     return rc;
+  }
+  size_t active_index() {
+    for (size_t i = 0; i < this->solenoids.size(); i++) {
+      if (this->solenoids.at(i)->is_enabled()) {
+        return i;
+      }
+    }
+    return HOSE_INACTIVE_IDX;
   }
   SolenoidManager(SolenoidGrouping valves) : solenoids{std::move(valves)} {};
   ~SolenoidManager() { this->deactivate_solenoids(); }

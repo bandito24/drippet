@@ -1,11 +1,15 @@
 #pragma once
 
+#include "mocks.hpp"
+#include <memory>
+
 #include "constants.hpp"
 #include "self_node.hpp"
 
 #include "clock.hpp"
 #include "head.hpp"
 #include "node.hpp"
+#include "switch.hpp"
 #include <chrono>
 #include <fakeit.hpp>
 
@@ -27,15 +31,26 @@ struct HeadFixture {
 };
 struct SelfNodeFixture {
   fakeit::Mock<SteadyClock> steady_clock;
-  SelfNode self_node;
+  std::unique_ptr<SelfNode> self_node;
+  std::unique_ptr<SolenoidManager> sol_manager;
 
   void set_mock_now(Time::Long return_time) {
     // Custom
     When(Method(this->steady_clock, now)).AlwaysReturn(return_time);
   }
-  SelfNodeFixture() : self_node{steady_clock.get()} {
+  SelfNodeFixture() {
+
+    SolenoidGrouping solenoids = {};
+    for (size_t i = 0; i < config::node_hose_count; i++) {
+
+      auto ptr = std::make_unique<SolenoidMock>();
+      solenoids.at(i) = std::move(ptr);
+    }
     // Default
     set_mock_now(500);
+    this->sol_manager = std::make_unique<SolenoidManager>(std::move(solenoids));
+    this->self_node =
+        std::make_unique<SelfNode>(steady_clock.get(), *this->sol_manager);
   };
 };
 struct ClockFixture {

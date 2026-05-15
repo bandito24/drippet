@@ -12,7 +12,6 @@
 enum class RC { OK, ERR };
 using OptMsg = std::optional<UartMessage>;
 using SelfHoseDurations = std::array<Time::Long, config::node_hose_count>;
-constexpr size_t HOSE_INACTIVE_IDX = config::node_hose_count;
 
 // seed with uint32_t xTaskGetTickCount()
 class SelfNode {

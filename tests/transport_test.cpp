@@ -29,7 +29,7 @@ UartMessage wateringOutgoing{.address = 2,
                              .data = exampleWatering,
                              .data_length = 5};
 UartMessage emptyDataOutgoing{.address = 0,
-                              .command = Protocol::Command::BROADCAST,
+                              .command = Protocol::Command::DISCOVERY,
                               .data = Protocol::FrameDataArray{},
                               .data_length = 0};
 

@@ -12,6 +12,7 @@ public:
 
   Task(const char *const process_name, configSTACK_DEPTH_TYPE stack_depth,
        UBaseType_t priority, TaskHandle_t handle)
+
       : pcName(process_name), uxStackDepth(stack_depth), uxPriority(priority),
         task_handle{handle} {};
 

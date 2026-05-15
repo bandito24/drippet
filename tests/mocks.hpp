@@ -1,6 +1,8 @@
+#pragma once
 #include "driver.hpp"
 #include "gatt_attribute.hpp"
 #include "head.hpp"
+#include "switch.hpp"
 #include "util.hpp"
 #include <assert.h>
 
@@ -84,3 +86,19 @@ inline std::array<uint8_t, 6> pkt_write_cell() {
   };
 }
 } // namespace BleMocks
+class SolenoidMock : public SolenoidValve {
+public:
+  Esp_Err_t enable() override {
+    enabled = true;
+    return 0;
+  };
+  Esp_Err_t init() override { return 0; };
+  Esp_Err_t disable() override {
+    enabled = false;
+    return 0;
+  };
+  bool is_enabled() const override { return enabled; };
+
+private:
+  bool enabled = false;
+};

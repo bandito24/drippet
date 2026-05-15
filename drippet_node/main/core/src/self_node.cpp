@@ -2,7 +2,6 @@
 #include "config.hpp"
 #include "constants.hpp"
 #include "driver.hpp"
-#include "esp_err.h"
 #include "logger.hpp"
 #include "protocol.hpp"
 #include "util.hpp"
@@ -110,7 +109,7 @@ void SelfNode::conclude_watering() {
   this->active_hose_index = HOSE_INACTIVE_IDX;
 
   Esp_Err_t rc = this->solenoid_manager.deactivate_solenoids();
-  if (rc != ESP_OK) {
+  if (rc != 0) {
     this->status = NodeStatus::ERR;
   } else {
     this->status = NodeStatus::READY;
@@ -122,7 +121,7 @@ void SelfNode::change_active_hose(size_t hose_index) {
   assert(hose_index < config::node_hose_count);
   Esp_Err_t rc = this->solenoid_manager.activate_solenoid(hose_index);
   this->active_hose_index = hose_index;
-  if (rc != ESP_OK) {
+  if (rc != 0) {
     this->status = NodeStatus::ERR;
   }
 }

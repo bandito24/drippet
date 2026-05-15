@@ -9,6 +9,7 @@
 #include "util.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <fakeit.hpp>
+#include <memory>
 #include <optional>
 using CMD = Protocol::Command;
 constexpr uint16_t test_key = 20;
@@ -19,9 +20,10 @@ config::Address test_addr = 5;
 NodeTypes::HoseDurations test_durs = Mocks::get_new_hose_durations(10);
 
 UartMessage status_request = {.address = test_addr, .command = CMD::STATUS};
+using SelfPtr = std::unique_ptr<SelfNode>;
 config::Address wrong_addr = test_addr + 1;
 
-void mock_node_ready(SelfNode &self_node) {
+void mock_node_ready(SelfPtr &self_node) {
 
   UartMessage msg1{
       .command = CMD::DISCOVERY, .data = key_data, .data_length = 2};
@@ -32,7 +34,7 @@ void mock_node_ready(SelfNode &self_node) {
   UartMessage msg4{.address = test_addr, .command = CMD::ACK};
   UartMessage msgs[] = {msg1, msg2, msg4};
   for (auto msg : msgs) {
-    self_node.handle_incoming_frame(msg);
+    self_node->handle_incoming_frame(msg);
   }
 }
 
@@ -42,23 +44,23 @@ TEST_CASE("self_hode all", "[self_node]") {
   UartMessage msg1{
       .command = CMD::DISCOVERY, .data = key_data, .data_length = 2};
 
-  SelfNode &node = fix.self_node;
+  SelfPtr &node = fix.self_node;
 
   SECTION("handle_incoming_frame main") {
 
     SECTION("Will serialize and store new keys to use") {
 
-      auto res = node.handle_incoming_frame(msg1);
+      auto res = node->handle_incoming_frame(msg1);
       REQUIRE(res->command == CMD::DISCOVERY);
       REQUIRE(res->data == key_data);
-      REQUIRE(fix.self_node.get_key() == test_key);
+      REQUIRE(fix.self_node->get_key() == test_key);
 
       msg1.data[1] += 1;
 
-      auto res2 = node.handle_incoming_frame(msg1);
+      auto res2 = node->handle_incoming_frame(msg1);
       REQUIRE(res->data == key_data); // Does not update key after getting a new
                                       // descovery but will respond
-      REQUIRE(fix.self_node.get_key() == test_key);
+      REQUIRE(fix.self_node->get_key() == test_key);
 
       SECTION("Will respond correctly to addressing") {
         // Will not resond to addressing on different key
@@ -69,34 +71,34 @@ TEST_CASE("self_hode all", "[self_node]") {
 
         msg2.data[1] += 1;
 
-        auto res2 = node.handle_incoming_frame(msg2);
+        auto res2 = node->handle_incoming_frame(msg2);
         REQUIRE(res2 == std::nullopt);
-        REQUIRE(node.get_addr() == ADDR_UNSET);
+        REQUIRE(node->get_addr() == ADDR_UNSET);
 
         // Now will respond and set the address if the key matches
         msg2.data[1] -= 1;
 
-        auto res3 = node.handle_incoming_frame(msg2);
+        auto res3 = node->handle_incoming_frame(msg2);
 
         REQUIRE(res3 != std::nullopt);
         REQUIRE(res3->command == CMD::ADDRESSING);
         REQUIRE(res3->data == key_data);
         REQUIRE(res3->address == test_addr);
-        REQUIRE(node.get_addr() == test_addr);
-        REQUIRE(node.get_status() == NodeStatus::INITIALIZING);
+        REQUIRE(node->get_addr() == test_addr);
+        REQUIRE(node->get_status() == NodeStatus::INITIALIZING);
         SECTION("ack will complete initialization now") {
 
           config::Address wrong = test_addr + 1;
           UartMessage msg3{.address = wrong, .command = CMD::ACK};
 
-          auto res4 = node.handle_incoming_frame(msg3);
+          auto res4 = node->handle_incoming_frame(msg3);
           REQUIRE(res4 == std::nullopt);
 
           UartMessage msg4{.address = test_addr, .command = CMD::ACK};
 
-          auto res5 = node.handle_incoming_frame(msg4);
-          REQUIRE(msg4.address == node.get_addr());
-          REQUIRE(node.get_status() == NodeStatus::READY);
+          auto res5 = node->handle_incoming_frame(msg4);
+          REQUIRE(msg4.address == node->get_addr());
+          REQUIRE(node->get_status() == NodeStatus::READY);
 
           SECTION("Initializing and reporting water durations") {
 
@@ -104,16 +106,18 @@ TEST_CASE("self_hode all", "[self_node]") {
                             .command = CMD::INIT_WATER_DURATIONS,
                             .data = test_durs};
 
-            auto res = fix.self_node.handle_incoming_frame(msg);
+            auto res = fix.self_node->handle_incoming_frame(msg);
             REQUIRE(res == std::nullopt);
-            REQUIRE(node.get_status() == NodeStatus::READY);
+            REQUIRE(node->get_status() == NodeStatus::READY);
             msg.address = test_addr;
             SECTION("Confirming initialization of durations is correct") {
 
-              res = fix.self_node.handle_incoming_frame(msg);
+              res = fix.self_node->handle_incoming_frame(msg);
               REQUIRE(res ==
                       UartMessage{.address = test_addr, .command = CMD::ACK});
-              REQUIRE(node.get_status() == NodeStatus::WATERING);
+              REQUIRE(node->get_status() == NodeStatus::WATERING);
+              REQUIRE(fix.sol_manager->active_index() ==
+                      node->get_active_hose_index());
               // Making sure the durations is clock now plus each duration
               auto now = fix.steady_clock.get().now();
               SelfHoseDurations durs{};
@@ -121,8 +125,11 @@ TEST_CASE("self_hode all", "[self_node]") {
                 now += test_durs[i];
                 durs[i] = now;
               }
-              REQUIRE(durs == node.get_hose_durations());
-              REQUIRE(node.get_active_hose_index() == 0);
+              REQUIRE(durs == node->get_hose_durations());
+              REQUIRE(node->get_active_hose_index() == 0);
+
+              REQUIRE(fix.sol_manager->active_index() ==
+                      node->get_active_hose_index());
             }
           }
         }
@@ -144,15 +151,15 @@ TEST_CASE("self_hode all", "[self_node]") {
       UartMessage msg{.address = test_addr,
                       .command = CMD::INIT_WATER_DURATIONS,
                       .data = arr1};
-      OptMsg rm = fix.self_node.handle_incoming_frame(msg);
+      OptMsg rm = fix.self_node->handle_incoming_frame(msg);
 
       REQUIRE(rm != std::nullopt);
       REQUIRE(rm->command == CMD::ACK);
 
       // Responds that it is watering if requested
-      OptMsg rm2 = fix.self_node.handle_incoming_frame(status_request);
+      OptMsg rm2 = fix.self_node->handle_incoming_frame(status_request);
       REQUIRE(rm2->data[0] == static_cast<uint16_t>(NodeStatus::WATERING));
-      auto durations = fix.self_node.get_hose_durations();
+      auto durations = fix.self_node->get_hose_durations();
       auto conf_durs = SelfHoseDurations{};
       for (size_t i = 0; i < config::node_hose_count; i++) {
         time += arr1[i];
@@ -166,14 +173,19 @@ TEST_CASE("self_hode all", "[self_node]") {
         fix.set_mock_now(time);
         for (size_t i = 0; i < durations.size(); i++) {
           fix.set_mock_now(++time);
-          node.process_watering_schedule();
-          REQUIRE(node.get_active_hose_index() == i + 1);
+          node->process_watering_schedule();
+          REQUIRE(node->get_active_hose_index() == i + 1);
+          REQUIRE(fix.sol_manager->active_index() ==
+                  node->get_active_hose_index());
         }
 
         fix.set_mock_now(++time);
-        node.process_watering_schedule();
-        REQUIRE(node.get_active_hose_index() == HOSE_INACTIVE_IDX);
-        REQUIRE(node.get_status() == NodeStatus::READY);
+        node->process_watering_schedule();
+        REQUIRE(node->get_active_hose_index() == HOSE_INACTIVE_IDX);
+        REQUIRE(fix.sol_manager->active_index() ==
+                node->get_active_hose_index());
+
+        REQUIRE(node->get_status() == NodeStatus::READY);
       }
     }
 
@@ -185,17 +197,19 @@ TEST_CASE("self_hode all", "[self_node]") {
       UartMessage msg{.address = test_addr,
                       .command = CMD::INIT_WATER_DURATIONS,
                       .data = empty};
-      OptMsg rm = fix.self_node.handle_incoming_frame(msg);
+      OptMsg rm = fix.self_node->handle_incoming_frame(msg);
       REQUIRE(rm->command == CMD::ACK);
 
-      node.process_watering_schedule();
-      REQUIRE(node.get_active_hose_index() == HOSE_INACTIVE_IDX);
+      node->process_watering_schedule();
+      REQUIRE(node->get_active_hose_index() == HOSE_INACTIVE_IDX);
+      REQUIRE(fix.sol_manager->active_index() == node->get_active_hose_index());
 
-      REQUIRE(node.get_status() == NodeStatus::READY);
+      REQUIRE(node->get_status() == NodeStatus::READY);
 
       // Responds that it is done if requested
-      OptMsg rm2 = fix.self_node.handle_incoming_frame(status_request);
+      OptMsg rm2 = fix.self_node->handle_incoming_frame(status_request);
       REQUIRE(rm2->data[0] == static_cast<uint16_t>(NodeStatus::READY));
+      REQUIRE(fix.sol_manager->active_index() == node->get_active_hose_index());
     }
   }
 }
