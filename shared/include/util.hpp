@@ -38,7 +38,7 @@ inline std::array<uint16_t, 2> serialize_key(NodeKey_t key) {
   res[1] = static_cast<uint16_t>(key >> 16);
   return res;
 }
-inline NodeKey_t deserialize_key(std::span<uint16_t> input) {
+inline NodeKey_t deserialize_key(std::span<const uint16_t> input) {
   return (uint32_t)input[0] | ((uint32_t)input[1] << 16);
 }
 

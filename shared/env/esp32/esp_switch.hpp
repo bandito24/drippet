@@ -46,3 +46,15 @@ protected:
   bool enabled = false;
   bool initialized = false;
 };
+
+class LedIndication : public EspSwitch {
+public:
+  using EspSwitch::EspSwitch;
+  Esp_Err_t toggle() {
+    if (this->is_enabled()) {
+      return this->disable();
+    } else {
+      return this->enable();
+    }
+  }
+};

@@ -20,12 +20,9 @@ enum NodeLinkStatus {
 };
 
 constexpr uint8_t RETRY_NODE_MAX = 10;
-enum class HeadStatus { STANDBY, FAULTY_NODE, WATERING_CMDS };
+constexpr uint32_t INITIAL_TIME_POOL = config::WATER_INTERVAL;
+enum class HeadStatus { PAIRING, STANDBY, FAULTY_NODE, WATERING_CMDS };
 enum ValveStatus { VALVE_OPEN, VALVE_CLOSED };
-struct PendingNode {
-  config::Address address{};
-  NodeKey_t key{};
-};
 using all_node_status_t = std::array<uint8_t, config::max_nodes>;
 
 class Head {
@@ -33,7 +30,7 @@ private:
   iValve &mainValve;
   iClock &clock;
   Storage &storage;
-  Time::Long time_pool = config::MAX_WATERING_SECONDS;
+  Time::Long time_pool = config::WATER_INTERVAL;
   std::array<NodeTypes::Node, config::max_nodes> node_link{};
   std::size_t node_count = 0;
   std::optional<config::Address> get_node_by_key(NodeKey_t key);
@@ -53,7 +50,8 @@ public:
   Head(iValve &waterFaucetMain, iClock &clock, Storage &store)
       : mainValve{waterFaucetMain}, clock{clock}, storage{store} {};
   ValveStatus valve_status = VALVE_CLOSED;
-  HeadStatus get_head_status() { return this->head_status; };
+  HeadStatus get_head_status() const { return this->head_status; };
+  const HeadStatus &read_node_status() const { return this->head_status; }
   static constexpr std::size_t max_nodes = config::max_nodes;
   std::size_t get_node_count() const;
   std::optional<config::Address> create_node_pending(NodeKey_t key);
@@ -64,6 +62,8 @@ public:
   void set_node_status(size_t index, NodeStatus status);
   ActionStatus set_node_durations(size_t index,
                                   const NodeTypes::HoseDurations &durations);
+  void init_pairing_mode();
+  void end_pairing_mode() { this->head_status = HeadStatus::STANDBY; }
 
   ActionStatus
   set_weekly_waterings(size_t index,

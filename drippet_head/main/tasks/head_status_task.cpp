@@ -1,23 +1,24 @@
 
-#include "node_status_task.hpp"
+#include "head_status_task.hpp"
 #include "constants.hpp"
+#include "head.hpp"
 #include "protocol_types.hpp"
 
-void NodeStatusTask::run() {
+void HeadStatusTask::run() {
   this->led_indication.init();
   for (;;) {
 
-    switch (this->self_node_status) {
-    case NodeStatus::INITIALIZING:
+    switch (this->head_status) {
+    case HeadStatus::PAIRING:
       this->led_indication.toggle();
       break;
-    case NodeStatus::ERR:
+    case HeadStatus::FAULTY_NODE:
       this->led_indication.disable();
       break;
     default:
       this->led_indication.enable();
     }
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }

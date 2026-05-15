@@ -18,21 +18,18 @@ std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
   std::optional<size_t> exising_addr = this->get_node_by_key(key);
   if (exising_addr) { // Has already requested, send back addr used
-    auto node = this->get_node(*exising_addr);
-    if (node->get_node_status() == NodeStatus::INITIALIZING) {
-      return *exising_addr;
-    }
-    return std::nullopt; // Means its a duplicate request
+    return *exising_addr;
   }
   // Next address neing max size means its full, handler must hqndle accordingly
   auto next_address = this->get_available_address();
-  if (next_address != config::max_nodes) {
-    std::unique_ptr<iNode> new_node = std::make_unique<Node>(key);
-    this->node_link[next_address] = std::move(new_node);
-    // Reads from nvs storage--if not previously set then is just zeros
-    this->node_link[next_address]->set_node_durations(
-        this->storage.read_boot_durations(next_address));
+  if (next_address == config::max_nodes) {
+    return std::nullopt;
   }
+  std::unique_ptr<iNode> new_node = std::make_unique<Node>(key);
+  this->node_link[next_address] = std::move(new_node);
+  // Reads from nvs storage--if not previously set then is just zeros
+  this->node_link[next_address]->set_node_durations(
+      this->storage.read_boot_durations(next_address));
   return next_address;
 }
 std::optional<config::Address> Head::get_node_by_key(NodeKey_t key) {
@@ -196,40 +193,17 @@ std::optional<UartMessage>
 Head::handle_incoming_frame(const UartMessage &frame) {
 
   if (frame.command == CMD::DISCOVERY) {
-    // Newly connected Node broadcasts DISCOVERY with key. Head Node
-    // responds with ADDRESSING with address and received key (for
-    // identification). Node responds with ADDRESSING and key for final
-    // acknoledgement
-    NodeKey_t key = frame.data[0];
+    NodeKey_t key = Util::deserialize_key(frame.data);
     std::optional<config::Address> address = this->create_node_pending(key);
-    if (address) {
-      if (address >= config::max_nodes) { // Means system has max nodes
-        return this->terminate_endpoint(key);
-      } else {
-        return this->create_addressing_frame(key, *address);
-      }
-    } else {
-      // No Address means key is recognized and it's a duplicate request
-      return std::nullopt;
+    if (address && address < config::max_nodes) {
+      return this->create_addressing_frame(key, *address);
     }
-  } else if (frame.command ==
-             CMD::ADDRESSING) { // Means the node is attempting to reply
-                                // with the same address and key for final
-                                // confirmation
-    NodeKey_t key = frame.data[0];
+  } else if (frame.command == CMD::ADDRESSING) {
+    NodeKey_t key = Util::deserialize_key(frame.data);
     NodeLinkStatus status = this->confirm_node_pending(key, frame.address);
-    if (status == NodeLinkStatus::LINK_OK) {
-      Logger::log_simple("Node Successfully connected");
-    } else {
-      Logger::log_error("Node connect unsuccessful");
-    }
-    // If unsuccessful do nothing and node will reattempt the broadcast
-    // after short period
-  } else if (frame.command ==
-             CMD::ACK) { // Only received after sending a watering command.
-                         // Nothing to do after.
+    return UartMessage{frame.address, Protocol::Command::ACK};
+  } else if (frame.command == CMD::ACK) {
     this->ack_node_watering_confirmation(frame.address);
-
   } else if (frame.command == CMD::STATUS) {
     this->handle_incoming_node_status(frame);
   }
@@ -351,7 +325,7 @@ Head::set_weekly_waterings(size_t index,
 
 int Head::calculate_new_time_pool(
     size_t index, const NodeTypes::HoseDurations &new_durations) {
-  int duration_pool = config::MAX_WATERING_SECONDS;
+  int duration_pool = INITIAL_TIME_POOL;
   for (size_t addr = 0; addr < config::max_nodes; addr++) {
     int sum = 0;
     if (addr == index) {
@@ -398,4 +372,13 @@ void Head::print_node_durations() {
       printf("Node %d not initialized\n", i);
     }
   }
+}
+void Head::init_pairing_mode() {
+
+  this->head_status = HeadStatus::PAIRING;
+  for (size_t i = 0; i < config::max_nodes; i++) {
+    this->node_link.at(i) = nullptr;
+  }
+  this->active_watering_index = std::nullopt;
+  this->time_pool = INITIAL_TIME_POOL;
 }

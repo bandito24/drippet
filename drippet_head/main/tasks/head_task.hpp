@@ -3,6 +3,8 @@
 #include "head.hpp"
 #include "task.hpp"
 
+constexpr int STOP_PAIRING_COUNT = 7;
+
 class HeadTask : public Task {
 
 public:
@@ -19,5 +21,6 @@ private:
   QueueHandle_t incoming_queue;
   QueueHandle_t outgoing_queue;
   Head &headNode;
+  int no_response_count = 0;
   TaskHandle_t cccd_task_handle;
 };

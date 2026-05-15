@@ -29,9 +29,6 @@ extern "C" void app_main(void) {
   MainValve main_valve{};
   clock.set_time(2026, 1, 1, 0, 0);
 
-  SteadyEspClock steadyClock{};
-  SelfNode selfNode{driver, steadyClock};
-
   //// For Queueing Incoming Messages From Peripherals and Sending Head Queued
   //// Messages
   Queue incoming_queue(10, sizeof(UartMessage));
