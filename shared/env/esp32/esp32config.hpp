@@ -14,6 +14,8 @@ constexpr int RS485_CTS_PIN = UART_PIN_NO_CHANGE;
 
 constexpr gpio_num_t STATUS_LED = GPIO_NUM_13;
 
+constexpr gpio_num_t PAIR_INIT_GPIO_BTN = GPIO_NUM_26;
+
 constexpr gpio_num_t valve_1_pin = GPIO_NUM_18;
 constexpr gpio_num_t valve_2_pin = GPIO_NUM_19;
 constexpr gpio_num_t valve_3_pin = GPIO_NUM_21;

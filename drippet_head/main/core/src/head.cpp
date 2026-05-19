@@ -100,13 +100,14 @@ UartMessage Head::create_status_frame(config::Address address) const {
   return {.address = address, .command = Protocol::Command::STATUS};
 }
 
-UartMessage Head::create_addressing_frame(uint16_t key,
+UartMessage Head::create_addressing_frame(NodeKey_t key,
                                           config::Address address) {
 
+  auto ser_key = Util::serialize_key(key);
   return {.address = address,
           .command = Protocol::Command::ADDRESSING,
-          .data = Protocol::FrameDataArray{key},
-          .data_length = 1};
+          .data = Protocol::FrameDataArray{ser_key[0], ser_key[1]},
+          .data_length = 2};
 }
 UartMessage Head::terminate_endpoint(NodeKey_t key) {
   auto ser_key = Util::serialize_key(key);
@@ -122,8 +123,7 @@ std::optional<UartMessage> Head::next_watering_frame() {
   }
   if (!this->active_watering_index ||
       !this->get_node(*this->active_watering_index)) {
-    this->head_status = HeadStatus::STANDBY;
-    this->active_watering_index = std::nullopt;
+    this->conclude_watering(HeadStatus::STANDBY);
     return std::nullopt;
   }
   auto node = this->get_node(*this->active_watering_index);
@@ -143,15 +143,13 @@ std::optional<UartMessage> Head::next_watering_frame() {
         return this->create_status_frame(active_idx);
       }
     } else {
-      this->head_status =
-          HeadStatus::FAULTY_NODE; // Will lock valve and require reboot
       node->set_node_status(NodeStatus::ERR);
-      this->mainValve.close_valve();
+      this->conclude_watering(HeadStatus::FAULTY_NODE);
       return std::nullopt;
     }
   }
 
-  this->head_status = HeadStatus::STANDBY;
+  this->conclude_watering(HeadStatus::STANDBY);
   return std::nullopt;
 }
 void Head::ack_node_watering_confirmation(config::Address addr) {
@@ -182,6 +180,7 @@ void Head::initialize_watering_states() {
       }
     }
   }
+  this->mainValve.enable();
   this->head_status = HeadStatus::WATERING_CMDS;
 }
 
@@ -201,6 +200,13 @@ Head::handle_incoming_frame(const UartMessage &frame) {
   } else if (frame.command == CMD::ADDRESSING) {
     NodeKey_t key = Util::deserialize_key(frame.data);
     NodeLinkStatus status = this->confirm_node_pending(key, frame.address);
+    // If status is bad, try creating again. Node can adjust addr until ack
+    if (status != NodeLinkStatus::LINK_OK) {
+      std::optional<config::Address> address = this->create_node_pending(key);
+      if (address) {
+        return this->create_addressing_frame(key, *address);
+      }
+    }
     return UartMessage{frame.address, Protocol::Command::ACK};
   } else if (frame.command == CMD::ACK) {
     this->ack_node_watering_confirmation(frame.address);
@@ -218,15 +224,19 @@ void Head::handle_incoming_node_status(const UartMessage &frame) {
 
   // Node will only send values , READY (completed, watering, or err)
   // We only react to two of them
-  assert(frame.data[0] < static_cast<int>(NodeStatus::NODE_NONEXISTANT));
   NodeStatus status = static_cast<NodeStatus>(frame.data[0]);
+  config::Address addr = static_cast<config::Address>(frame.address);
+
+  this->get_node(frame.address)->clear_retry_count();
   this->set_node_status(frame.address, status);
   switch (status) {
   case NodeStatus::READY: // Sends ready only after completing the watering
-    this->advance_active_watering_index();
+    if (addr == this->get_active_watering_index()) {
+      this->advance_active_watering_index();
+    }
     break;
   case NodeStatus::ERR:
-    this->head_status = HeadStatus::FAULTY_NODE;
+    this->conclude_watering(HeadStatus::FAULTY_NODE);
     break;
   default:
     Logger::log_error("Invalid incoming node status value of %d",
@@ -249,7 +259,7 @@ void Head::advance_active_watering_index() {
       return;
     }
   }
-  this->active_watering_index = std::nullopt;
+  this->conclude_watering(HeadStatus::STANDBY);
 }
 
 void Head::process_watering_schedule() {
@@ -369,16 +379,15 @@ void Head::print_node_durations() {
     if (node) {
       node->print_hose_durations(i);
     } else {
-      printf("Node %d not initialized\n", i);
+      Logger::log_simple("Node %d not initialized\n", static_cast<int>(i));
     }
   }
 }
 void Head::init_pairing_mode() {
-
-  this->head_status = HeadStatus::PAIRING;
+  Logger::log_simple("head is initing");
+  this->conclude_watering(HeadStatus::PAIRING);
   for (size_t i = 0; i < config::max_nodes; i++) {
     this->node_link.at(i) = nullptr;
   }
-  this->active_watering_index = std::nullopt;
   this->time_pool = INITIAL_TIME_POOL;
 }

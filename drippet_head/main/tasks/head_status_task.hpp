@@ -9,7 +9,7 @@ class HeadStatusTask : public Task {
 
 public:
   HeadStatusTask(const HeadStatus &_head_status, gpio_num_t _indication_gpio)
-      : Task("HEAD_STATUS", 1024, 1), head_status{_head_status},
+      : Task("HEAD_STATUS", 4096, 1), head_status{_head_status},
         led_indication(_indication_gpio, GpioActiveLevel::ACTIVE_HIGH){};
 
 protected:

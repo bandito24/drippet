@@ -86,6 +86,13 @@ TEST_CASE("self_hode all", "[self_node]") {
         REQUIRE(res3->address == test_addr);
         REQUIRE(node->get_addr() == test_addr);
         REQUIRE(node->get_status() == NodeStatus::INITIALIZING);
+
+        SECTION("can change address if not yet acknowledged by head") {
+
+          msg2.address = 99;
+          auto res22 = node->handle_incoming_frame(msg2);
+          REQUIRE(node->get_addr() == 99);
+        }
         SECTION("ack will complete initialization now") {
 
           config::Address wrong = test_addr + 1;

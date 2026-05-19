@@ -52,3 +52,4 @@ public:
 private:
   SolenoidGrouping solenoids{};
 };
+struct Button {};

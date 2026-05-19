@@ -1,7 +1,9 @@
 #include "clock.hpp"
 #include "constants.hpp"
+#include "esp32config.hpp"
 #include "esp_err.h"
 #include "freertos/idf_additions.h"
+#include "head_status_task.hpp"
 #include "node.hpp"
 #include "nvs_storage.hpp"
 #include "queue.hpp"
@@ -52,6 +54,8 @@ extern "C" void app_main(void) {
                      outgoing_queue.get_handle(),
                      ble_task.get_cccd_subtask_handle()};
   head_task.start();
+  HeadStatusTask status_task{head_node.get_head_status(), STATUS_LED};
+  status_task.start();
 
   // For testing only
   // TODO: delete all but vtaskdelay

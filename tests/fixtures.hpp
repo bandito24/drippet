@@ -16,17 +16,28 @@
 using namespace fakeit;
 
 struct HeadFixture {
-  fakeit::Mock<iValve> valveMock;
+  fakeit::Mock<Switch> valveMock;
   fakeit::Mock<iClock> clockMock;
   fakeit::Mock<Storage> storageMock;
-  Head head;
+  std::unique_ptr<Head> head;
 
-  HeadFixture() : head{valveMock.get(), clockMock.get(), storageMock.get()} {
+  HeadFixture() {
 
     When(Method(storageMock, save_durations)).AlwaysReturn();
+    When(Method(valveMock, enable)).AlwaysReturn();
+    When(Method(valveMock, disable)).AlwaysReturn();
+
+    When(Method(valveMock, init)).AlwaysReturn();
 
     When(Method(storageMock, read_boot_durations))
         .AlwaysReturn(NodeTypes::DurationSchedule{});
+
+    When(Method(clockMock, is_watering_due)).AlwaysReturn();
+    When(Method(clockMock, progress_watering_due)).AlwaysReturn();
+    When(Method(clockMock, now)).AlwaysReturn();
+    When(Method(clockMock, get_day_of_week)).AlwaysReturn(Weekdays::MONDAY);
+    head = std::make_unique<Head>(valveMock.get(), clockMock.get(),
+                                  storageMock.get());
   };
 };
 struct SelfNodeFixture {

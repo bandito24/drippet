@@ -5,6 +5,7 @@
 #include "head.hpp"
 #include "portmacro.h"
 #include "protocol.hpp"
+#include "util.hpp"
 #include <cstring>
 #include <optional>
 
@@ -20,21 +21,26 @@ void HeadTask::run() {
       response = this->headNode.handle_incoming_frame(frame);
       if (response) {
         xQueueSend(this->outgoing_queue, &(*response), portMAX_DELAY);
-        this->no_response_count = 0;
-      } else {
-        this->no_response_count += 1;
       }
     }
 
     if (headNode.get_head_status() == HeadStatus::PAIRING) {
+
+      Logger::log_simple("no reponse count = %d", this->no_response_count);
       // Stop pairing if there has been no response
-      if (this->no_response_count == STOP_PAIRING_COUNT) {
+      if (this->no_response_count >= STOP_PAIRING_COUNT) {
         headNode.end_pairing_mode();
       } else {
         if (!response) {
-          response =
-              UartMessage{.address = ADDR_UNSET, .command = CMD::DISCOVERY};
+          this->no_response_count++;
+          auto key =
+              Util::serialize_key(static_cast<uint32_t>(xTaskGetTickCount()));
+          response = UartMessage{.address = ADDR_UNSET,
+                                 .command = CMD::DISCOVERY,
+                                 .data = {key[0], key[1]}};
           xQueueSend(this->outgoing_queue, &response, portMAX_DELAY);
+        } else {
+          this->no_response_count = 0;
         }
       }
     } else {
@@ -47,13 +53,13 @@ void HeadTask::run() {
           xQueueSend(this->outgoing_queue, &m, portMAX_DELAY);
         }
       }
-      headNode.print_node_durations();
-      vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
     all_node_status_t after_status = this->headNode.get_node_statuses();
     if (before_status != after_status) {
       xTaskNotifyGive(this->cccd_task_handle);
     }
+
+    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }

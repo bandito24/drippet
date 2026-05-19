@@ -19,9 +19,8 @@ void check_buffer_duration(HeadFixture &fix, GattAttribute &attr,
 
 TEST_CASE("BLE tests", "[ble]") {
   HeadFixture fix;
-  Head &head = fix.head;
-  Mocks::populate_head_nodes(fix.head, 5);
-  GattAttribute attr{fix.head};
+  Mocks::populate_head_nodes(*fix.head, 5);
+  GattAttribute attr{*fix.head};
 
   SECTION("duration buffers are loaded propertly") {
     auto res = attr.load_duration_buffer(0);
@@ -62,9 +61,9 @@ TEST_CASE("BLE tests", "[ble]") {
       auto target_node = cell1[BLE::TGT_ROW_IDX];
       auto target_hose = cell1[BLE::TGT_CELL_IDX];
 
-      auto durations1 = head.get_node_hose_durations(target_node);
+      auto durations1 = fix.head->get_node_hose_durations(target_node);
       auto res = attr.handle_incoming_write(cell1);
-      auto durations2 = head.get_node_hose_durations(target_node);
+      auto durations2 = fix.head->get_node_hose_durations(target_node);
       REQUIRE(durations1.value() != durations2.value());
       durations1.value()[target_hose] = val;
       REQUIRE(durations1.value() == durations2.value());
@@ -74,7 +73,7 @@ TEST_CASE("BLE tests", "[ble]") {
       auto row_add = BleMocks::pkt_write_row();
       NodeTypes::HoseDurations durations_add{};
       auto target_node = row_add[BLE::TGT_ROW_IDX];
-      auto durations1 = head.get_node_hose_durations(target_node);
+      auto durations1 = fix.head->get_node_hose_durations(target_node);
       size_t addr = 0;
       for (size_t i = BLE::TGT_ROW_IDX + 1; i < row_add.size(); i += 2) {
         uint16_t val = Util::get_le16(&row_add[i]);
@@ -83,7 +82,7 @@ TEST_CASE("BLE tests", "[ble]") {
       }
       auto rc1 = attr.handle_incoming_write(row_add);
       REQUIRE(rc1 == BLE::Status::OP_OK);
-      auto durations2 = head.get_node_hose_durations(target_node);
+      auto durations2 = fix.head->get_node_hose_durations(target_node);
       REQUIRE(durations1.value() != durations2.value());
       REQUIRE(durations2.value() == durations_add);
       check_buffer_duration(fix, attr, target_node);
@@ -123,7 +122,7 @@ void check_buffer_duration(HeadFixture &fix, GattAttribute &attr,
 
   std::array<uint8_t, config::node_hose_count * 2> check{};
 
-  auto durations = fix.head.get_node_hose_durations(node_index);
+  auto durations = fix.head->get_node_hose_durations(node_index);
 
   Util::le16_to_le8(check, durations.value());
 

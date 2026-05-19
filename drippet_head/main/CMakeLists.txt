@@ -16,7 +16,7 @@ file(GLOB CORE_SRC "core/src/*.cpp")
 file(GLOB TASK_SRC "tasks/*.cpp")
 file(GLOB BLE "ble/*.cpp")
 
-########
+##########
 idf_component_register(SRCS "drippet.cpp"
 "core/src/clock.cpp"
 ${ENV_ESP}
@@ -31,7 +31,7 @@ ${BLE}
 REQUIRES bt nvs_flash esp_driver_uart esp_driver_gpio
 #
 INCLUDE_DIRS
-"core/include" "${NODE_CORE_INCLUDE}" "${ABS_PROJ_ROOT}/shared/include" "${ABS_PROJ_ROOT}/shared/env/esp32" "core/env/esp32" ${NODE_ENV}
+"core/include" "${NODE_CORE_INCLUDE}" "${ABS_PROJ_ROOT}/shared/include" "${ABS_PROJ_ROOT}/shared/env/esp32" "core/env/esp32" ${NODE_ENV} "tasks"
 )
 #
 #

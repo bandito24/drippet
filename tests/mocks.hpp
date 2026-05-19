@@ -1,4 +1,5 @@
 #pragma once
+#include "constants.hpp"
 #include "driver.hpp"
 #include "gatt_attribute.hpp"
 #include "head.hpp"
@@ -32,13 +33,21 @@ inline UartMessage incoming_adressing_frame(config::Address addr,
 inline UartMessage incoming_discovery_frame(NodeKey_t key = sample_key) {
 
   auto key_arr = Util::serialize_key(key);
-  return {.address = config::max_nodes,
+  return {.address = ADDR_UNSET,
           .command = Protocol::Command::DISCOVERY,
           .data = Protocol::FrameDataArray{key_arr[0], key_arr[1]},
           .data_length = 1};
 }
 inline UartMessage incoming_ack_frame(config::Address addr) {
   return {.address = addr, .command = Protocol::Command::ACK, .data_length = 0};
+}
+
+inline UartMessage incoming_status_frame(config::Address addr,
+                                         NodeStatus status) {
+  return {.address = addr,
+          .command = Protocol::Command::STATUS,
+          .data = {static_cast<uint16_t>(status)},
+          .data_length = 1};
 }
 inline void populate_head_nodes(Head &head,
                                 size_t node_count = config::max_nodes) {

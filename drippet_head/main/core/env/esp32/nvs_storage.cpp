@@ -27,7 +27,7 @@ Esp_Err_t NvsStorage::init() {
     this->load_durations();
   }
 
-  this->print_boot_persisted_durations();
+  // this->print_boot_persisted_durations();
   return err;
 }
 Esp_Err_t NvsStorage::load_durations() {
