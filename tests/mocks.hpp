@@ -6,6 +6,7 @@
 #include "switch.hpp"
 #include "util.hpp"
 #include <assert.h>
+#include <optional>
 
 #include "config.hpp"
 #include "node.hpp"
@@ -59,6 +60,15 @@ inline void populate_head_nodes(Head &head,
     auto new_durations = get_new_hose_durations(addr);
     head.set_node_durations(addr, new_durations);
   }
+}
+inline void populate_single_node(Head &head, config::Address addr,
+                                 NodeTypes::HoseDurations &durations) {
+  auto key = NodeKey_t{addr};
+  assert(head.get_node_by_key(key) == std::nullopt);
+
+  head.create_node_pending(addr);
+  head.confirm_node_pending(key, addr);
+  head.set_node_durations(addr, durations);
 }
 
 inline uint8_t uint8(BLE::Cmds cmd) { return static_cast<uint8_t>(cmd); }

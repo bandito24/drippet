@@ -42,7 +42,7 @@ Node::set_node_durations(const NodeTypes::DurationSchedule &dur_sch) {
     return rc;
   }
 
-  this->weekly_waterings = dur_sch.schedule;
+  this->water_cycle = dur_sch.cycle;
   this->node_hose_durations = dur_sch.durations;
 
   return ActionStatus::OK;
@@ -75,7 +75,7 @@ void Node::print_hose_durations(size_t addr) {
 
   printf("NSCH %2zu | ", addr);
   for (size_t day = 0; day < days_in_week; ++day) {
-    printf("%5s ", this->weekly_waterings[day] ? "true" : "false");
+    printf("%5s ", this->water_cycle[day] ? "true" : "false");
   }
   printf("\n");
 }

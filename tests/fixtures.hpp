@@ -19,9 +19,10 @@ struct HeadFixture {
   fakeit::Mock<Switch> valveMock;
   fakeit::Mock<iClock> clockMock;
   fakeit::Mock<Storage> storageMock;
+
   std::unique_ptr<Head> head;
 
-  HeadFixture() {
+  HeadFixture(Time::Long phase_length = Time::Long{86400}) {
 
     When(Method(storageMock, save_durations)).AlwaysReturn();
     When(Method(valveMock, enable)).AlwaysReturn();
@@ -35,7 +36,10 @@ struct HeadFixture {
     When(Method(clockMock, is_watering_due)).AlwaysReturn();
     When(Method(clockMock, progress_watering_due)).AlwaysReturn();
     When(Method(clockMock, now)).AlwaysReturn();
-    When(Method(clockMock, get_day_of_week)).AlwaysReturn(Weekdays::MONDAY);
+    //     When(Method(clockMock,
+    //   get_phase_of_cycle)).AlwaysReturn(CyclePhase::FIRST);
+    //
+    When(Method(clockMock, get_phase_length)).AlwaysReturn(phase_length);
     head = std::make_unique<Head>(valveMock.get(), clockMock.get(),
                                   storageMock.get());
   };
@@ -64,6 +68,7 @@ struct SelfNodeFixture {
         std::make_unique<SelfNode>(steady_clock.get(), *this->sol_manager);
   };
 };
+constexpr Time::Long TEST_PHASE_LEN = 100;
 struct ClockFixture {
   fakeit::Mock<iSysClock> sysMock;
   Esp32Clock espClock;
@@ -89,7 +94,7 @@ struct ClockFixture {
     return std::chrono::system_clock::from_time_t(time);
   }
 
-  ClockFixture() : espClock{sysMock.get()} {
+  ClockFixture() : espClock{TEST_PHASE_LEN, sysMock.get()} {
 
     setenv("TZ", "UTC", 1);
     tzset();

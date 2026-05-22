@@ -55,10 +55,9 @@ NodeTypes::DurationSchedule NvsStorage::read_boot_durations(size_t addr) const {
 
   return durations_sch;
 }
-Esp_Err_t
-NvsStorage::save_durations(size_t addr,
-                           const NodeTypes::HoseDurations &durations,
-                           const NodeTypes::WateringSchedule &schedule) {
+Esp_Err_t NvsStorage::save_durations(size_t addr,
+                                     const NodeTypes::HoseDurations &durations,
+                                     const NodeTypes::WateringCycle &cycle) {
   Esp_Err_t rc{};
   if (!this->initialized) {
     Logger::log_error("Storage not properly initalized");
@@ -67,7 +66,7 @@ NvsStorage::save_durations(size_t addr,
   assert(addr < config::max_nodes);
 
   this->boot_persisted_durations[addr] = {.durations = durations,
-                                          .schedule = schedule};
+                                          .cycle = cycle};
 
   rc = handle->set_blob(this->handle_name, &this->boot_persisted_durations,
                         sizeof(this->boot_persisted_durations));
@@ -99,7 +98,7 @@ void NvsStorage::print_boot_persisted_durations() const {
 
     for (size_t hose = 0; hose < days_in_week; ++hose) {
       printf("%5u ",
-             (unsigned)this->boot_persisted_durations[node].schedule[hose]);
+             (unsigned)this->boot_persisted_durations[node].cycle[hose]);
     }
 
     printf("\n");

@@ -2,12 +2,14 @@
 #include "constants.hpp"
 #include "esp32config.hpp"
 #include "esp_err.h"
+#include "esp_switch.hpp"
 #include "freertos/idf_additions.h"
 #include "head_status_task.hpp"
 #include "node.hpp"
 #include "nvs_storage.hpp"
 #include "queue.hpp"
 #include "self_node.hpp"
+#include "switch.hpp"
 #include "tasks/bluetooth_task.hpp"
 #include "tasks/head_task.hpp"
 #include "uart_task.hpp"
@@ -28,7 +30,6 @@ extern "C" void app_main(void) {
   UartProtocol uart{driver};
   SystemClock sys_clock{};
   Esp32Clock clock{sys_clock};
-  MainValve main_valve{};
   clock.set_time(2026, 1, 1, 0, 0);
 
   //// For Queueing Incoming Messages From Peripherals and Sending Head Queued
@@ -41,7 +42,7 @@ extern "C" void app_main(void) {
   UartTask uart_task{uart, outgoing_queue.get_handle(),
                      incoming_queue.get_handle()};
   uart_task.start();
-
+  EspSwitch main_valve{VALVE_1_PIN, GpioActiveLevel::ACTIVE_HIGH};
   Head head_node{main_valve, clock, storage};
   // Starting the bluetooth task and stack
   BluetoothTask ble_task{head_node};
@@ -95,5 +96,5 @@ inline void populate_head_nodes(Head &head,
     // head.set_node_durations(addr, new_durations);
   }
 
-  // head.set_weekly_waterings(1, {false, false, false, true, true});
+  // head.set_watering_cycle(1, {false, false, false, true, true});
 }

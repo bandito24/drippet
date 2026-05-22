@@ -17,6 +17,7 @@
 
 using Fixture = HeadFixture;
 constexpr NodeKey_t TEST_KEY = 500;
+using Hose_Durs = NodeTypes::HoseDurations;
 
 TEST_CASE("create node pending behaves correctly", "[head]") {
 
@@ -322,6 +323,61 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
         }
       }
       REQUIRE(clear == true);
+
+      SECTION("Concluding of pairing mode resets active state") {
+        fix.head->end_pairing_mode();
+        REQUIRE(fix.head->get_head_status() == HeadStatus::STANDBY);
+      }
     }
   } //
+}
+
+TEST_CASE("testing calculation and handling of time pool", "[time_pool]") {
+
+  Time::Long PHASE_LEN = 200;
+  Fixture fix{PHASE_LEN};
+  SECTION("adding nodes will subtract their sum from time_pool") {
+
+    uint8_t val1 = 1;
+    uint8_t second_hose_duration = 33;
+    NodeTypes::HoseDurations durations1{val1, val1, val1};
+    Mocks::populate_single_node(*fix.head, 0, durations1);
+    auto pool_check = PHASE_LEN - 3 * val1;
+    REQUIRE(fix.head->get_remaining_time_pool() == pool_check);
+
+    NodeTypes::HoseDurations durations2{second_hose_duration};
+    Mocks::populate_single_node(*fix.head, 1, durations2);
+    pool_check -= second_hose_duration;
+    REQUIRE(fix.head->get_remaining_time_pool() == pool_check);
+    SECTION(
+        "modifying existing nodes will accurately recalculate the time pool") {
+      auto first_node_replacement = 20;
+      NodeTypes::HoseDurations new_durs = {20};
+      fix.head->set_node_durations(0, new_durs);
+      auto new_check =
+          PHASE_LEN - first_node_replacement - second_hose_duration;
+      REQUIRE(fix.head->get_remaining_time_pool() == new_check);
+      SECTION("can reach maximum time pool but not more") {
+
+        auto remaining =
+            static_cast<uint16_t>(fix.head->get_remaining_time_pool());
+        NodeTypes::HoseDurations max_out = {remaining};
+
+        Mocks::populate_single_node(*fix.head, 2, max_out);
+        // Make sure using the rest of it worked
+        REQUIRE(fix.head->get_node_hose_durations(2) == max_out);
+
+        NodeTypes::HoseDurations failing_durs = {1};
+        Mocks::populate_single_node(*fix.head, 3, failing_durs);
+        Hose_Durs empty = {};
+
+        // Can't add a single second more than time pool
+        REQUIRE(fix.head->get_node_hose_durations(3) == empty);
+        SECTION("calling init pairing mode resets time pool") {
+          fix.head->init_pairing_mode();
+          REQUIRE(fix.head->get_remaining_time_pool() == PHASE_LEN);
+        }
+      }
+    }
+  }
 }

@@ -15,21 +15,31 @@ using Long = uint32_t;
 constexpr Time_Seconds No_Time = Time_Seconds{0};
 
 constexpr Time_Seconds Day_In_Seconds = static_cast<Time_Seconds>(24 * 60 * 60);
-struct WateringSchedule {
+struct UserSetWaterTime {
   uint8_t hour;
   uint8_t minute;
 };
 
 } // namespace Time
 
-enum class Weekdays {
-  SUNDAY,
-  MONDAY,
-  TUESDAY,
-  WEDNESDAY,
-  THURSDAY,
-  FRIDAY,
-  SATURDAY,
+// enum class Weekdays {
+//   SUNDAY,
+//   MONDAY,
+//   TUESDAY,
+//   WEDNESDAY,
+//   THURSDAY,
+//   FRIDAY,
+//   SATURDAY,
+// };
+enum class CyclePhase {
+  FIRST,
+  SECOND,
+  THIRD,
+  FOURTH,
+  FIFTH,
+  SIXTH,
+  SEVENTH,
+  CYCLE_LEN
 };
 inline constexpr int days_in_week = 7;
 
@@ -44,5 +54,6 @@ enum class NodeStatus {
   NODE_NONEXISTANT // This value is used for nodes that do not exist yet (not
                    // connected)
 };
+constexpr size_t PHASE_CYCLE_LEN = static_cast<size_t>(CyclePhase::CYCLE_LEN);
 
 using NodeKey_t = uint32_t;

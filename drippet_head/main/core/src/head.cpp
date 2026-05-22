@@ -42,14 +42,15 @@ std::optional<config::Address> Head::get_node_by_key(NodeKey_t key) {
   return std::nullopt;
 }
 
-bool Head::is_node_watering_today(size_t addr, Weekdays todays_day) {
+bool Head::is_node_watering_this_phase(size_t addr) {
   auto node = this->get_node(addr);
   if (!node) {
     return false;
   }
-  size_t day_index = static_cast<size_t>(todays_day);
-  NodeTypes::WateringSchedule schedule = node->get_weekly_waterings();
-  return schedule[day_index];
+  CyclePhase phase = this->clock.get_phase_of_cycle();
+  size_t phase_index = static_cast<size_t>(phase);
+  NodeTypes::WateringCycle cycle = node->get_watering_cycle();
+  return cycle[phase_index];
 }
 
 NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
@@ -170,10 +171,9 @@ void Head::initialize_watering_states() {
       this->head_status = HeadStatus::FAULTY_NODE;
       return;
     }
-    Weekdays curr_day = this->clock.get_day_of_week();
 
     if (!node->all_durations_zero() && status == NodeStatus::READY &&
-        this->is_node_watering_today(i, curr_day)) {
+        this->is_node_watering_this_phase(i)) {
       node->set_node_status(NodeStatus::IN_QUEUE);
       if (!this->active_watering_index) {
         this->active_watering_index = i;
@@ -311,31 +311,31 @@ Head::set_node_durations(size_t index,
   ActionStatus rc = node->set_node_durations(durations);
   if (rc == ActionStatus::OK) {
     this->time_pool = new_time_pool;
-    this->storage.save_durations(index, durations,
-                                 node->get_weekly_waterings());
+    this->storage.save_durations(index, durations, node->get_watering_cycle());
   }
   return rc;
 }
 
 ActionStatus
-Head::set_weekly_waterings(size_t index,
-                           const NodeTypes::WateringSchedule &schedule) {
+Head::set_watering_cycle(size_t index,
+                         const NodeTypes::WateringCycle &schedule) {
 
   auto node = this->get_node(index);
   if (!node) {
     return ActionStatus::INVALID_NODE;
   }
 
-  node->set_weekly_waterings(schedule);
+  node->set_watering_cycle(schedule);
 
   this->storage.save_durations(index, node->get_all_hose_durations(),
-                               node->get_weekly_waterings());
+                               node->get_watering_cycle());
   return ActionStatus::OK;
 }
 
+// TEST: all time pool related functionality
 int Head::calculate_new_time_pool(
     size_t index, const NodeTypes::HoseDurations &new_durations) {
-  int duration_pool = INITIAL_TIME_POOL;
+  int duration_pool = this->phase_length;
   for (size_t addr = 0; addr < config::max_nodes; addr++) {
     int sum = 0;
     if (addr == index) {
@@ -384,10 +384,9 @@ void Head::print_node_durations() {
   }
 }
 void Head::init_pairing_mode() {
-  Logger::log_simple("head is initing");
   this->conclude_watering(HeadStatus::PAIRING);
   for (size_t i = 0; i < config::max_nodes; i++) {
     this->node_link.at(i) = nullptr;
   }
-  this->time_pool = INITIAL_TIME_POOL;
+  this->time_pool = this->phase_length;
 }

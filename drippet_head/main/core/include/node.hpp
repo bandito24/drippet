@@ -1,5 +1,6 @@
 #pragma once
 #include "clock.hpp"
+#include "constants.hpp"
 #include <array>
 #include <chrono>
 #include <config.hpp>
@@ -14,11 +15,12 @@ enum HardwareStatus {
 
 namespace NodeTypes {
 using HoseDurations = std::array<Time::Time_Seconds, config::node_hose_count>;
-using WateringSchedule = std::array<bool, days_in_week>;
+// using WateringSchedule = std::array<bool, PHASE_CYCLE_LEN>;
+//
+using WateringCycle = std::array<bool, PHASE_CYCLE_LEN>;
 struct DurationSchedule {
   NodeTypes::HoseDurations durations{};
-  NodeTypes::WateringSchedule schedule{true, true, true, true,
-                                       true, true, true};
+  NodeTypes::WateringCycle cycle{true, true, true, true, true, true, true};
 };
 } // namespace NodeTypes
 
@@ -58,9 +60,13 @@ struct iNode {
   virtual void clear_retry_count() = 0;
   virtual uint8_t get_retry_count() = 0;
   virtual void print_hose_durations(size_t self_addr) = 0;
-  virtual std::array<bool, days_in_week> &get_weekly_waterings() = 0;
+  // virtual std::array<bool, PHASE_CYCLE_LEN> &get_watering_cycle() = 0;
+  // virtual void
+  // set_watering_cycle(const NodeTypes::WateringCycle &new_water) = 0;
+
+  virtual std::array<bool, PHASE_CYCLE_LEN> &get_watering_cycle() = 0;
   virtual void
-  set_weekly_waterings(const NodeTypes::WateringSchedule &new_water) = 0;
+  set_watering_cycle(const NodeTypes::WateringCycle &new_water) = 0;
 };
 
 class Node : public iNode {
@@ -83,12 +89,12 @@ public:
 
   Node(NodeKey_t key);
 
-  std::array<bool, days_in_week> &get_weekly_waterings() override {
-    return this->weekly_waterings;
+  std::array<bool, days_in_week> &get_watering_cycle() override {
+    return this->water_cycle;
   };
   void
-  set_weekly_waterings(const NodeTypes::WateringSchedule &new_water) override {
-    this->weekly_waterings = new_water;
+  set_watering_cycle(const NodeTypes::WateringCycle &new_water) override {
+    this->water_cycle = new_water;
   }
 
   const std::array<Time::Time_Seconds, config::node_hose_count> &
@@ -105,7 +111,7 @@ public:
   void print_hose_durations(size_t self_addr) override;
 
 private:
-  std::array<bool, days_in_week> weekly_waterings{true, true, true, true,
+  std::array<bool, days_in_week> water_cycle{true, true, true, true,
                                                   true, true, true};
 
   std::array<Time::Time_Seconds, config::node_hose_count> node_hose_durations{};

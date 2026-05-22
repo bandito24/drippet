@@ -21,7 +21,6 @@ enum NodeLinkStatus {
 };
 
 constexpr uint8_t RETRY_NODE_MAX = 10;
-constexpr uint32_t INITIAL_TIME_POOL = config::WATER_INTERVAL;
 enum class HeadStatus { PAIRING, STANDBY, FAULTY_NODE, WATERING_CMDS };
 enum ValveStatus { VALVE_OPEN, VALVE_CLOSED };
 using all_node_status_t = std::array<uint8_t, config::max_nodes>;
@@ -31,7 +30,8 @@ private:
   Switch &mainValve;
   iClock &clock;
   Storage &storage;
-  Time::Long time_pool = config::WATER_INTERVAL;
+  const Time::Long phase_length;
+  Time::Long time_pool;
   std::array<NodeTypes::Node, config::max_nodes> node_link{};
   void advance_active_watering_index();
   std::size_t node_count = 0;
@@ -54,12 +54,14 @@ private:
 
 public:
   Head(Switch &waterFaucetMain, iClock &clock, Storage &store)
-      : mainValve{waterFaucetMain}, clock{clock}, storage{store} {
+      : mainValve{waterFaucetMain}, clock{clock}, storage{store},
+        phase_length{clock.get_phase_length()}, time_pool{phase_length} {
     mainValve.init();
   };
   std::optional<size_t> get_active_watering_index() const {
     return this->active_watering_index;
   }
+  Time::Long get_remaining_time_pool() const { return this->time_pool; }
   HeadStatus &get_head_status() { return this->head_status; };
   const HeadStatus &read_node_status() const { return this->head_status; }
   static constexpr std::size_t max_nodes = config::max_nodes;
@@ -77,9 +79,8 @@ public:
   void init_pairing_mode();
   void end_pairing_mode() { this->head_status = HeadStatus::STANDBY; }
 
-  ActionStatus
-  set_weekly_waterings(size_t index,
-                       const NodeTypes::WateringSchedule &schedule);
+  ActionStatus set_watering_cycle(size_t index,
+                                  const NodeTypes::WateringCycle &cycle);
   NodeStatus get_node_status(size_t addr) {
     if (this->get_node(addr)) {
       return this->get_node(addr)->get_node_status();
@@ -100,7 +101,7 @@ public:
 
   int calculate_new_time_pool(size_t index,
                               const NodeTypes::HoseDurations &new_durations);
-  bool is_node_watering_today(size_t addr, Weekdays todays_day);
+  bool is_node_watering_this_phase(size_t addr);
 
   UartMessage terminate_endpoint(NodeKey_t key);
   std::optional<UartMessage> handle_incoming_frame(const UartMessage &msg);
