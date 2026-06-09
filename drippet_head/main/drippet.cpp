@@ -29,7 +29,7 @@ extern "C" void app_main(void) {
   storage.init();
   UartProtocol uart{driver};
   SystemClock sys_clock{};
-  Esp32Clock clock{sys_clock};
+  Esp32Clock clock{65000, sys_clock};
   clock.set_time(2026, 1, 1, 0, 0);
 
   //// For Queueing Incoming Messages From Peripherals and Sending Head Queued

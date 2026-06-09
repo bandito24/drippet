@@ -88,9 +88,6 @@ TEST_CASE("Clock and next watering durations set correctly", "[clock]") {
         fix.curr_time += std::chrono::seconds{clock.get_phase_length()};
         REQUIRE(clock.is_watering_due() == true);
       }
-
-      // REQUIRE(clock.get_next_watering_point() ==
-      //         clock.now() + std::chrono::seconds{clock.get_phase_length()});
     }
   }
 }
