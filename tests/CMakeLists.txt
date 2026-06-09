@@ -22,8 +22,6 @@ add_executable(tests ${TEST_FILES})
 target_link_libraries(tests
     PRIVATE
     HEAD_SRC
-    NODE_SRC
-    SHARED_DPT
     Catch2::Catch2WithMain
 )
 
@@ -34,7 +32,7 @@ target_include_directories(tests PRIVATE
 
 # Coverage instrumentation
 if(COVERAGE)
-  foreach(target HEAD_SRC NODE_SRC SHARED_DPT tests)
+  foreach(target HEAD_SRC tests)
     target_compile_options(${target} PRIVATE
       -fprofile-instr-generate
       -fcoverage-mapping
