@@ -11,35 +11,31 @@
 
 enum class RC { OK, ERR };
 using OptMsg = std::optional<UartMessage>;
-using SelfHoseDurations = std::array<Time::Long, config::node_hose_count>;
+using SolenoidPtr = std::unique_ptr<SolenoidValve>;
 
 // seed with uint32_t xTaskGetTickCount()
 class SelfNode {
 public:
-  SelfNode(SteadyClock &clk, SolenoidManager &solenoidManager)
-      : clock{clk}, solenoid_manager{solenoidManager} {};
+  SelfNode(SteadyClock &clk, SolenoidPtr _solenoid)
+      : clock{clk}, solenoid{std::move(_solenoid)} {};
   Esp_Err_t init();
   std::optional<UartMessage> handle_incoming_frame(UartMessage &msg);
   const NodeStatus &get_status() const { return this->status; }
   void process_watering_schedule();
   NodeKey_t get_key() const { return this->self_key; };
-  size_t get_active_hose_index() const { return this->active_hose_index; }
   config::Address get_addr() const { return this->self_addr; }
-  const SelfHoseDurations &get_hose_durations() const {
-    return this->hose_durations;
-  }
+  void activate_hose();
+  Time::Long get_hose_duration() const { return this->hose_duration; }
+  bool is_watering() const { return this->solenoid->is_enabled(); }
 
 private:
   SteadyClock &clock;
-  SolenoidManager &solenoid_manager;
+  SolenoidPtr solenoid;
   config::Address self_addr = ADDR_UNSET;
   NodeKey_t self_key = 0;
-  SelfHoseDurations hose_durations{};
-  size_t active_hose_index = HOSE_INACTIVE_IDX;
-  void change_active_hose(size_t hose_index);
+  Time::Long hose_duration{};
 
-  std::optional<UartMessage>
-  initialize_watering(Protocol::FrameDataArray &durations);
+  UartMessage initialize_watering(Time::Long duration);
   bool has_addr() const { return this->self_addr != ADDR_UNSET; }
   Time::Long last_evt_time{};
   void update_last_evt_time() { this->last_evt_time = this->clock.now(); }

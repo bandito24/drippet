@@ -6,7 +6,6 @@
 
 namespace config {
 constexpr std::size_t max_nodes = 12;
-constexpr std::size_t node_hose_count = 5;
 using Address = uint8_t;
 constexpr uint8_t invalid_address = 0xFF;
 
@@ -24,9 +23,7 @@ constexpr uint16_t MAX_HOSE_DURATION =
 // (5460 seconds for 15 hoses, 96 mins, 1.5 hours)
 // (2880 seconds for 30 hoses, 48 mins)
 // (1440 seconds for 60 hoses, 24 mins)
-using HoseDurations = std::array<Time::Time_Seconds, config::node_hose_count>;
+using HoseDuration = Time::Time_Seconds;
 } // namespace config
   //
   //
-
-constexpr size_t HOSE_INACTIVE_IDX = config::node_hose_count;

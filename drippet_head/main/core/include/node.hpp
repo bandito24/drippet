@@ -14,12 +14,12 @@ enum HardwareStatus {
 };
 
 namespace NodeTypes {
-using HoseDurations = std::array<Time::Time_Seconds, config::node_hose_count>;
+using HoseDuration = Time::Time_Seconds;
 // using WateringSchedule = std::array<bool, PHASE_CYCLE_LEN>;
 //
 using WateringCycle = std::array<bool, PHASE_CYCLE_LEN>;
 struct DurationSchedule {
-  NodeTypes::HoseDurations durations{};
+  NodeTypes::HoseDuration duration{};
   NodeTypes::WateringCycle cycle{true, true, true, true, true, true, true};
 };
 } // namespace NodeTypes
@@ -35,31 +35,22 @@ class MainValve : public iValve {
   HardwareStatus open_valve() override { return HardwareStatus::ERR_NONE; };
   HardwareStatus close_valve() override { return HardwareStatus::ERR_NONE; };
 };
-struct NodeDirections {
-  Time::Time_Seconds node_hose_durations[config::node_hose_count];
-};
 
 struct iNode {
   virtual ~iNode() = default;
 
   virtual NodeStatus get_node_status() const = 0;
   virtual void set_node_status(NodeStatus status) = 0;
-  virtual ActionStatus edit_hose_duration(std::size_t index,
-                                          Time::Time_Seconds new_duration) = 0;
-  virtual ActionStatus
-  set_node_durations(const NodeTypes::HoseDurations &durations) = 0;
+  virtual ActionStatus set_node_duration(NodeTypes::HoseDuration duration) = 0;
 
   virtual ActionStatus
   set_node_durations(const NodeTypes::DurationSchedule &dur_sch) = 0;
 
-  virtual Time::Time_Seconds get_hose_duration(std::size_t index) const = 0;
-  virtual const NodeTypes::HoseDurations &get_all_hose_durations() const = 0;
-  virtual bool all_durations_zero() const = 0;
+  virtual Time::Time_Seconds get_hose_duration() const = 0;
   virtual NodeKey_t get_id_key() const = 0;
   virtual uint8_t increase_retry_count() = 0;
   virtual void clear_retry_count() = 0;
   virtual uint8_t get_retry_count() = 0;
-  virtual void print_hose_durations(size_t self_addr) = 0;
   // virtual std::array<bool, PHASE_CYCLE_LEN> &get_watering_cycle() = 0;
   // virtual void
   // set_watering_cycle(const NodeTypes::WateringCycle &new_water) = 0;
@@ -67,6 +58,7 @@ struct iNode {
   virtual std::array<bool, PHASE_CYCLE_LEN> &get_watering_cycle() = 0;
   virtual void
   set_watering_cycle(const NodeTypes::WateringCycle &new_water) = 0;
+  virtual void print_hose_duration(size_t addr) const = 0;
 };
 
 class Node : public iNode {
@@ -74,31 +66,21 @@ public:
   NodeStatus get_node_status() const override;
   void set_node_status(NodeStatus status) override;
 
-  ActionStatus edit_hose_duration(std::size_t index,
-                                  Time::Time_Seconds new_duration) override;
-
-  ActionStatus set_node_durations(
-      const std::array<Time::Time_Seconds, config::node_hose_count> &durations)
-      override;
+  ActionStatus set_node_duration(NodeTypes::HoseDuration duration) override;
 
   ActionStatus
   set_node_durations(const NodeTypes::DurationSchedule &dur_sch) override;
-  bool all_durations_zero() const override;
 
-  Time::Time_Seconds get_hose_duration(std::size_t index) const override;
+  Time::Time_Seconds get_hose_duration() const override;
 
   Node(NodeKey_t key);
 
-  std::array<bool, days_in_week> &get_watering_cycle() override {
+  std::array<bool, PHASE_CYCLE_LEN> &get_watering_cycle() override {
     return this->water_cycle;
   };
-  void
-  set_watering_cycle(const NodeTypes::WateringCycle &new_water) override {
+  void set_watering_cycle(const NodeTypes::WateringCycle &new_water) override {
     this->water_cycle = new_water;
   }
-
-  const std::array<Time::Time_Seconds, config::node_hose_count> &
-  get_all_hose_durations() const override;
 
   NodeKey_t get_id_key() const override { return id_key; };
   uint8_t increase_retry_count() override {
@@ -108,13 +90,14 @@ public:
   void clear_retry_count() override { this->retry_attempts = 0; }
   uint8_t get_retry_count() override { return this->retry_attempts; }
 
-  void print_hose_durations(size_t self_addr) override;
+  Time::Time_Seconds node_hose_duration{};
+
+  void print_hose_duration(size_t addr) const override;
 
 private:
-  std::array<bool, days_in_week> water_cycle{true, true, true, true,
-                                                  true, true, true};
+  std::array<bool, PHASE_CYCLE_LEN> water_cycle{true, true, true, true,
+                                                true, true, true};
 
-  std::array<Time::Time_Seconds, config::node_hose_count> node_hose_durations{};
   NodeKey_t id_key = 0;
   NodeStatus node_status = NodeStatus::INITIALIZING;
   uint8_t retry_attempts = 0;

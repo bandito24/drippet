@@ -56,7 +56,7 @@ NodeTypes::DurationSchedule NvsStorage::read_boot_durations(size_t addr) const {
   return durations_sch;
 }
 Esp_Err_t NvsStorage::save_durations(size_t addr,
-                                     const NodeTypes::HoseDurations &durations,
+                                     const NodeTypes::HoseDuration duration,
                                      const NodeTypes::WateringCycle &cycle) {
   Esp_Err_t rc{};
   if (!this->initialized) {
@@ -65,8 +65,7 @@ Esp_Err_t NvsStorage::save_durations(size_t addr,
 
   assert(addr < config::max_nodes);
 
-  this->boot_persisted_durations[addr] = {.durations = durations,
-                                          .cycle = cycle};
+  this->boot_persisted_durations[addr] = {.duration = duration, .cycle = cycle};
 
   rc = handle->set_blob(this->handle_name, &this->boot_persisted_durations,
                         sizeof(this->boot_persisted_durations));
@@ -87,10 +86,7 @@ void NvsStorage::print_boot_persisted_durations() const {
   for (size_t node = 0; node < config::max_nodes; ++node) {
     printf("Durations for Node %2u | ", (unsigned)node);
 
-    for (size_t hose = 0; hose < config::node_hose_count; ++hose) {
-      printf("%5u ",
-             (unsigned)this->boot_persisted_durations[node].durations[hose]);
-    }
+    printf("%5u ", (unsigned)this->boot_persisted_durations[node].duration);
 
     printf("\n");
 

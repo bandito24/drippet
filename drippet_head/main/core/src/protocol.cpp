@@ -1,13 +1,14 @@
 #include "protocol.hpp"
 #include "constants.hpp"
 #include "driver.hpp"
+#include "protocol_types.hpp"
 #include <assert.h>
 #include <cstdio>
 #include <optional>
 
 SizedFrameBuffer UartProtocol::prepare_bytes(const UartMessage &data) const {
 
-  assert(data.data_length <= config::node_hose_count);
+  assert(data.data_length <= Protocol::MAX_DATA_LEN);
   uint8_t data_len = data.data_length * 2; // uint16_t broken up into 2
 
   SizedFrameBuffer frame_buffer{};

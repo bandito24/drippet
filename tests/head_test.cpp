@@ -17,7 +17,7 @@
 
 using Fixture = HeadFixture;
 constexpr NodeKey_t TEST_KEY = 500;
-using Hose_Durs = NodeTypes::HoseDurations;
+using Hose_Dur = NodeTypes::HoseDuration;
 
 TEST_CASE("create node pending behaves correctly", "[head]") {
 
@@ -84,19 +84,6 @@ TEST_CASE("create node pending behaves correctly", "[head]") {
       REQUIRE(fix.head->get_node_status(2) == NodeStatus::INITIALIZING);
     }
   }
-  SECTION("retrieve_all_nodes accurately gives all arrays") {
-    Fixture fix;
-    all_durations_t durs = fix.head->retrieve_all_durations();
-    all_durations_t check{};
-    REQUIRE(durs == check);
-    NodeTypes::HoseDurations dur_check = {1, 1, 1, 1, 1};
-    Mocks::populate_head_nodes(*fix.head, 1);
-    fix.head->set_node_durations(0, dur_check);
-
-    all_durations_t durs2 = fix.head->retrieve_all_durations();
-    check[0] = dur_check;
-    REQUIRE(durs2 == check);
-  }
 }
 
 using CMD = Protocol::Command;
@@ -154,23 +141,28 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
     SECTION("Logical control path") {
 
       // Building dynamic node structure
+      // First making a few node conditions that should not init on watering
       config::Address add_check = config::max_nodes - 1;
       config::Address add_check_2 = config::max_nodes - 2;
+      config::Address add_check_3 = config::max_nodes - 3;
       fix.head->set_node_status(add_check, NodeStatus::INITIALIZING);
-      NodeTypes::HoseDurations empty_durs{};
-      fix.head->set_node_durations(add_check_2, empty_durs);
+      fix.head->set_node_duration(add_check_2, 0);
+      NodeTypes::WateringCycle falseCycle = {false, false, false, false,
+                                             false, false, false};
+      fix.head->set_watering_cycle(add_check_3, falseCycle);
 
       fix.head->process_watering_schedule();
       REQUIRE(fix.head->get_head_status() == HeadStatus::WATERING_CMDS);
       Verify(Method(fix.clockMock, progress_watering_due)).Exactly(1);
       Verify(Method(fix.valveMock, enable)).AtLeastOnce();
 
-      SECTION("Nodes with no duration and not NodeStatus::ready do not go in "
+      SECTION("Nodes with no duration and not NodeStatus::ready and false "
+              "phase do not go in "
               "queue") {
 
         for (size_t addr = 0; addr < config::max_nodes; addr++) {
           auto status = fix.head->get_node_status(addr);
-          if (addr != add_check && addr != add_check_2) {
+          if (addr != add_check && addr != add_check_2 && addr != add_check_3) {
             REQUIRE(status == NodeStatus::IN_QUEUE);
           } else if (addr == add_check) {
             REQUIRE(status == NodeStatus::INITIALIZING);
@@ -186,7 +178,9 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
           auto msg = fix.head->next_watering_frame();
 
           REQUIRE(msg->address == 0);
-          REQUIRE(msg->data == Mocks::hose_durations);
+          REQUIRE(msg->data ==
+                  Protocol::FrameDataArray{
+                      fix.head->get_node_hose_duration(0).value()});
           REQUIRE(fix.head->get_node_status(0) == NodeStatus::COMMAND_SENT);
 
           SECTION(
@@ -340,20 +334,19 @@ TEST_CASE("testing calculation and handling of time pool", "[time_pool]") {
 
     uint8_t val1 = 1;
     uint8_t second_hose_duration = 33;
-    NodeTypes::HoseDurations durations1{val1, val1, val1};
-    Mocks::populate_single_node(*fix.head, 0, durations1);
-    auto pool_check = PHASE_LEN - 3 * val1;
+    NodeTypes::HoseDuration duration1{val1};
+    Mocks::populate_single_node(*fix.head, 0, duration1);
+    auto pool_check = PHASE_LEN - val1;
     REQUIRE(fix.head->get_remaining_time_pool() == pool_check);
 
-    NodeTypes::HoseDurations durations2{second_hose_duration};
-    Mocks::populate_single_node(*fix.head, 1, durations2);
+    NodeTypes::HoseDuration duration2{second_hose_duration};
+    Mocks::populate_single_node(*fix.head, 1, duration2);
     pool_check -= second_hose_duration;
     REQUIRE(fix.head->get_remaining_time_pool() == pool_check);
     SECTION(
         "modifying existing nodes will accurately recalculate the time pool") {
       auto first_node_replacement = 20;
-      NodeTypes::HoseDurations new_durs = {20};
-      fix.head->set_node_durations(0, new_durs);
+      fix.head->set_node_duration(0, first_node_replacement);
       auto new_check =
           PHASE_LEN - first_node_replacement - second_hose_duration;
       REQUIRE(fix.head->get_remaining_time_pool() == new_check);
@@ -361,18 +354,17 @@ TEST_CASE("testing calculation and handling of time pool", "[time_pool]") {
 
         auto remaining =
             static_cast<uint16_t>(fix.head->get_remaining_time_pool());
-        NodeTypes::HoseDurations max_out = {remaining};
+        NodeTypes::HoseDuration max_out = remaining;
 
         Mocks::populate_single_node(*fix.head, 2, max_out);
         // Make sure using the rest of it worked
-        REQUIRE(fix.head->get_node_hose_durations(2) == max_out);
+        REQUIRE(fix.head->get_node_hose_duration(2) == max_out);
 
-        NodeTypes::HoseDurations failing_durs = {1};
+        NodeTypes::HoseDuration failing_durs = 1;
         Mocks::populate_single_node(*fix.head, 3, failing_durs);
-        Hose_Durs empty = {};
 
         // Can't add a single second more than time pool
-        REQUIRE(fix.head->get_node_hose_durations(3) == empty);
+        REQUIRE(fix.head->get_node_hose_duration(3) == 0);
         SECTION("calling init pairing mode resets time pool") {
           fix.head->init_pairing_mode();
           REQUIRE(fix.head->get_remaining_time_pool() == PHASE_LEN);

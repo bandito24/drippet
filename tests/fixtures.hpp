@@ -36,9 +36,6 @@ struct HeadFixture {
     When(Method(clockMock, is_watering_due)).AlwaysReturn();
     When(Method(clockMock, progress_watering_due)).AlwaysReturn();
     When(Method(clockMock, now)).AlwaysReturn();
-    //     When(Method(clockMock,
-    //   get_phase_of_cycle)).AlwaysReturn(CyclePhase::FIRST);
-    //
     When(Method(clockMock, get_phase_length)).AlwaysReturn(phase_length);
     head = std::make_unique<Head>(valveMock.get(), clockMock.get(),
                                   storageMock.get());
@@ -47,7 +44,7 @@ struct HeadFixture {
 struct SelfNodeFixture {
   fakeit::Mock<SteadyClock> steady_clock;
   std::unique_ptr<SelfNode> self_node;
-  std::unique_ptr<SolenoidManager> sol_manager;
+  std::unique_ptr<SolenoidMock> sol = std::make_unique<SolenoidMock>();
 
   void set_mock_now(Time::Long return_time) {
     // Custom
@@ -55,17 +52,10 @@ struct SelfNodeFixture {
   }
   SelfNodeFixture() {
 
-    SolenoidGrouping solenoids = {};
-    for (size_t i = 0; i < config::node_hose_count; i++) {
-
-      auto ptr = std::make_unique<SolenoidMock>();
-      solenoids.at(i) = std::move(ptr);
-    }
     // Default
     set_mock_now(500);
-    this->sol_manager = std::make_unique<SolenoidManager>(std::move(solenoids));
     this->self_node =
-        std::make_unique<SelfNode>(steady_clock.get(), *this->sol_manager);
+        std::make_unique<SelfNode>(steady_clock.get(), std::move(sol));
   };
 };
 constexpr Time::Long TEST_PHASE_LEN = 100;

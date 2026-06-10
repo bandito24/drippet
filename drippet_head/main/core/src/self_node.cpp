@@ -28,7 +28,7 @@ std::optional<UartMessage> SelfNode::handle_incoming_frame(UartMessage &msg) {
     this->complete_initialization();
     break;
   case CMD::INIT_WATER_DURATIONS:
-    return this->initialize_watering(msg.data);
+    return this->initialize_watering(msg.data[0]);
   case CMD::STATUS:
     return UartMessage{.address = self_addr,
                        .command = CMD::STATUS,
@@ -69,20 +69,20 @@ std::optional<UartMessage> SelfNode::handle_unsynced_message(UartMessage &msg) {
   return std::nullopt;
 }
 
-std::optional<UartMessage>
-SelfNode::initialize_watering(Protocol::FrameDataArray &durations) {
-  if (this->get_status() == NodeStatus::INITIALIZING) {
-    return std::nullopt;
+UartMessage SelfNode::initialize_watering(Time::Long duration) {
+
+  // One state for starting and one state for possibly ending (0 duration while
+  // watering)
+  if (this->status == NodeStatus::READY ||
+      this->status == NodeStatus::WATERING) {
+    this->hose_duration = this->clock.now() + duration;
+    if (duration != 0) {
+      this->status = NodeStatus::WATERING;
+      this->activate_hose();
+    } else {
+      this->conclude_watering();
+    }
   }
-  Time::Long time_point = this->clock.now();
-  std::array<Time::Long, config::node_hose_count> intervals{};
-  for (size_t i = 0; i < intervals.size(); i++) {
-    time_point += durations[i];
-    intervals[i] = time_point;
-  }
-  this->status = NodeStatus::WATERING;
-  this->hose_durations = intervals;
-  this->change_active_hose(0);
 
   return UartMessage{.address = self_addr, .command = CMD::ACK};
 }
@@ -91,24 +91,14 @@ void SelfNode::process_watering_schedule() {
   if (this->status != NodeStatus::WATERING) {
     return;
   }
-  size_t curr_hose = this->active_hose_index;
   Time::Long time_point = this->clock.now();
-  if (time_point >= this->hose_durations[curr_hose]) {
-    while (curr_hose < config::node_hose_count &&
-           time_point >= this->hose_durations[curr_hose]) {
-      curr_hose += 1;
-    }
-    if (curr_hose < config::node_hose_count) {
-      this->change_active_hose(curr_hose);
-    } else {
-      this->conclude_watering();
-    }
+  if (time_point >= this->hose_duration) {
+    this->conclude_watering();
   }
 }
 void SelfNode::conclude_watering() {
-  this->active_hose_index = HOSE_INACTIVE_IDX;
 
-  Esp_Err_t rc = this->solenoid_manager.deactivate_solenoids();
+  Esp_Err_t rc = this->solenoid->disable();
   if (rc != 0) {
     this->status = NodeStatus::ERR;
   } else {
@@ -117,10 +107,8 @@ void SelfNode::conclude_watering() {
 }
 
 void SelfNode::complete_initialization() { this->status = NodeStatus::READY; }
-void SelfNode::change_active_hose(size_t hose_index) {
-  assert(hose_index < config::node_hose_count);
-  Esp_Err_t rc = this->solenoid_manager.activate_solenoid(hose_index);
-  this->active_hose_index = hose_index;
+void SelfNode::activate_hose() {
+  Esp_Err_t rc = this->solenoid->enable();
   if (rc != 0) {
     this->status = NodeStatus::ERR;
   }

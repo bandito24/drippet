@@ -3,6 +3,7 @@
 #include "config.hpp"
 #include "head.hpp"
 #include "node.hpp"
+#include "protocol_types.hpp"
 #include "util.hpp"
 #include <cassert>
 #include <optional>
@@ -11,14 +12,15 @@ BLE::Status GattAttribute::load_duration_buffer(size_t row) {
   if (row >= config::max_nodes) {
     return BLE::Status::INVALID_NODE;
   }
-  std::optional<NodeTypes::HoseDurations> durations =
-      this->head.get_node_hose_durations(row);
-  if (!durations) {
+  std::optional<NodeTypes::HoseDuration> duration =
+      this->head.get_node_hose_duration(row);
+  if (!duration) {
     return BLE::Status::INVALID_NODE;
   }
 
-  uint8_t buffer[config::node_hose_count * 2]{};
-  Util::le16_to_le8(buffer, durations.value());
+  uint8_t buffer[Protocol::MAX_DATA_LEN * 2]{};
+  Util::put_le16(buffer, duration.value());
+  // TODO: add phase cycle
   std::copy(std::begin(buffer), std::end(buffer),
             this->duration_buffer.begin() + 1);
   this->duration_buffer[0] = row;
@@ -43,28 +45,18 @@ BLE::Status GattAttribute::handle_incoming_write(std::span<uint8_t> raw_data) {
     break;
   }
   case BLE::Cmds::WRITE_CELL: {
-    size_t target_col = raw_data[BLE::TGT_ROW_IDX + 1];
+    // FIX: THE ADDRESSING, wont be accurate
     uint16_t new_duration = Util::get_le16(&raw_data[BLE::TGT_ROW_IDX + 2]);
 
-    std::optional<NodeTypes::HoseDurations> hose_durations =
-        this->head.get_node_hose_durations(target_row);
-    hose_durations.value().at(target_col) = new_duration;
-    this->head.set_node_durations(target_row, hose_durations.value());
+    this->head.set_node_duration(target_row, new_duration);
     return this->load_duration_buffer(target_row);
     break;
   }
   case BLE::Cmds::WRITE_ROW: {
 
-    std::optional<NodeTypes::HoseDurations> hose_durations =
-        this->head.get_node_hose_durations(target_row);
-    size_t start_idx = BLE::TGT_ROW_IDX + 1;
-    for (size_t target_col = 0; target_col < config::node_hose_count;
-         target_col++) {
-      uint16_t new_duration = Util::get_le16(&raw_data[start_idx]);
-      hose_durations.value().at(target_col) = new_duration;
-      start_idx += 2;
-    }
-    this->head.set_node_durations(target_row, hose_durations.value());
+    // FIX: Do we want this? idk, fix it
+    std::optional<NodeTypes::HoseDuration> hose_durations =
+        this->head.get_node_hose_duration(target_row);
     return this->load_duration_buffer(target_row);
     break;
   }
@@ -88,7 +80,7 @@ BLE::Status GattAttribute::validate_packet(std::span<uint8_t> pkt) {
     expected_len = BLE::LOAD_ROW_DATA_LEN;
     break;
   case BLE::Cmds::WRITE_CELL:
-    if (pkt[BLE::TGT_CELL_IDX] >= config::node_hose_count) {
+    if (pkt[BLE::TGT_CELL_IDX] >= Protocol::MAX_DATA_LEN) {
       return BLE::Status::INVALID_HOSE;
     }
     expected_len = BLE::WRITE_CEL_DATA_LEN;

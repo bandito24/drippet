@@ -74,8 +74,8 @@ public:
   std::optional<UartMessage> next_watering_frame();
   all_node_status_t get_node_statuses();
   void set_node_status(size_t index, NodeStatus status);
-  ActionStatus set_node_durations(size_t index,
-                                  const NodeTypes::HoseDurations &durations);
+  ActionStatus set_node_duration(size_t index,
+                                 const NodeTypes::HoseDuration duration);
   void init_pairing_mode();
   void end_pairing_mode() { this->head_status = HeadStatus::STANDBY; }
 
@@ -90,7 +90,7 @@ public:
   }
   bool node_exists(size_t addr) { return this->get_node(addr) != nullptr; }
 
-  std::optional<NodeTypes::HoseDurations> get_node_hose_durations(size_t index);
+  std::optional<NodeTypes::HoseDuration> get_node_hose_duration(size_t index);
 
   config::Address get_available_address();
 
@@ -100,10 +100,9 @@ public:
   UartMessage create_status_frame(config::Address address) const;
 
   int calculate_new_time_pool(size_t index,
-                              const NodeTypes::HoseDurations &new_durations);
+                              NodeTypes::HoseDuration new_duration);
   bool is_node_watering_this_phase(size_t addr);
 
-  UartMessage terminate_endpoint(NodeKey_t key);
   std::optional<UartMessage> handle_incoming_frame(const UartMessage &msg);
   void process_watering_schedule();
   int get_node_retry_count(size_t addr) {
@@ -113,7 +112,7 @@ public:
       return -1;
     }
   }
-  all_durations_t retrieve_all_durations();
+  //  all_durations_t retrieve_all_durations();
   void print_node_durations();
   void handle_incoming_node_status(const UartMessage &frame);
 };

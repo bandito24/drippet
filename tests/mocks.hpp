@@ -14,13 +14,9 @@
 namespace Mocks {
 
 constexpr NodeKey_t sample_key = 500;
-constexpr NodeTypes::HoseDurations hose_durations = {1, 2, 3, 4, 5};
-inline NodeTypes::HoseDurations get_new_hose_durations(int increaser) {
-  NodeTypes::HoseDurations ret{};
-  for (size_t i = 0; i < hose_durations.size(); i++) {
-    ret[i] = hose_durations[i] * (1 + increaser);
-  }
-  return ret;
+constexpr NodeTypes::HoseDuration hose_duration = {100};
+inline NodeTypes::HoseDuration get_new_hose_durations(int increaser) {
+  return hose_duration * (1 + increaser);
 }
 inline UartMessage incoming_adressing_frame(config::Address addr,
                                             NodeKey_t key = sample_key) {
@@ -28,7 +24,7 @@ inline UartMessage incoming_adressing_frame(config::Address addr,
   return {.address = addr,
           .command = Protocol::Command::ADDRESSING,
           .data = Protocol::FrameDataArray{key_arr[0], key_arr[1]},
-          .data_length = 1};
+          .data_length = 2};
 }
 
 inline UartMessage incoming_discovery_frame(NodeKey_t key = sample_key) {
@@ -37,7 +33,7 @@ inline UartMessage incoming_discovery_frame(NodeKey_t key = sample_key) {
   return {.address = ADDR_UNSET,
           .command = Protocol::Command::DISCOVERY,
           .data = Protocol::FrameDataArray{key_arr[0], key_arr[1]},
-          .data_length = 1};
+          .data_length = 2};
 }
 inline UartMessage incoming_ack_frame(config::Address addr) {
   return {.address = addr, .command = Protocol::Command::ACK, .data_length = 0};
@@ -58,17 +54,16 @@ inline void populate_head_nodes(Head &head,
     head.create_node_pending(addr);
     head.confirm_node_pending(addr, addr);
     auto new_durations = get_new_hose_durations(addr);
-    head.set_node_durations(addr, new_durations);
+    head.set_node_duration(addr, new_durations);
   }
 }
 inline void populate_single_node(Head &head, config::Address addr,
-                                 NodeTypes::HoseDurations &durations) {
+                                 NodeTypes::HoseDuration duration) {
   auto key = NodeKey_t{addr};
   assert(head.get_node_by_key(key) == std::nullopt);
-
   head.create_node_pending(addr);
   head.confirm_node_pending(key, addr);
-  head.set_node_durations(addr, durations);
+  head.set_node_duration(addr, duration);
 }
 
 inline uint8_t uint8(BLE::Cmds cmd) { return static_cast<uint8_t>(cmd); }
@@ -82,7 +77,7 @@ inline std::array<uint8_t, 13> pkt_write_row() {
           11,                                 // DATA_LEN
           0,                                  // ROW INDEX
           // durations (little-endian)
-          6, 0, 7, 0, 8, 0, 9, 0, 10, 1};
+          6, 0};
 }
 
 inline std::array<uint8_t, 3> pkt_load_row() {

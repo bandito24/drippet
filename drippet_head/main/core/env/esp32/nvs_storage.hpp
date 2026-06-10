@@ -11,9 +11,8 @@ using DurationScheduleAll =
 
 class NvsStorage : public Storage {
 public:
-  Esp_Err_t
-  save_durations(size_t addr, const NodeTypes::HoseDurations &durations,
-                 const NodeTypes::WateringCycle &schedule) override;
+  Esp_Err_t save_durations(size_t addr, const NodeTypes::HoseDuration durations,
+                           const NodeTypes::WateringCycle &schedule) override;
   NodeTypes::DurationSchedule read_boot_durations(size_t addr) const override;
 
   Esp_Err_t init() override;

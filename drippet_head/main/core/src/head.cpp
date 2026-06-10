@@ -50,7 +50,7 @@ bool Head::is_node_watering_this_phase(size_t addr) {
   CyclePhase phase = this->clock.get_phase_of_cycle();
   size_t phase_index = static_cast<size_t>(phase);
   NodeTypes::WateringCycle cycle = node->get_watering_cycle();
-  return cycle[phase_index];
+  return cycle[phase_index] && node->get_hose_duration() != 0;
 }
 
 NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
@@ -93,8 +93,8 @@ UartMessage Head::create_watering_frame(config::Address address) {
 
   return {.address = address,
           .command = Protocol::Command::INIT_WATER_DURATIONS,
-          .data = node->get_all_hose_durations(),
-          .data_length = config::node_hose_count};
+          .data = {node->get_hose_duration()},
+          .data_length = 1};
 }
 
 UartMessage Head::create_status_frame(config::Address address) const {
@@ -109,13 +109,6 @@ UartMessage Head::create_addressing_frame(NodeKey_t key,
           .command = Protocol::Command::ADDRESSING,
           .data = Protocol::FrameDataArray{ser_key[0], ser_key[1]},
           .data_length = 2};
-}
-UartMessage Head::terminate_endpoint(NodeKey_t key) {
-  auto ser_key = Util::serialize_key(key);
-  return {.address = ADDR_UNSET,
-          .command = Protocol::Command::BUGGER_OFF,
-          .data = Protocol::FrameDataArray{ser_key[0], ser_key[1]},
-          .data_length = 1};
 }
 
 std::optional<UartMessage> Head::next_watering_frame() {
@@ -172,8 +165,7 @@ void Head::initialize_watering_states() {
       return;
     }
 
-    if (!node->all_durations_zero() && status == NodeStatus::READY &&
-        this->is_node_watering_this_phase(i)) {
+    if (status == NodeStatus::READY && this->is_node_watering_this_phase(i)) {
       node->set_node_status(NodeStatus::IN_QUEUE);
       if (!this->active_watering_index) {
         this->active_watering_index = i;
@@ -292,26 +284,24 @@ void Head::set_node_status(size_t index, NodeStatus status) {
     node->set_node_status(status);
   }
 }
-ActionStatus
-Head::set_node_durations(size_t index,
-                         const NodeTypes::HoseDurations &durations) {
+ActionStatus Head::set_node_duration(size_t index,
+                                     NodeTypes::HoseDuration duration) {
   auto node = this->get_node(index);
   if (!node) {
     return ActionStatus::INVALID_NODE;
   }
-  int new_time_pool = this->calculate_new_time_pool(index, durations);
+  int new_time_pool = this->calculate_new_time_pool(index, duration);
   if (new_time_pool < 0) {
-    NodeTypes::HoseDurations empty{};
-    if (durations != empty) { // Don't remove the infinite loop protection
-      this->set_node_durations(index, empty);
+    if (duration != 0) { // Don't remove the infinite loop protection
+      this->set_node_duration(index, 0);
     }
     node->set_node_status(NodeStatus::INVALID_TIME);
     return ActionStatus::INVALID_TIME;
   }
-  ActionStatus rc = node->set_node_durations(durations);
+  ActionStatus rc = node->set_node_duration(duration);
   if (rc == ActionStatus::OK) {
     this->time_pool = new_time_pool;
-    this->storage.save_durations(index, durations, node->get_watering_cycle());
+    this->storage.save_durations(index, duration, node->get_watering_cycle());
   }
   return rc;
 }
@@ -327,25 +317,23 @@ Head::set_watering_cycle(size_t index,
 
   node->set_watering_cycle(schedule);
 
-  this->storage.save_durations(index, node->get_all_hose_durations(),
+  this->storage.save_durations(index, node->get_hose_duration(),
                                node->get_watering_cycle());
   return ActionStatus::OK;
 }
 
 // TEST: all time pool related functionality
-int Head::calculate_new_time_pool(
-    size_t index, const NodeTypes::HoseDurations &new_durations) {
+int Head::calculate_new_time_pool(size_t index,
+                                  NodeTypes::HoseDuration new_duration) {
   int duration_pool = this->phase_length;
   for (size_t addr = 0; addr < config::max_nodes; addr++) {
     int sum = 0;
     if (addr == index) {
-      sum = std::accumulate(new_durations.begin(), new_durations.end(), 0);
+      sum = new_duration;
     } else {
       iNode *node = this->get_node(addr);
       if (node) {
-        const NodeTypes::HoseDurations &durations =
-            node->get_all_hose_durations();
-        sum = std::accumulate(durations.begin(), durations.end(), 0);
+        sum = node->get_hose_duration();
       }
     }
     duration_pool -= sum;
@@ -353,31 +341,32 @@ int Head::calculate_new_time_pool(
   return duration_pool;
 }
 
-std::optional<NodeTypes::HoseDurations>
-Head::get_node_hose_durations(size_t addr) {
+std::optional<NodeTypes::HoseDuration>
+Head::get_node_hose_duration(size_t addr) {
 
   auto node = this->get_node(addr);
   if (node) {
-    return node->get_all_hose_durations();
+    return node->get_hose_duration();
   } else {
     return std::nullopt;
   }
 }
-all_durations_t Head::retrieve_all_durations() {
-  all_durations_t all_durs{};
-  for (size_t addr = 0; addr < config::max_nodes; addr++) {
-    auto durations = this->get_node_hose_durations(addr);
-    all_durs.at(addr) =
-        durations ? durations.value()
-                  : std::array<Time::Time_Seconds, config::node_hose_count>{};
-  }
-  return all_durs;
-}
+// all_durations_t Head::retrieve_all_durations() {
+//   all_durations_t all_durs{};
+//   for (size_t addr = 0; addr < config::max_nodes; addr++) {
+//     auto durations = this->get_node_hose_durations(addr);
+//     all_durs.at(addr) =
+//         durations ? durations.value()
+//                   : std::array<Time::Time_Seconds,
+//                   config::node_hose_count>{};
+//   }
+//   return all_durs;
+// }
 void Head::print_node_durations() {
   for (size_t i = 0; i < config::max_nodes; i++) {
     auto node = this->get_node(i);
     if (node) {
-      node->print_hose_durations(i);
+      node->print_hose_duration(i);
     } else {
       Logger::log_simple("Node %d not initialized\n", static_cast<int>(i));
     }

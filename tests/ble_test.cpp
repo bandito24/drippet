@@ -4,6 +4,7 @@
 #include "head.hpp"
 #include "mocks.hpp"
 #include "node.hpp"
+#include "protocol_types.hpp"
 #include "util.hpp"
 
 #include <array>
@@ -117,20 +118,4 @@ TEST_CASE("BLE tests", "[ble]") {
   //     REQUIRE(buff1 == buff2);
   //   }
   // }
-}
-
-void check_buffer_duration(HeadFixture &fix, GattAttribute &attr,
-                           size_t node_index) {
-
-  std::array<uint8_t, config::node_hose_count * 2> check{};
-
-  auto durations = fix.head->get_node_hose_durations(node_index);
-
-  Util::le16_to_le8(check, durations.value());
-
-  std::array<uint8_t, config::node_hose_count * 2> buff{};
-  std::copy(attr.duration_buffer.begin() + 1, attr.duration_buffer.end(),
-            buff.begin());
-  REQUIRE(check == buff);
-  REQUIRE(attr.duration_buffer[0] == node_index);
 }

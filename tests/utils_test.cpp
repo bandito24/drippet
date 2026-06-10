@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "protocol_types.hpp"
 #include "util.hpp"
 
 #include <array>
@@ -10,7 +11,7 @@
 TEST_CASE("utils test", "[utils]") {
 
   SECTION("works for converting uint16_t to uint8_t little endian") {
-    constexpr size_t test_len = config::node_hose_count;
+    constexpr size_t test_len = Protocol::MAX_DATA_LEN;
     std::array<uint8_t, test_len * 2> arr8{};
     std::array<uint16_t, test_len> arr16{1000, 2000, 3000, 4000, 5000};
     std::array<uint16_t, test_len> arr16_2{};

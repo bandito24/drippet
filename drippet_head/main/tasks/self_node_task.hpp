@@ -22,7 +22,6 @@ private:
   QueueHandle_t incoming_queue;
   SteadyEspClock steady_clock{};
   QueueHandle_t outgoing_queue;
-  std::unique_ptr<SolenoidManager> solenoid_manager;
   std::unique_ptr<SelfNode> self_node;
   std::unique_ptr<NodeStatusTask> led_status_indication;
 };

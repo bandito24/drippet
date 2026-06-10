@@ -25,14 +25,15 @@ enum class HeaderOrder : uint8_t {
 }; // Header length strictly for reference and not included
 constexpr size_t DATA_START_INDEX =
     static_cast<size_t>(Protocol::HeaderOrder::HEADER_LENGTH);
+constexpr size_t MAX_DATA_LEN = 5;
 
 constexpr size_t FrameLength =
     static_cast<size_t>(Protocol::HeaderOrder::HEADER_LENGTH) +
-    (config::node_hose_count * 2) + 2;
+    (MAX_DATA_LEN * 2) + 2;
 
 using Frame = std::array<uint8_t, FrameLength>;
 
-using FrameDataArray = std::array<uint16_t, config::node_hose_count>;
+using FrameDataArray = std::array<uint16_t, MAX_DATA_LEN>;
 } // namespace Protocol
 
 using LocalReadBuffer = std::array<uint8_t, 128>;

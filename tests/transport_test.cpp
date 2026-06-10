@@ -23,11 +23,11 @@ UartMessage addressingOutgoing{.address = 2,
                                .command = Protocol::Command::ADDRESSING,
                                .data = Protocol::FrameDataArray{sample_key},
                                .data_length = 1};
-Protocol::FrameDataArray exampleWatering{100, 200, 300, 400, 500};
+Protocol::FrameDataArray exampleWatering{100};
 UartMessage wateringOutgoing{.address = 2,
                              .command = Protocol::Command::INIT_WATER_DURATIONS,
                              .data = exampleWatering,
-                             .data_length = 5};
+                             .data_length = 1};
 UartMessage emptyDataOutgoing{.address = 0,
                               .command = Protocol::Command::DISCOVERY,
                               .data = Protocol::FrameDataArray{},
@@ -100,8 +100,9 @@ TEST_CASE("Messages can correctly receive and send", "[uart]") {
         REQUIRE(second_read->i.cdc_start ==
                 to_index(ORDER::HEADER_LENGTH) +
                     (wateringOutgoing.data_length * 2));
-        REQUIRE(second_read->frame.size() ==
-                second_read->i.length); // Represents the max size
+        REQUIRE(to_index(ORDER::HEADER_LENGTH) + 2 + 2 ==
+                second_read->i
+                    .length); // Represents size of water duration transmission
 
         REQUIRE(third_read->i.length ==
                 (to_index(ORDER::HEADER_LENGTH) + 2)); // No Data Values

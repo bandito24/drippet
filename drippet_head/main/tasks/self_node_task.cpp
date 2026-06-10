@@ -13,6 +13,7 @@
 
 #include "portmacro.h"
 #include "protocol.hpp"
+#include "self_node.hpp"
 #include "soc/gpio_num.h"
 #include "switch.hpp"
 #include <cstring>
@@ -23,17 +24,11 @@ using CMD = Protocol::Command;
 
 void SelfNodeTask::run() {
 
-  SolenoidGrouping solenoids = {};
-  for (size_t i = 0; i < config::node_hose_count; i++) {
-    auto ptr = std::make_unique<EspSwitch>(EspConfig::node_gpio_valves.at(i),
-                                           GpioActiveLevel::ACTIVE_HIGH);
-    solenoids.at(i) = std::move(ptr);
-  }
-  this->solenoid_manager =
-      std::make_unique<SolenoidManager>(std::move(solenoids));
-  ESP_ERROR_CHECK(this->solenoid_manager->initialize_solenoids());
+  SolenoidPtr solenoid =
+      std::make_unique<EspSwitch>(SOLENOID_PIN, GpioActiveLevel::ACTIVE_HIGH);
+  ESP_ERROR_CHECK(solenoid->init());
   this->self_node =
-      std::make_unique<SelfNode>(this->steady_clock, *this->solenoid_manager);
+      std::make_unique<SelfNode>(this->steady_clock, std::move(solenoid));
   this->led_status_indication = std::make_unique<NodeStatusTask>(
       this->self_node->get_status(), STATUS_LED);
   this->led_status_indication->start();

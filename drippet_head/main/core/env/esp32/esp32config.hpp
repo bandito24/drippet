@@ -16,17 +16,12 @@ constexpr gpio_num_t STATUS_LED = GPIO_NUM_13;
 
 constexpr gpio_num_t PAIR_INIT_GPIO_BTN = GPIO_NUM_26;
 
-constexpr gpio_num_t VALVE_1_PIN = GPIO_NUM_18;
-constexpr gpio_num_t valve_2_pin = GPIO_NUM_19;
+constexpr gpio_num_t SOLENOID_PIN = GPIO_NUM_18;
+constexpr gpio_num_t DOWNSTREAM_PWR_SWITCH = GPIO_NUM_19;
 constexpr gpio_num_t valve_3_pin = GPIO_NUM_21;
 constexpr gpio_num_t valve_4_pin = GPIO_NUM_22;
 constexpr gpio_num_t valve_5_pin = GPIO_NUM_23;
 constexpr gpio_num_t valve_6_pin = GPIO_NUM_25;
-namespace EspConfig {
-
-constexpr std::array<gpio_num_t, config::node_hose_count> node_gpio_valves{
-    VALVE_1_PIN, valve_2_pin, valve_3_pin, valve_4_pin, valve_5_pin};
-}
 
 constexpr int BAUD_RATE = 115200;
 constexpr int UART_BUF_SIZE = 1024;

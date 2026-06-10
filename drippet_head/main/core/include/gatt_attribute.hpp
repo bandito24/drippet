@@ -2,6 +2,7 @@
 #include "config.hpp"
 #include "head.hpp"
 #include "node.hpp"
+#include "protocol_types.hpp"
 #include <span>
 namespace BLE {
 
@@ -23,14 +24,13 @@ enum class Header : size_t { COMMAND, DATA_LEN };
 constexpr size_t TGT_ROW_IDX = 2;
 constexpr size_t TGT_CELL_IDX = TGT_ROW_IDX + 1;
 constexpr size_t DATA_LEN_IDX = static_cast<size_t>(Header::DATA_LEN);
-
 constexpr size_t HEADER_LEN = 2;
 constexpr size_t LOAD_ROW_DATA_LEN = 1; // Header plus 1 row
 constexpr size_t WRITE_ROW_DATA_LEN =
-    (config::node_hose_count * 2) + 1;   // uint16_t fragments plus header
+    (Protocol::MAX_DATA_LEN * 2) + 1;    // uint16_t fragments plus header
 constexpr size_t WRITE_CEL_DATA_LEN = 4; // Row, Column, and uint16_t fragments
 constexpr size_t MAX_PKT_LEN = HEADER_LEN + WRITE_ROW_DATA_LEN;
-constexpr size_t DURATION_BUFF_LEN = 1 + (2 * config::node_hose_count);
+constexpr size_t DURATION_BUFF_LEN = 1 + (2 * Protocol::MAX_DATA_LEN);
 
 enum class Status {
   OP_OK,
@@ -50,7 +50,7 @@ private:
 public:
   GattAttribute(Head &headNode) : head{headNode} {};
   BLE::Status load_duration_buffer(size_t addr);
-  std::array<uint8_t, config::node_hose_count * 2 + 1> duration_buffer{};
+  std::array<uint8_t, Protocol::MAX_DATA_LEN * 2 + 1> duration_buffer{};
   // 2 uint8_t bytes for each duration with a first addr specifier
 
   BLE::Status handle_incoming_write(std::span<uint8_t> raw_data);
