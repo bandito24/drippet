@@ -303,20 +303,22 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
       REQUIRE(fix.head->get_head_status() == HeadStatus::STANDBY);
       REQUIRE(fix.head->get_active_watering_index() == std::nullopt);
     }
-    SECTION(
-        "Initialization of pairing mode clears out all nodes and resets head") {
+    SECTION("Initialization of pairing mode clears out all nodes EXCEPT FOR "
+            "FIRST SELF_NODE and resets head") {
 
+      auto firstNodeDur = fix.head->get_node_hose_duration(SELF_NODE_ADDR);
       fix.head->init_pairing_mode();
       Verify(Method(fix.valveMock, disable)).AtLeastOnce();
       REQUIRE(fix.head->get_head_status() == HeadStatus::PAIRING);
       REQUIRE(fix.head->get_active_watering_index() == std::nullopt);
       bool clear = true;
-      for (size_t i = 0; i < config::max_nodes; i++) {
+      for (size_t i = 1; i < config::max_nodes; i++) {
         if (fix.head->node_exists(i)) {
           clear = false;
         }
       }
       REQUIRE(clear == true);
+      REQUIRE(fix.head->get_node_hose_duration(0) == firstNodeDur);
 
       SECTION("Concluding of pairing mode resets active state") {
         fix.head->end_pairing_mode();
@@ -365,9 +367,12 @@ TEST_CASE("testing calculation and handling of time pool", "[time_pool]") {
 
         // Can't add a single second more than time pool
         REQUIRE(fix.head->get_node_hose_duration(3) == 0);
-        SECTION("calling init pairing mode resets time pool") {
+        SECTION("calling init pairing mode resets time pool except for the "
+                "first node (which is self node)") {
+          auto duration = fix.head->get_node_hose_duration(0);
           fix.head->init_pairing_mode();
-          REQUIRE(fix.head->get_remaining_time_pool() == PHASE_LEN);
+
+          REQUIRE(fix.head->get_remaining_time_pool() == PHASE_LEN - *duration);
         }
       }
     }

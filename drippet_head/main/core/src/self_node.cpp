@@ -11,6 +11,8 @@
 
 using CMD = Protocol::Command;
 std::optional<UartMessage> SelfNode::handle_incoming_frame(UartMessage &msg) {
+  Logger::log_simple("Message received. Current status is %d",
+                     static_cast<int>(this->get_status()));
 
   this->update_last_evt_time();
   if (msg.command == CMD::DISCOVERY || msg.command == CMD::ADDRESSING) {
@@ -70,6 +72,7 @@ std::optional<UartMessage> SelfNode::handle_unsynced_message(UartMessage &msg) {
 }
 
 UartMessage SelfNode::initialize_watering(Time::Long duration) {
+  Logger::log_simple("Initializing watering");
 
   // One state for starting and one state for possibly ending (0 duration while
   // watering)
@@ -81,6 +84,8 @@ UartMessage SelfNode::initialize_watering(Time::Long duration) {
       this->activate_hose();
     } else {
       this->conclude_watering();
+
+      Logger::log_simple("Concluding watering");
     }
   }
 

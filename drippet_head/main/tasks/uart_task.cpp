@@ -1,4 +1,5 @@
 #include "uart_task.hpp"
+#include "constants.hpp"
 #include "driver.hpp"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
@@ -30,8 +31,16 @@ void UartTask::run() {
 
     UartMessage msg{};
     if (xQueueReceive(this->outgoing_queue, &msg, 0)) {
+      if (this->dual_mode_active) {
+        xQueueSend(this->self_node_incoming_queue, &msg, 0);
+      }
       SizedFrameBuffer buffer = this->uart.prepare_bytes(msg);
       this->uart.write_bytes(buffer);
+    }
+
+    UartMessage msg_local{};
+    if (xQueueReceive(this->self_node_outgoing_queue, &msg_local, 0)) {
+      xQueueSend(this->incoming_queue, &msg_local, 0);
     }
 
     vTaskDelay(pdMS_TO_TICKS(50));

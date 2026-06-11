@@ -7,11 +7,13 @@
 #include "switch.hpp"
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <optional>
 
 enum class RC { OK, ERR };
 using OptMsg = std::optional<UartMessage>;
 using SolenoidPtr = std::unique_ptr<SolenoidValve>;
+using SwitchPtr = std::unique_ptr<Switch>;
 
 // seed with uint32_t xTaskGetTickCount()
 class SelfNode {
@@ -31,6 +33,7 @@ public:
 private:
   SteadyClock &clock;
   SolenoidPtr solenoid;
+  SwitchPtr downstreamPower;
   config::Address self_addr = ADDR_UNSET;
   NodeKey_t self_key = 0;
   Time::Long hose_duration{};

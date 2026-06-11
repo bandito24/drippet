@@ -7,6 +7,7 @@
 #include "storage.hpp"
 #include "switch.hpp"
 #include <array>
+#include <memory>
 #include <node.hpp>
 #include <optional>
 
@@ -27,7 +28,6 @@ using all_node_status_t = std::array<uint8_t, config::max_nodes>;
 
 class Head {
 private:
-  Switch &mainValve;
   iClock &clock;
   Storage &storage;
   const Time::Long phase_length;
@@ -47,17 +47,14 @@ private:
   void ack_node_watering_confirmation(config::Address addr);
   void conclude_watering(HeadStatus resolve_status) {
     this->active_watering_index = std::nullopt;
-    this->mainValve.disable();
     this->head_status = resolve_status;
   }
   iNode *get_node(std::size_t node_index);
 
 public:
-  Head(Switch &waterFaucetMain, iClock &clock, Storage &store)
-      : mainValve{waterFaucetMain}, clock{clock}, storage{store},
-        phase_length{clock.get_phase_length()}, time_pool{phase_length} {
-    mainValve.init();
-  };
+  Head(iClock &clock, Storage &store)
+      : clock{clock}, storage{store}, phase_length{clock.get_phase_length()},
+        time_pool{phase_length} {};
   std::optional<size_t> get_active_watering_index() const {
     return this->active_watering_index;
   }

@@ -3,6 +3,7 @@
 #include "conn_context.hpp"
 #include "constants.hpp"
 #include "driver.hpp"
+#include "logger.hpp"
 #include "node.hpp"
 #include "protocol.hpp"
 #include "util.hpp"
@@ -154,12 +155,16 @@ void Head::ack_node_watering_confirmation(config::Address addr) {
 }
 
 void Head::initialize_watering_states() {
+  this->print_node_durations();
   for (size_t i = 0; i < this->node_link.size(); i++) {
     auto node = this->get_node(i);
     if (!node) {
+      Logger::log_simple("no node for index %d", i);
       continue;
     }
     NodeStatus status = node->get_node_status();
+
+    Logger::log_simple("node has status of %d", static_cast<int>(status));
     if (status == NodeStatus::ERR) {
       this->head_status = HeadStatus::FAULTY_NODE;
       return;
@@ -172,7 +177,6 @@ void Head::initialize_watering_states() {
       }
     }
   }
-  this->mainValve.enable();
   this->head_status = HeadStatus::WATERING_CMDS;
 }
 
@@ -227,6 +231,9 @@ void Head::handle_incoming_node_status(const UartMessage &frame) {
       this->advance_active_watering_index();
     }
     break;
+  case NodeStatus::WATERING:
+    // Do nothing
+    break;
   case NodeStatus::ERR:
     this->conclude_watering(HeadStatus::FAULTY_NODE);
     break;
@@ -257,7 +264,11 @@ void Head::advance_active_watering_index() {
 void Head::process_watering_schedule() {
 
   if (this->is_watering_due()) {
+
+    Logger::log_simple("initializing water with head status %d",
+                       static_cast<int>(this->head_status));
     if (this->head_status == HeadStatus::STANDBY) {
+
       this->initialize_watering_states(); // For head status and nodes
     }
     this->progress_watering_due();
@@ -351,17 +362,6 @@ Head::get_node_hose_duration(size_t addr) {
     return std::nullopt;
   }
 }
-// all_durations_t Head::retrieve_all_durations() {
-//   all_durations_t all_durs{};
-//   for (size_t addr = 0; addr < config::max_nodes; addr++) {
-//     auto durations = this->get_node_hose_durations(addr);
-//     all_durs.at(addr) =
-//         durations ? durations.value()
-//                   : std::array<Time::Time_Seconds,
-//                   config::node_hose_count>{};
-//   }
-//   return all_durs;
-// }
 void Head::print_node_durations() {
   for (size_t i = 0; i < config::max_nodes; i++) {
     auto node = this->get_node(i);
@@ -377,5 +377,6 @@ void Head::init_pairing_mode() {
   for (size_t i = 0; i < config::max_nodes; i++) {
     this->node_link.at(i) = nullptr;
   }
+
   this->time_pool = this->phase_length;
 }

@@ -11,6 +11,7 @@
 #include "freertos/projdefs.h"
 #include "self_node_task.hpp"
 
+#include "logger.hpp"
 #include "portmacro.h"
 #include "protocol.hpp"
 #include "self_node.hpp"
@@ -27,6 +28,10 @@ void SelfNodeTask::run() {
   SolenoidPtr solenoid =
       std::make_unique<EspSwitch>(SOLENOID_PIN, GpioActiveLevel::ACTIVE_HIGH);
   ESP_ERROR_CHECK(solenoid->init());
+
+  SolenoidPtr downstreamPower = std::make_unique<EspSwitch>(
+      DOWNSTREAM_PWR_SWITCH, GpioActiveLevel::ACTIVE_HIGH);
+  ESP_ERROR_CHECK(downstreamPower->init());
   this->self_node =
       std::make_unique<SelfNode>(this->steady_clock, std::move(solenoid));
   this->led_status_indication = std::make_unique<NodeStatusTask>(
@@ -43,16 +48,12 @@ void SelfNodeTask::run() {
       if (response) {
         xQueueSend(this->outgoing_queue, &(*response), portMAX_DELAY);
       }
+      this->heard_communication = true;
     }
     if (this->self_node->get_status() == NodeStatus::WATERING) {
+      Logger::log_simple("node is currently watering");
       this->self_node->process_watering_schedule();
     }
-    // NOTE: for test, remove
-    //    for (int j = 0; j < config::node_hose_count; j++) {
-    //      Logger::log_simple("hose %d", j);
-    //      solenoid_manager->activate_solenoid(j);
-    //      vTaskDelay(pdMS_TO_TICKS(700));
-    //    }
 
     vTaskDelay(pdMS_TO_TICKS(200));
   }

@@ -3,6 +3,7 @@
 #include "freertos/projdefs.h"
 
 #include "head.hpp"
+#include "logger.hpp"
 #include "portmacro.h"
 #include "protocol.hpp"
 #include "util.hpp"
@@ -11,6 +12,8 @@
 
 using CMD = Protocol::Command;
 void HeadTask::run() {
+  // Look for any nodes right away
+  this->headNode.init_pairing_mode();
   for (;;) {
     std::optional<UartMessage> response = std::nullopt;
     all_node_status_t before_status = this->headNode.get_node_statuses();
@@ -38,6 +41,7 @@ void HeadTask::run() {
           response = UartMessage{.address = ADDR_UNSET,
                                  .command = CMD::DISCOVERY,
                                  .data = {key[0], key[1]}};
+          Logger::log_simple("Sending discovery");
           xQueueSend(this->outgoing_queue, &response, portMAX_DELAY);
         } else {
           this->no_response_count = 0;

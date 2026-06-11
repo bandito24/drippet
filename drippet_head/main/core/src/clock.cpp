@@ -1,5 +1,6 @@
 #include "clock.hpp"
 #include "constants.hpp"
+#include "logger.hpp"
 #include <chrono>
 #include <ctime>
 using namespace std::chrono;
@@ -59,16 +60,23 @@ time_t Esp32Clock::set_next_phase_start_time(uint8_t hour, uint8_t min) {
       system_clock::from_time_t(next_watering_ts);
 
   // If the new time is before the current time, advance watering cycle a day
-  if (next_watering_ts <= now_ts) {
-    next_watering_point += std::chrono::days{1};
+  // NOTE: commented out for debugging, though the below method should work the
+  // same
+  // if (next_watering_ts <= now_ts) {
+  //   next_watering_point += std::chrono::days{1};
+  // }
+  while (next_watering_ts <= now_ts) {
+    next_watering_point += std::chrono::seconds{this->phase_length};
+    next_watering_ts += this->phase_length;
   }
 
   this->next_watering_point = next_watering_point;
   return next_watering_ts;
 }
 bool Esp32Clock::is_watering_due() const {
-  if (!this->next_watering_point)
+  if (!this->next_watering_point) {
     return false;
+  }
 
   return this->now() >= *this->next_watering_point;
 }

@@ -16,7 +16,7 @@ constexpr gpio_num_t STATUS_LED = GPIO_NUM_13;
 
 constexpr gpio_num_t PAIR_INIT_GPIO_BTN = GPIO_NUM_26;
 
-constexpr gpio_num_t SOLENOID_PIN = GPIO_NUM_18;
+constexpr gpio_num_t SOLENOID_PIN = GPIO_NUM_21;
 constexpr gpio_num_t DOWNSTREAM_PWR_SWITCH = GPIO_NUM_19;
 constexpr gpio_num_t valve_3_pin = GPIO_NUM_21;
 constexpr gpio_num_t valve_4_pin = GPIO_NUM_22;
