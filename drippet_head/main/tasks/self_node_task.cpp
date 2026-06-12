@@ -28,18 +28,28 @@ void SelfNodeTask::run() {
   SolenoidPtr solenoid =
       std::make_unique<EspSwitch>(SOLENOID_PIN, GpioActiveLevel::ACTIVE_HIGH);
   ESP_ERROR_CHECK(solenoid->init());
-
   SolenoidPtr downstreamPower = std::make_unique<EspSwitch>(
       DOWNSTREAM_PWR_SWITCH, GpioActiveLevel::ACTIVE_HIGH);
   ESP_ERROR_CHECK(downstreamPower->init());
-  this->self_node =
-      std::make_unique<SelfNode>(this->steady_clock, std::move(solenoid));
-  this->led_status_indication = std::make_unique<NodeStatusTask>(
-      this->self_node->get_status(), STATUS_LED);
-  this->led_status_indication->start();
+  this->self_node = std::make_unique<SelfNode>(
+      this->steady_clock, std::move(solenoid), std::move(downstreamPower));
 
+  // this->self_node = std::make_unique<SelfNode>(this->steady_clock);
+
+  if (this->mode == NodeMode::STANDARD) {
+    // NOTE: we use the same gpio pin when its dual mode so don't need this
+    // task
+    this->led_status_indication = std::make_unique<NodeStatusTask>(
+        this->self_node->get_status(), STATUS_LED);
+    this->led_status_indication->start();
+  }
+
+  Logger::log_simple("Restarting the task");
   // Loop start
   for (;;) {
+    if (delete_task_requested) {
+      break;
+    }
 
     UartMessage frame{};
     if (xQueueReceive(this->incoming_queue, &frame, 0)) {
@@ -57,4 +67,5 @@ void SelfNodeTask::run() {
 
     vTaskDelay(pdMS_TO_TICKS(200));
   }
+  this->task_stopped = true;
 }

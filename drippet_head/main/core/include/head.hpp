@@ -4,9 +4,11 @@
 #include "constants.hpp"
 #include "logger.hpp"
 #include "protocol.hpp"
+#include "self_node.hpp"
 #include "storage.hpp"
 #include "switch.hpp"
 #include <array>
+#include <functional>
 #include <memory>
 #include <node.hpp>
 #include <optional>
@@ -21,6 +23,7 @@ enum NodeLinkStatus {
 
 };
 
+constexpr int STOP_PAIRING_COUNT = 10;
 constexpr uint8_t RETRY_NODE_MAX = 10;
 enum class HeadStatus { PAIRING, STANDBY, FAULTY_NODE, WATERING_CMDS };
 enum ValveStatus { VALVE_OPEN, VALVE_CLOSED };
@@ -36,6 +39,7 @@ private:
   void advance_active_watering_index();
   std::size_t node_count = 0;
   std::optional<size_t> active_watering_index = std::nullopt;
+  std::function<void()> kill_node_task_fn;
 
   void initialize_watering_states();
 
@@ -50,11 +54,15 @@ private:
     this->head_status = resolve_status;
   }
   iNode *get_node(std::size_t node_index);
+  int no_response_count = 0;
+  volatile bool ext_requested_pairing_mode = false;
+  void init_pairing_mode();
 
 public:
-  Head(iClock &clock, Storage &store)
+  void request_pairing_mode() { this->ext_requested_pairing_mode = true; }
+  Head(iClock &clock, Storage &store, std::function<void()> killNodeTaskFn)
       : clock{clock}, storage{store}, phase_length{clock.get_phase_length()},
-        time_pool{phase_length} {};
+        time_pool{phase_length}, kill_node_task_fn{killNodeTaskFn} {};
   std::optional<size_t> get_active_watering_index() const {
     return this->active_watering_index;
   }
@@ -73,8 +81,12 @@ public:
   void set_node_status(size_t index, NodeStatus status);
   ActionStatus set_node_duration(size_t index,
                                  const NodeTypes::HoseDuration duration);
-  void init_pairing_mode();
-  void end_pairing_mode() { this->head_status = HeadStatus::STANDBY; }
+  void end_pairing_mode() {
+
+    Logger::log_simple("Ending pairing mode");
+    this->head_status = HeadStatus::STANDBY;
+    this->no_response_count = 0;
+  }
 
   ActionStatus set_watering_cycle(size_t index,
                                   const NodeTypes::WateringCycle &cycle);
@@ -102,6 +114,8 @@ public:
 
   std::optional<UartMessage> handle_incoming_frame(const UartMessage &msg);
   void process_watering_schedule();
+  void process_external_requests();
+  OptMsg process_pairing(OptMsg response, uint32_t tick_key);
   int get_node_retry_count(size_t addr) {
     if (this->get_node(addr)) {
       return this->get_node(addr)->get_retry_count();

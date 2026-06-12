@@ -15,6 +15,7 @@ public:
   EspSwitch(gpio_num_t gpio_output, GpioActiveLevel _active_level)
       : gpio{gpio_output},
         active_level(_active_level == GpioActiveLevel::ACTIVE_HIGH ? 1 : 0){};
+  ~EspSwitch() { this->disable(); }
   Esp_Err_t init() override {
 
     gpio_reset_pin(this->gpio);

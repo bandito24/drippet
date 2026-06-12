@@ -18,8 +18,14 @@ using SwitchPtr = std::unique_ptr<Switch>;
 // seed with uint32_t xTaskGetTickCount()
 class SelfNode {
 public:
-  SelfNode(SteadyClock &clk, SolenoidPtr _solenoid)
-      : clock{clk}, solenoid{std::move(_solenoid)} {};
+  SelfNode(SteadyClock &clk, SolenoidPtr _solenoid, SwitchPtr _downstreamPower)
+      : clock{clk}, solenoid{std::move(_solenoid)},
+        downstreamPower{std::move(_downstreamPower)} {};
+
+  ~SelfNode() {
+    this->downstreamPower->disable();
+    this->solenoid->disable();
+  }
   Esp_Err_t init();
   std::optional<UartMessage> handle_incoming_frame(UartMessage &msg);
   const NodeStatus &get_status() const { return this->status; }

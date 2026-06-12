@@ -11,8 +11,6 @@
 
 using CMD = Protocol::Command;
 std::optional<UartMessage> SelfNode::handle_incoming_frame(UartMessage &msg) {
-  Logger::log_simple("Message received. Current status is %d",
-                     static_cast<int>(this->get_status()));
 
   this->update_last_evt_time();
   if (msg.command == CMD::DISCOVERY || msg.command == CMD::ADDRESSING) {
@@ -111,7 +109,11 @@ void SelfNode::conclude_watering() {
   }
 }
 
-void SelfNode::complete_initialization() { this->status = NodeStatus::READY; }
+void SelfNode::complete_initialization() {
+  this->status = NodeStatus::READY;
+  this->downstreamPower->enable();
+  //  TEST: Make sure this is called
+}
 void SelfNode::activate_hose() {
   Esp_Err_t rc = this->solenoid->enable();
   if (rc != 0) {

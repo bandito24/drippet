@@ -7,33 +7,44 @@
 #include <memory>
 
 using Qt = QueueHandle_t;
+// Dual is for when the device is both head and node
+enum class NodeMode { STANDARD, DUAL };
 
 class SelfNodeTask : public Task {
 
 public:
+  // Don't pass in queue manager since we want self_node to be unaware of what
+  // queue it's using
   SelfNodeTask(QueueHandle_t incomingQueueHandle,
-               QueueHandle_t outgoingQueueHandle)
+               QueueHandle_t outgoingQueueHandle, NodeMode _mode)
       : Task("SELF_NODE", 4096, 2), incoming_queue(incomingQueueHandle),
-        outgoing_queue(outgoingQueueHandle){};
+        outgoing_queue(outgoingQueueHandle), mode(_mode){};
   // This is a flag for knowing whether the node should switch to head mode
   bool heard_communication = false;
   ~SelfNodeTask() {
-    led_status_indication->led_indication.disable();
-    vTaskDelete(led_status_indication->get_handle());
+    if (this->mode == NodeMode::STANDARD) {
+      led_status_indication->led_indication.disable();
+      vTaskDelete(led_status_indication->get_handle());
+    }
   }
+
   void disable_led() { led_status_indication->disable_led_indication(); }
-  void change_queues_for_local_node(Qt localIncoming, Qt localOutgoing) {
-    this->incoming_queue = localIncoming;
-    this->outgoing_queue = localOutgoing;
-  }
+  void request_delete_task() { this->delete_task_requested = true; }
+  bool is_task_running() { return !task_stopped; }
+
+  // TODO: make these private
+  QueueHandle_t incoming_queue;
+  QueueHandle_t outgoing_queue;
 
 protected:
   void run() override;
 
 private:
-  QueueHandle_t incoming_queue;
   SteadyEspClock steady_clock{};
-  QueueHandle_t outgoing_queue;
+  NodeMode mode;
   std::unique_ptr<SelfNode> self_node;
   std::unique_ptr<NodeStatusTask> led_status_indication;
+
+  volatile bool delete_task_requested = false;
+  volatile bool task_stopped = false;
 };

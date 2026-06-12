@@ -11,10 +11,11 @@
 #include <optional>
 
 using CMD = Protocol::Command;
+using OptMsg = std::optional<UartMessage>;
 void HeadTask::run() {
   // Look for any nodes right away
-  this->headNode.init_pairing_mode();
   for (;;) {
+
     std::optional<UartMessage> response = std::nullopt;
     all_node_status_t before_status = this->headNode.get_node_statuses();
 
@@ -28,25 +29,14 @@ void HeadTask::run() {
     }
 
     if (headNode.get_head_status() == HeadStatus::PAIRING) {
-
-      Logger::log_simple("no reponse count = %d", this->no_response_count);
-      // Stop pairing if there has been no response
-      if (this->no_response_count >= STOP_PAIRING_COUNT) {
-        headNode.end_pairing_mode();
-      } else {
-        if (!response) {
-          this->no_response_count++;
-          auto key =
-              Util::serialize_key(static_cast<uint32_t>(xTaskGetTickCount()));
-          response = UartMessage{.address = ADDR_UNSET,
-                                 .command = CMD::DISCOVERY,
-                                 .data = {key[0], key[1]}};
-          Logger::log_simple("Sending discovery");
-          xQueueSend(this->outgoing_queue, &response, portMAX_DELAY);
-        } else {
-          this->no_response_count = 0;
-        }
+      uint32_t tick_key = static_cast<uint32_t>(xTaskGetTickCount());
+      std::optional<UartMessage> optMsg =
+          this->headNode.process_pairing(response, tick_key);
+      if (optMsg) {
+        xQueueSend(this->outgoing_queue, &(*optMsg), portMAX_DELAY);
       }
+      // Stop pairing if there has been no response
+
     } else {
       headNode.process_watering_schedule();
       if (headNode.get_head_status() == HeadStatus::WATERING_CMDS) {
@@ -64,6 +54,7 @@ void HeadTask::run() {
       xTaskNotifyGive(this->cccd_task_handle);
     }
 
+    this->headNode.process_external_requests();
     vTaskDelay(pdMS_TO_TICKS(500));
   }
 }

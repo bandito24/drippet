@@ -6,6 +6,7 @@
 #include "logger.hpp"
 #include "node.hpp"
 #include "protocol.hpp"
+#include "self_node.hpp"
 #include "util.hpp"
 #include <assert.h>
 #include <config.hpp>
@@ -65,6 +66,7 @@ NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
     return NodeLinkStatus::LINK_KEY_MISMATCH;
   }
   confirmed_node->set_node_status(NodeStatus::READY);
+  Logger::log_simple("Node number %d confirmed", address);
   return NodeLinkStatus::LINK_OK;
 }
 
@@ -155,16 +157,13 @@ void Head::ack_node_watering_confirmation(config::Address addr) {
 }
 
 void Head::initialize_watering_states() {
-  this->print_node_durations();
   for (size_t i = 0; i < this->node_link.size(); i++) {
     auto node = this->get_node(i);
     if (!node) {
-      Logger::log_simple("no node for index %d", i);
       continue;
     }
     NodeStatus status = node->get_node_status();
 
-    Logger::log_simple("node has status of %d", static_cast<int>(status));
     if (status == NodeStatus::ERR) {
       this->head_status = HeadStatus::FAULTY_NODE;
       return;
@@ -372,11 +371,48 @@ void Head::print_node_durations() {
     }
   }
 }
+
+// This should only be called at the very end/beginning of the head_tqsk loop
+// TEST: make sure the conditions are all checked
+void Head::process_external_requests() {
+  if (this->ext_requested_pairing_mode) {
+    this->ext_requested_pairing_mode = false;
+    this->init_pairing_mode();
+  }
+}
+
 void Head::init_pairing_mode() {
+
+  Logger::log_simple("Initializing pairing mode");
   this->conclude_watering(HeadStatus::PAIRING);
   for (size_t i = 0; i < config::max_nodes; i++) {
     this->node_link.at(i) = nullptr;
   }
 
   this->time_pool = this->phase_length;
+  // TODO: test this so that its definitely called
+  //
+  Logger::log_simple("About to kill node task function");
+  this->kill_node_task_fn();
+}
+// TEST: make sure end pairing mode and responses reset the retry count, and
+// otherwise it increases and emits the right message
+
+OptMsg Head::process_pairing(OptMsg response, uint32_t tick_key) {
+
+  if (this->no_response_count >= STOP_PAIRING_COUNT) {
+    this->end_pairing_mode();
+  } else {
+    if (!response) {
+      this->no_response_count++;
+      auto key = Util::serialize_key(tick_key);
+      return UartMessage{.address = ADDR_UNSET,
+                         .command = CMD::DISCOVERY,
+                         .data = {key[0], key[1]}};
+
+    } else {
+      this->no_response_count = 0;
+    }
+  }
+  return std::nullopt;
 }
