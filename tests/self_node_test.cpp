@@ -93,7 +93,7 @@ TEST_CASE("self_hode all", "[self_node]") {
           auto res22 = node->handle_incoming_frame(msg2);
           REQUIRE(node->get_addr() == 99);
         }
-        SECTION("ack will complete initialization now") {
+        SECTION("ack will e-complete initialization now") {
 
           config::Address wrong = test_addr + 1;
           UartMessage msg3{.address = wrong, .command = CMD::ACK};
@@ -103,7 +103,9 @@ TEST_CASE("self_hode all", "[self_node]") {
 
           UartMessage msg4{.address = test_addr, .command = CMD::ACK};
 
+          REQUIRE(node->is_downstream_enabled() == false);
           auto res5 = node->handle_incoming_frame(msg4);
+          REQUIRE(node->is_downstream_enabled() == true);
           REQUIRE(msg4.address == node->get_addr());
           REQUIRE(node->get_status() == NodeStatus::READY);
 
@@ -121,6 +123,8 @@ TEST_CASE("self_hode all", "[self_node]") {
             SECTION("will not init on wrong address") {
 
               auto res = fix.self_node->handle_incoming_frame(msg);
+
+              REQUIRE(node->is_solenoid_enabled() == false);
               REQUIRE(res == std::nullopt);
               REQUIRE(node->get_status() == NodeStatus::READY);
             }
@@ -138,12 +142,12 @@ TEST_CASE("self_hode all", "[self_node]") {
               int ending_time = now + test_dur;
 
               REQUIRE(ending_time == node->get_hose_duration());
-              REQUIRE(node->is_watering() == true);
+              REQUIRE(node->is_solenoid_enabled() == true);
               SECTION("sending an additional watering command will reset") {
                 SECTION("with set times") {
                   msg.data = {200};
                   fix.self_node->handle_incoming_frame(msg);
-                  REQUIRE(node->is_watering() == true);
+                  REQUIRE(node->is_solenoid_enabled() == true);
                   REQUIRE(node->get_hose_duration() == now + msg.data[0]);
                   REQUIRE(node->get_status() == NodeStatus::WATERING);
                 }
@@ -151,7 +155,7 @@ TEST_CASE("self_hode all", "[self_node]") {
 
                   msg.data = {0};
                   fix.self_node->handle_incoming_frame(msg);
-                  // REQUIRE(node->is_watering() == false);
+                  REQUIRE(node->is_solenoid_enabled() == false);
                   REQUIRE(node->get_status() == NodeStatus::READY);
                 }
               }
@@ -166,13 +170,13 @@ TEST_CASE("self_hode all", "[self_node]") {
 
               SECTION("concludes after duration ends") {
 
-                REQUIRE(node->is_watering() == true);
+                REQUIRE(node->is_solenoid_enabled() == true);
                 REQUIRE(node->get_status() == NodeStatus::WATERING);
 
                 fix.set_mock_now(ending_time);
                 node->process_watering_schedule();
 
-                REQUIRE(node->is_watering() == false);
+                REQUIRE(node->is_solenoid_enabled() == false);
                 REQUIRE(node->get_status() == NodeStatus::READY);
               }
             }
@@ -180,7 +184,7 @@ TEST_CASE("self_hode all", "[self_node]") {
 
           SECTION("Will progress though an empty list immediately") {
 
-            REQUIRE(node->is_watering() == false);
+            REQUIRE(node->is_solenoid_enabled() == false);
             REQUIRE(node->get_status() == NodeStatus::READY);
 
             Time::Long time = 300;
@@ -193,7 +197,7 @@ TEST_CASE("self_hode all", "[self_node]") {
 
             node->process_watering_schedule();
 
-            REQUIRE(node->is_watering() == false);
+            REQUIRE(node->is_solenoid_enabled() == false);
             REQUIRE(node->get_status() == NodeStatus::READY);
 
             // Responds that it is done if requested

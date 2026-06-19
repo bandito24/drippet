@@ -8,19 +8,43 @@
 #include <cassert>
 #include <optional>
 
+FlatSchedule GattAttribute::duration_schedule_to_bytes(
+    const NodeTypes::DurationSchedule &schedule) {
+  FlatSchedule res{};
+  uint8_t bitmask{};
+  Util::put_le16(&res, schedule.duration);
+  for (size_t i = 0; i < schedule.cycle.size(); i++) {
+    bitmask |= static_cast<uint8_t>(schedule.cycle.at(i)) << i;
+  }
+  res[2] = bitmask;
+  return res;
+}
+
+NodeTypes::DurationSchedule
+bytes_to_duration_schedule(const FlatSchedule &byte_sch) {
+  auto schedule = NodeTypes::DurationSchedule{};
+  schedule.duration = Util::get_le16(byte_sch.data());
+  uint8_t bitmask = byte_sch.at(BLE::FLAT_DURATION_LENGTH);
+
+  for (size_t i = 0; i < schedule.cycle.size(); i++) {
+    schedule.cycle[1] = (bitmask & (1U << i)) != 0;
+  }
+  return schedule;
+}
+
 BLE::Status GattAttribute::load_duration_buffer(size_t row) {
   if (row >= config::max_nodes) {
     return BLE::Status::INVALID_NODE;
   }
-  std::optional<NodeTypes::HoseDuration> duration =
-      this->head.get_node_hose_duration(row);
+  std::optional<NodeTypes::DurationSchedule> duration =
+      this->head.get_node_duration_schedule(row);
   if (!duration) {
     return BLE::Status::INVALID_NODE;
   }
+  FlatSchedule schedule = GattAttribute::duration_schedule_to_bytes(*duration);
 
   uint8_t buffer[Protocol::MAX_DATA_LEN * 2]{};
-  Util::put_le16(buffer, duration.value());
-  // TODO: add phase cycle
+
   std::copy(std::begin(buffer), std::end(buffer),
             this->duration_buffer.begin() + 1);
   this->duration_buffer[0] = row;
@@ -80,13 +104,10 @@ BLE::Status GattAttribute::validate_packet(std::span<uint8_t> pkt) {
     expected_len = BLE::LOAD_ROW_DATA_LEN;
     break;
   case BLE::Cmds::WRITE_CELL:
-    if (pkt[BLE::TGT_CELL_IDX] >= Protocol::MAX_DATA_LEN) {
-      return BLE::Status::INVALID_HOSE;
-    }
     expected_len = BLE::WRITE_CEL_DATA_LEN;
     break;
-  case BLE::Cmds::WRITE_ROW:
-    expected_len = BLE::WRITE_ROW_DATA_LEN;
+  case BLE::Cmds::WRITE_CYCLE:
+    expected_len = BLE::WRITE_CYCLE_DATA_LEN;
     break;
   default:
     return BLE::Status::INVALID_CMD;

@@ -66,7 +66,6 @@ NodeLinkStatus Head::confirm_node_pending(NodeKey_t key,
     return NodeLinkStatus::LINK_KEY_MISMATCH;
   }
   confirmed_node->set_node_status(NodeStatus::READY);
-  Logger::log_simple("Node number %d confirmed", address);
   return NodeLinkStatus::LINK_OK;
 }
 
@@ -81,7 +80,7 @@ config::Address Head::get_available_address() {
   return static_cast<config::Address>(config::max_nodes);
 }
 
-iNode *Head::get_node(std::size_t index) {
+iNode *Head::get_node(std::size_t index) const {
   if (index >= config::max_nodes) {
     return nullptr;
   }
@@ -264,8 +263,6 @@ void Head::process_watering_schedule() {
 
   if (this->is_watering_due()) {
 
-    Logger::log_simple("initializing water with head status %d",
-                       static_cast<int>(this->head_status));
     if (this->head_status == HeadStatus::STANDBY) {
 
       this->initialize_watering_states(); // For head status and nodes
@@ -332,7 +329,6 @@ Head::set_watering_cycle(size_t index,
   return ActionStatus::OK;
 }
 
-// TEST: all time pool related functionality
 int Head::calculate_new_time_pool(size_t index,
                                   NodeTypes::HoseDuration new_duration) {
   int duration_pool = this->phase_length;
@@ -351,6 +347,17 @@ int Head::calculate_new_time_pool(size_t index,
   return duration_pool;
 }
 
+std::optional<NodeTypes::DurationSchedule>
+Head::get_node_duration_schedule(size_t addr) const {
+
+  auto node = this->get_node(addr);
+  if (node) {
+    return node->get_duration_schedule();
+  } else {
+    return std::nullopt;
+  }
+}
+
 std::optional<NodeTypes::HoseDuration>
 Head::get_node_hose_duration(size_t addr) {
 
@@ -361,6 +368,7 @@ Head::get_node_hose_duration(size_t addr) {
     return std::nullopt;
   }
 }
+
 void Head::print_node_durations() {
   for (size_t i = 0; i < config::max_nodes; i++) {
     auto node = this->get_node(i);
@@ -373,7 +381,6 @@ void Head::print_node_durations() {
 }
 
 // This should only be called at the very end/beginning of the head_tqsk loop
-// TEST: make sure the conditions are all checked
 void Head::process_external_requests() {
   if (this->ext_requested_pairing_mode) {
     this->ext_requested_pairing_mode = false;
@@ -395,23 +402,24 @@ void Head::init_pairing_mode() {
   Logger::log_simple("About to kill node task function");
   this->kill_node_task_fn();
 }
-// TEST: make sure end pairing mode and responses reset the retry count, and
-// otherwise it increases and emits the right message
 
 OptMsg Head::process_pairing(OptMsg response, uint32_t tick_key) {
+  if (this->head_status != HeadStatus::PAIRING) {
+    return std::nullopt;
+  }
 
-  if (this->no_response_count >= STOP_PAIRING_COUNT) {
+  if (this->no_reponse_pairing_count >= STOP_PAIRING_COUNT) {
     this->end_pairing_mode();
   } else {
     if (!response) {
-      this->no_response_count++;
+      this->no_reponse_pairing_count++;
       auto key = Util::serialize_key(tick_key);
       return UartMessage{.address = ADDR_UNSET,
                          .command = CMD::DISCOVERY,
                          .data = {key[0], key[1]}};
 
     } else {
-      this->no_response_count = 0;
+      this->no_reponse_pairing_count = 0;
     }
   }
   return std::nullopt;

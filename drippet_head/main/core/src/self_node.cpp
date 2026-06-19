@@ -70,7 +70,6 @@ std::optional<UartMessage> SelfNode::handle_unsynced_message(UartMessage &msg) {
 }
 
 UartMessage SelfNode::initialize_watering(Time::Long duration) {
-  Logger::log_simple("Initializing watering");
 
   // One state for starting and one state for possibly ending (0 duration while
   // watering)
@@ -82,8 +81,6 @@ UartMessage SelfNode::initialize_watering(Time::Long duration) {
       this->activate_hose();
     } else {
       this->conclude_watering();
-
-      Logger::log_simple("Concluding watering");
     }
   }
 
@@ -112,7 +109,6 @@ void SelfNode::conclude_watering() {
 void SelfNode::complete_initialization() {
   this->status = NodeStatus::READY;
   this->downstreamPower->enable();
-  //  TEST: Make sure this is called
 }
 void SelfNode::activate_hose() {
   Esp_Err_t rc = this->solenoid->enable();

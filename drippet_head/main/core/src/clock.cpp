@@ -28,8 +28,9 @@ time_t Esp32Clock::set_time(int year, int month, int day, int hour, int min,
   this->sys.change_system_clock(now);
   this->initalized = true;
   // If the new phase time has already been passed, advance a day
-  if (this->next_watering_point && *this->next_watering_point < t_point) {
-    *this->next_watering_point += std::chrono::days{1};
+  while (this->next_watering_point && *this->next_watering_point < t_point) {
+    //*this->next_watering_point += std::chrono::days{1};
+    *this->next_watering_point += std::chrono::seconds{this->phase_length};
   }
   return t;
 }

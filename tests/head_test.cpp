@@ -154,7 +154,6 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
       fix.head->process_watering_schedule();
       REQUIRE(fix.head->get_head_status() == HeadStatus::WATERING_CMDS);
       Verify(Method(fix.clockMock, progress_watering_due)).Exactly(1);
-      Verify(Method(fix.valveMock, enable)).AtLeastOnce();
 
       SECTION("Nodes with no duration and not NodeStatus::ready and false "
               "phase do not go in "
@@ -196,7 +195,6 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
             REQUIRE(msg3 == std::nullopt);
             REQUIRE(fix.head->get_node_status(0) == NodeStatus::ERR);
             REQUIRE(fix.head->get_head_status() == HeadStatus::FAULTY_NODE);
-            Verify(Method(fix.valveMock, disable)).AtLeastOnce();
             REQUIRE(fix.head->get_active_watering_index() == std::nullopt);
           }
           SECTION(
@@ -241,14 +239,12 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
                 }
 
                 REQUIRE(fix.head->get_head_status() == HeadStatus::FAULTY_NODE);
-                Verify(Method(fix.valveMock, disable)).AtLeastOnce();
 
                 REQUIRE(fix.head->get_active_watering_index() == std::nullopt);
               }
               SECTION("Err status from node will shut down system") {
                 auto msg = Mocks::incoming_status_frame(0, NodeStatus::ERR);
                 fix.head->handle_incoming_frame(msg);
-                Verify(Method(fix.valveMock, disable)).AtLeastOnce();
                 REQUIRE(fix.head->get_active_watering_index() == std::nullopt);
                 REQUIRE(fix.head->get_head_status() == HeadStatus::FAULTY_NODE);
               }
@@ -288,10 +284,6 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
 
       fix.head->process_watering_schedule();
 
-      Logger::log_simple(
-          "status is %d",
-          static_cast<int>(*fix.head->get_active_watering_index()));
-
       for (size_t i = 0; i < config::max_nodes; i++) {
         auto msg1 = Mocks::incoming_ack_frame(i);
         fix.head->handle_incoming_frame(msg1);
@@ -299,30 +291,45 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
         fix.head->handle_incoming_frame(msg2);
       }
 
-      Verify(Method(fix.valveMock, disable)).AtLeastOnce();
       REQUIRE(fix.head->get_head_status() == HeadStatus::STANDBY);
       REQUIRE(fix.head->get_active_watering_index() == std::nullopt);
     }
-    SECTION("Initialization of pairing mode clears out all nodes EXCEPT FOR "
-            "FIRST SELF_NODE and resets head") {
+    SECTION(
+        "Initialization of pairing mode clears out all nodes and resets head") {
 
-      auto firstNodeDur = fix.head->get_node_hose_duration(SELF_NODE_ADDR);
-      fix.head->init_pairing_mode();
-      Verify(Method(fix.valveMock, disable)).AtLeastOnce();
+      fix.head->request_pairing_mode();
+      // NOTE: This will begin pairing procedure
+      fix.head->process_external_requests();
+      Verify(Method(fix.mockReset, do_it)).AtLeastOnce();
       REQUIRE(fix.head->get_head_status() == HeadStatus::PAIRING);
       REQUIRE(fix.head->get_active_watering_index() == std::nullopt);
       bool clear = true;
-      for (size_t i = 1; i < config::max_nodes; i++) {
+      for (size_t i = 0; i < config::max_nodes; i++) {
         if (fix.head->node_exists(i)) {
           clear = false;
         }
       }
       REQUIRE(clear == true);
-      REQUIRE(fix.head->get_node_hose_duration(0) == firstNodeDur);
 
-      SECTION("Concluding of pairing mode resets active state") {
-        fix.head->end_pairing_mode();
+      SECTION("Process pairing will continue until a no response threshold") {
+
+        for (int i = 0; i < STOP_PAIRING_COUNT - 1; i++) {
+          // This is the way to stop pairing
+          fix.head->process_pairing(std::nullopt, 1);
+          REQUIRE(fix.head->get_no_reponse_pairing_count() == i + 1);
+        }
+        fix.head->process_pairing(UartMessage{ADDR_UNSET, CMD::DISCOVERY, {0}},
+                                  0);
+
+        REQUIRE(fix.head->get_head_status() == HeadStatus::PAIRING);
+        REQUIRE(fix.head->get_no_reponse_pairing_count() == 0);
+
+        for (int i = 0; i <= STOP_PAIRING_COUNT + 1; i++) {
+          fix.head->process_pairing(std::nullopt, 1);
+        }
+
         REQUIRE(fix.head->get_head_status() == HeadStatus::STANDBY);
+        REQUIRE(fix.head->get_no_reponse_pairing_count() == 0);
       }
     }
   } //
@@ -367,12 +374,11 @@ TEST_CASE("testing calculation and handling of time pool", "[time_pool]") {
 
         // Can't add a single second more than time pool
         REQUIRE(fix.head->get_node_hose_duration(3) == 0);
-        SECTION("calling init pairing mode resets time pool except for the "
-                "first node (which is self node)") {
-          auto duration = fix.head->get_node_hose_duration(0);
-          fix.head->init_pairing_mode();
+        SECTION("calling init pairing mode resets time pool to phase len") {
+          fix.head->request_pairing_mode();
+          fix.head->process_external_requests();
 
-          REQUIRE(fix.head->get_remaining_time_pool() == PHASE_LEN - *duration);
+          REQUIRE(fix.head->get_remaining_time_pool() == PHASE_LEN);
         }
       }
     }

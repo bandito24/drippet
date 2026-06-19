@@ -13,13 +13,14 @@
 using Fix = ClockFixture;
 using namespace std::chrono;
 constexpr int ONE_HR = 60 * 60;
+constexpr Time::Long day_seconds = duration_cast<seconds>(days{1}).count();
 
 TEST_CASE("Clock and next watering durations set correctly", "[clock]") {
 
   SECTION("adjusts the next_watering_ts day ahead if time is moved after "
           "curr_time") {
 
-    Fix fix{};
+    Fix fix{day_seconds};
     Esp32Clock &clock = fix.espClock;
     auto &sysMock = fix.sysMock;
     REQUIRE(clock.get_next_watering_point() == std::nullopt);
@@ -39,7 +40,7 @@ TEST_CASE("Clock and next watering durations set correctly", "[clock]") {
   SECTION("Adjusts next_watering_ts is next_watering_ts is moved before "
           "curr_time") {
 
-    Fix fix{};
+    Fix fix{day_seconds};
     Esp32Clock &clock = fix.espClock;
     auto &sysMock = fix.sysMock;
 
@@ -47,6 +48,7 @@ TEST_CASE("Clock and next watering durations set correctly", "[clock]") {
 
     Time::Time_Point now_point = fix.espClock.now();
     auto water_point = fix.espClock.get_next_watering_point();
+
     REQUIRE((now_point + std::chrono::hours{23}) ==
             *water_point); // Moved to the next_day
   }

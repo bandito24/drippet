@@ -53,10 +53,14 @@ private:
     this->active_watering_index = std::nullopt;
     this->head_status = resolve_status;
   }
-  iNode *get_node(std::size_t node_index);
-  int no_response_count = 0;
+  iNode *get_node(std::size_t node_index) const;
+  int no_reponse_pairing_count = 0;
   volatile bool ext_requested_pairing_mode = false;
   void init_pairing_mode();
+  void end_pairing_mode() {
+    this->head_status = HeadStatus::STANDBY;
+    this->no_reponse_pairing_count = 0;
+  }
 
 public:
   void request_pairing_mode() { this->ext_requested_pairing_mode = true; }
@@ -81,15 +85,12 @@ public:
   void set_node_status(size_t index, NodeStatus status);
   ActionStatus set_node_duration(size_t index,
                                  const NodeTypes::HoseDuration duration);
-  void end_pairing_mode() {
-
-    Logger::log_simple("Ending pairing mode");
-    this->head_status = HeadStatus::STANDBY;
-    this->no_response_count = 0;
-  }
 
   ActionStatus set_watering_cycle(size_t index,
                                   const NodeTypes::WateringCycle &cycle);
+  std::optional<NodeTypes::DurationSchedule>
+  get_node_duration_schedule(size_t node_addr) const;
+
   NodeStatus get_node_status(size_t addr) {
     if (this->get_node(addr)) {
       return this->get_node(addr)->get_node_status();
@@ -97,7 +98,9 @@ public:
       return NodeStatus::NODE_NONEXISTANT;
     }
   }
-  bool node_exists(size_t addr) { return this->get_node(addr) != nullptr; }
+  bool node_exists(size_t addr) const {
+    return this->get_node(addr) != nullptr;
+  }
 
   std::optional<NodeTypes::HoseDuration> get_node_hose_duration(size_t index);
 
@@ -123,6 +126,7 @@ public:
       return -1;
     }
   }
+  int get_no_reponse_pairing_count() { return this->no_reponse_pairing_count; }
   //  all_durations_t retrieve_all_durations();
   void print_node_durations();
   void handle_incoming_node_status(const UartMessage &frame);

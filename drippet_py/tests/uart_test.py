@@ -3,11 +3,15 @@ from transport import Transport, Uart, Message
 import pytest
 from .mocks import (
     addressingBytes,
+    create_addressing_frame,
+    create_discovery_frame,
+    create_watering_frame,
     emptyDataBytes,
     wateringBytes,
     addressing_message,
     empty_message,
     watering_message,
+    MockTransport,
 )
 import constants
 
@@ -20,25 +24,18 @@ Data and crc values are broken into two bits using little endian
 DEFAULT_BUFFER = addressingBytes + wateringBytes + bytes([10, 20]) + emptyDataBytes
 
 
-class MockTransport(Transport):
-    def write(self, bytes) -> None:
-        pass
+@pytest.fixture
+def uartTransport():
+    mockTransport = MockTransport()
+    mockTransport.set_buffer(DEFAULT_BUFFER)
 
-    def read(self, byteCount) -> bytes:
-        return DEFAULT_BUFFER
-
-    def in_waiting(self) -> int:
-        return 1
-
-    def connect(self) -> None:
-        pass
+    return [Uart(mockTransport), mockTransport]
 
 
 @pytest.fixture
-def uart():
-    mockTransport = MockTransport()
-
-    return Uart(mockTransport)
+def uart(uartTransport):
+    uart, transport = uartTransport
+    return uart
 
 
 @pytest.fixture
@@ -87,6 +84,20 @@ def test_rejects_invalid_crc(uart):
         uart.extract_frame(0, invalid)
     assert "Crc16 does not match" in str(err1.value)
     assert len(uart.messages) == 0
+
+
+@pytest.mark.parametrize(
+    "msgInput,expected_data",
+    [
+        (create_watering_frame(1, 500), [500]),
+        (create_addressing_frame(1, 500), [500, 0]),
+        (create_discovery_frame(500), [500, 0]),
+    ],
+)
+def test_local_creation_of_frame_is_accurate(uart, msgInput, expected_data):
+    uart.extract_frame(0, msgInput)
+
+    assert uart.messages[0].data == expected_data
 
 
 def test_writes_uartMsg_correctly(uart, uart_msgs):

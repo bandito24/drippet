@@ -14,9 +14,12 @@
 #include <fakeit.hpp>
 
 using namespace fakeit;
+struct MockFn {
+  virtual void do_it() = 0;
+};
 
 struct HeadFixture {
-  fakeit::Mock<Switch> valveMock;
+  fakeit::Mock<MockFn> mockReset;
   fakeit::Mock<iClock> clockMock;
   fakeit::Mock<Storage> storageMock;
 
@@ -24,12 +27,8 @@ struct HeadFixture {
 
   HeadFixture(Time::Long phase_length = Time::Long{86400}) {
 
+    When(Method(mockReset, do_it)).AlwaysReturn();
     When(Method(storageMock, save_durations)).AlwaysReturn();
-    When(Method(valveMock, enable)).AlwaysReturn();
-    When(Method(valveMock, disable)).AlwaysReturn();
-
-    When(Method(valveMock, init)).AlwaysReturn();
-
     When(Method(storageMock, read_boot_durations))
         .AlwaysReturn(NodeTypes::DurationSchedule{});
 
@@ -37,14 +36,15 @@ struct HeadFixture {
     When(Method(clockMock, progress_watering_due)).AlwaysReturn();
     When(Method(clockMock, now)).AlwaysReturn();
     When(Method(clockMock, get_phase_length)).AlwaysReturn(phase_length);
-    head = std::make_unique<Head>(valveMock.get(), clockMock.get(),
-                                  storageMock.get());
+    head = std::make_unique<Head>(clockMock.get(), storageMock.get(),
+                                  [this]() { this->mockReset.get().do_it(); });
   };
 };
 struct SelfNodeFixture {
   fakeit::Mock<SteadyClock> steady_clock;
   std::unique_ptr<SelfNode> self_node;
   std::unique_ptr<SolenoidMock> sol = std::make_unique<SolenoidMock>();
+  std::unique_ptr<Switch> downstream = std::make_unique<SwitchMock>();
 
   void set_mock_now(Time::Long return_time) {
     // Custom
@@ -54,11 +54,12 @@ struct SelfNodeFixture {
 
     // Default
     set_mock_now(500);
-    this->self_node =
-        std::make_unique<SelfNode>(steady_clock.get(), std::move(sol));
+    this->self_node = std::make_unique<SelfNode>(
+        steady_clock.get(), std::move(sol), std::move(downstream));
   };
 };
 constexpr Time::Long TEST_PHASE_LEN = 100;
+
 struct ClockFixture {
   fakeit::Mock<iSysClock> sysMock;
   Esp32Clock espClock;
@@ -83,8 +84,7 @@ struct ClockFixture {
     time_t time = Clk::make_ex_time(hour, min);
     return std::chrono::system_clock::from_time_t(time);
   }
-
-  ClockFixture() : espClock{TEST_PHASE_LEN, sysMock.get()} {
+  void initialize() {
 
     setenv("TZ", "UTC", 1);
     tzset();
@@ -93,5 +93,13 @@ struct ClockFixture {
     this->set_test_time(ClockFixture::CURR_TIME_HR,
                         ClockFixture::CURR_TIME_MIN);
     When(Method(sysMock, now)).AlwaysDo([this]() { return this->curr_time; });
+  }
+
+  ClockFixture() : espClock{TEST_PHASE_LEN, sysMock.get()} {
+    this->initialize();
+  }
+  ClockFixture(Time::Long phase_length)
+      : espClock{phase_length, sysMock.get()} {
+    this->initialize();
   }
 };

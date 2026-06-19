@@ -59,6 +59,7 @@ struct iNode {
   virtual void
   set_watering_cycle(const NodeTypes::WateringCycle &new_water) = 0;
   virtual void print_hose_duration(size_t addr) const = 0;
+  virtual NodeTypes::DurationSchedule get_duration_schedule() const = 0;
 };
 
 class Node : public iNode {
@@ -70,6 +71,8 @@ public:
 
   ActionStatus
   set_node_durations(const NodeTypes::DurationSchedule &dur_sch) override;
+
+  NodeTypes::DurationSchedule get_duration_schedule() const override;
 
   Time::Time_Seconds get_hose_duration() const override;
 

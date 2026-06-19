@@ -116,3 +116,4 @@ public:
 private:
   bool enabled = false;
 };
+class SwitchMock : public SolenoidMock {};

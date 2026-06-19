@@ -16,13 +16,24 @@ constexpr size_t calculate_uint8_size(UartMessage &msg) {
          2; // Uint8_t headers, 2 * uint16_t data, 2 crc for crcmod_16
 }
 constexpr int to_int(size_t val) { return static_cast<size_t>(val); }
+void print_frame(const SizedFrameBuffer &buffer, const std::string &title) {
+  printf("Frame for %s (%zu bytes): ", title.c_str(), buffer.content_length);
+
+  for (size_t i = 0; i < buffer.content_length; i++) {
+    printf("%02X ", buffer.frame[i]);
+  }
+
+  printf("\n");
+}
 
 fakeit::Mock<Driver> driverMock;
 using ORDER = Protocol::HeaderOrder;
 UartMessage addressingOutgoing{.address = 2,
                                .command = Protocol::Command::ADDRESSING,
-                               .data = Protocol::FrameDataArray{sample_key},
-                               .data_length = 1};
+                               // NOTE: The sample key is a uint32_t split into
+                               // two uint16_t (which will be 4 uint8_t)
+                               .data = Protocol::FrameDataArray{sample_key, 0},
+                               .data_length = 2};
 Protocol::FrameDataArray exampleWatering{100};
 UartMessage wateringOutgoing{.address = 2,
                              .command = Protocol::Command::INIT_WATER_DURATIONS,
@@ -30,8 +41,8 @@ UartMessage wateringOutgoing{.address = 2,
                              .data_length = 1};
 UartMessage emptyDataOutgoing{.address = 0,
                               .command = Protocol::Command::DISCOVERY,
-                              .data = Protocol::FrameDataArray{},
-                              .data_length = 0};
+                              .data = Protocol::FrameDataArray{sample_key, 0},
+                              .data_length = 2};
 
 TEST_CASE("Messages can correctly receive and send", "[uart]") {
   UartProtocol protocol{driverMock.get()};
@@ -104,8 +115,12 @@ TEST_CASE("Messages can correctly receive and send", "[uart]") {
                 second_read->i
                     .length); // Represents size of water duration transmission
 
-        REQUIRE(third_read->i.length ==
-                (to_index(ORDER::HEADER_LENGTH) + 2)); // No Data Values
+        // NOTE: Both of these will contain the uint32_t key
+        REQUIRE(third_read->i.length == (to_index(ORDER::HEADER_LENGTH) + 2) +
+                                            4); // 4 uint*-t for uint32_t key
+        //
+        REQUIRE(first_read->i.length == (to_index(ORDER::HEADER_LENGTH) + 2) +
+                                            4); // 4 uint*-t for uint32_t key
       }
 
       Protocol::FrameDataArray conf_array{};

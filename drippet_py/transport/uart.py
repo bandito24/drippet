@@ -122,6 +122,9 @@ class Uart:
         )
 
         if crc_check != crc_received:
+            message = Message(address, command, data)
+            print(message)
+            print(crc_check, crc_received)
             raise ValueError("Crc16 does not match")
 
         message = Message(address, command, data)
@@ -184,10 +187,11 @@ class HeadUart(Uart):
     def __init__(self, uartSerial: Transport):
         Uart.__init__(self, uartSerial)
         self.mock_nodes: dict[int, MockNode] = {}
-        self.addr_locations: list[int] = []
+        self.addr_to_key_map: list[int] = []
         self.mock_tick = 0
 
     def handle_incoming_head(self, msg: Message) -> Optional[Message]:
+        print(msg)
         match constants.Command(msg.command):
             case constants.Command.DISCOVERY.value:
                 key = (msg.data[1] << 16) | msg.data[0]
@@ -201,7 +205,7 @@ class HeadUart(Uart):
                 return Message(
                     address=node_addr,
                     command=constants.Command.ADDRESSING,
-                    data=[key, 0],
+                    data=msg.data,
                 )
             case constants.Command.ADDRESSING.value:
                 # Write Same Frame Back To Confirm It was Received
@@ -213,7 +217,7 @@ class HeadUart(Uart):
                         f"key address mismatch. Got addr {msg.address} for {self.mock_nodes[key]}"
                     )
                 self.mock_nodes[key].status = constants.NodeStatus.READY
-                self.addr_locations.append(key)
+                self.addr_to_key_map.append(key)
                 return Message(
                     address=self.mock_nodes[key].address, command=constants.Command.ACK
                 )
@@ -242,47 +246,50 @@ class HeadUart(Uart):
                     data=[self.mock_tick, 0],
                 )
             case constants.Command.INIT_WATER_DURATIONS.value:
-                durs = input("Enter all values separated by space\n").split()
-
-                durs = [int(x) for x in durs]
-                if len(durs) > constants.NODE_HOSE_COUNT:
-                    print("too many durations")
-                    return
-                # index = int(input("enter index for durations\n"))
-                index = 0
-
-                if index >= len(self.addr_locations):
-                    print("This node index does not exist")
-                    return
+                if not len(self.addr_to_key_map):
+                    print("no nodes connected")
+                durs = int(input("Enter duration\n"))
+                index = self.get_index_operation()
                 msg = Message(
-                    self.mock_nodes[self.addr_locations[index]].address,
+                    # self.mock_nodes[self.addr_to_key_map[index]].address,
+                    index,
                     constants.Command.INIT_WATER_DURATIONS,
-                    durs,
+                    [durs],
                 )
 
             case constants.Command.STATUS.value:
-                # index = int(input("enter index for status\n"))
-                index = 0
-
-                if index >= len(self.addr_locations):
-                    print("This node index does not exist")
-                    return
+                if not len(self.addr_to_key_map):
+                    print("no nodes connected")
+                index = self.get_index_operation()
                 msg = Message(
-                    self.mock_nodes[self.addr_locations[index]].address,
+                    # self.mock_nodes[self.addr_to_key_map[index]].address,
+                    index,
                     constants.Command.STATUS,
                 )
         return msg
 
-    def uart_task(self):
-        self.mock_tick += 1
+    def get_index_operation(self):
+        if len(self.addr_to_key_map) > 1:
+            index = int(input("enter index for durations\n"))
+        else:
+            index = 0
 
-        time.sleep(0.3)
+        while index >= len(self.addr_to_key_map):
+            print("This node index does not exist")
+            index = int(input("enter index for durations\n"))
+        return index
+
+    def poll_incoming(self) -> Optional[Message]:
         self.poll_data()
         if self.has_msg():
             message = self.messages.popleft()
-            print(f"incoming message: {message}")
-            msg = self.handle_incoming_head(message)
-        else:
+            return self.handle_incoming_head(message)
+
+    def uart_task(self):
+        self.mock_tick += 1
+        time.sleep(0.3)
+        msg = self.poll_incoming()
+        if not msg:
             msg = self.prompt_input()
         if msg:
             print(f"Outgoing message: {msg}")

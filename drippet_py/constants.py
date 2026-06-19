@@ -17,6 +17,16 @@ class Command(IntEnum):
     BUGGER_OFF = 5
 
 
+##class Command(IntEnum):
+##    DISCOVERY = 0
+##    ADDRESSING = 1
+##    BROADCAST = 2
+##    INIT_WATER_DURATIONS = 3
+##    ACK = 4
+##    STATUS = 5
+##    BUGGER_OFF = 6
+
+
 class HeaderOrder(IntEnum):
     START_BIT = 0
     ADDRESS = 1

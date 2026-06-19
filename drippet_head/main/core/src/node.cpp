@@ -16,6 +16,9 @@ ActionStatus Node::set_node_duration(Time::Time_Seconds duration) {
   node_hose_duration = duration; // simpler than std::copy
   return ActionStatus::OK;
 }
+NodeTypes::DurationSchedule Node::get_duration_schedule() const {
+  return {this->node_hose_duration, this->water_cycle};
+}
 
 ActionStatus
 Node::set_node_durations(const NodeTypes::DurationSchedule &dur_sch) {

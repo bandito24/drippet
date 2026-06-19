@@ -35,6 +35,8 @@ public:
   void activate_hose();
   Time::Long get_hose_duration() const { return this->hose_duration; }
   bool is_watering() const { return this->solenoid->is_enabled(); }
+  bool is_downstream_enabled() { return this->downstreamPower->is_enabled(); }
+  bool is_solenoid_enabled() { return this->solenoid->is_enabled(); }
 
 private:
   SteadyClock &clock;
