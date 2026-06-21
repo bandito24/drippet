@@ -21,9 +21,10 @@ namespace BLE {
 constexpr std::string DEVICE_NAME = "Drippet";
 enum class Cmds { LOAD_ROW, WRITE_CYCLE, WRITE_CELL };
 enum class Header : size_t { COMMAND, DATA_LEN };
-constexpr size_t TGT_ROW_IDX = 2;
-constexpr size_t TGT_CELL_IDX = TGT_ROW_IDX + 1;
+
 constexpr size_t DATA_LEN_IDX = static_cast<size_t>(Header::DATA_LEN);
+constexpr size_t TGT_ROW_IDX = DATA_LEN_IDX + 1;
+constexpr size_t DATA_START_IDX = TGT_ROW_IDX + 1;
 constexpr size_t HEADER_LEN = 2;
 constexpr size_t LOAD_ROW_DATA_LEN = 1; // Header plus 1 row
 constexpr size_t MAX_DATA_LEN =
@@ -33,7 +34,8 @@ constexpr size_t WRITE_CEL_DATA_LEN = 3; // Row and two uint16_t fragments
 constexpr size_t WRITE_CYCLE_DATA_LEN = 2; // Row and bitmask
 constexpr size_t MAX_PKT_LEN = HEADER_LEN + MAX_DATA_LEN;
 constexpr size_t DURATION_BUFF_LEN = 1 + (2 * Protocol::MAX_DATA_LEN);
-constexpr size_t FLAT_DURATION_LENGTH = 2;
+constexpr size_t FLAT_DURATION_IDX = 1;
+constexpr size_t FLAT_BITMASK_IDX = 3;
 
 enum class Status {
   OP_OK,
@@ -44,7 +46,7 @@ enum class Status {
 };
 } // namespace BLE
 
-using FlatSchedule = std::array<uint8_t, 3>;
+using FlatSchedule = std::array<uint8_t, 4>;
 
 class GattAttribute {
 private:
@@ -53,15 +55,16 @@ private:
   // Two duration bytes for uint16_t then a bitmask for cycle
 
 public:
-  static std::array<uint8_t, 3>
-  duration_schedule_to_bytes(const NodeTypes::DurationSchedule &dur_sch);
+  static FlatSchedule
+  duration_schedule_to_bytes(const NodeTypes::DurationSchedule &dur_sch,
+                             config::Address address);
 
-  NodeTypes::DurationSchedule
+  static NodeTypes::DurationSchedule
   bytes_to_duration_schedule(const FlatSchedule &byte_sch);
   GattAttribute(Head &headNode) : head{headNode} {};
   BLE::Status load_duration_buffer(size_t addr);
-  std::array<uint8_t, Protocol::MAX_DATA_LEN * 2 + 1> duration_buffer{};
-  // 2 uint8_t bytes for each duration with a first addr specifier
+  FlatSchedule duration_buffer{};
+  // An addr specifier, 2 uint16_t to uint8_t, and a bitmask for water cycle
 
   BLE::Status handle_incoming_write(std::span<uint8_t> raw_data);
   uint16_t duration_chr_handle;

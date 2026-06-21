@@ -10,7 +10,7 @@ void StatusTask::run() {
     if (this->conn_ctxt.indicate_status) {
 
       ble_gatts_indicate(this->conn_ctxt.conn_handle,
-                         this->desc_attr.node_status_chr_handle);
+                         this->desc_attr.chr_handle);
     }
   }
 }

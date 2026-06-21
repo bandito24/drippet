@@ -14,12 +14,19 @@ Esp_Err_t GattService::init() {
       .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
       .val_handle = &this->attr.duration_chr_handle,
   };
-
   this->gatt_chr_defs[1] = {
       .uuid = &node_status_chr_uuid.u,
       .access_cb = handle_read_node_status,
       .arg = &this->desc_attr,
       .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_INDICATE,
+      .val_handle = &this->desc_attr.chr_handle,
+  };
+  // TODO: define and make this
+  this->gatt_chr_defs[1] = {
+      .uuid = &sys_conf_chr_uuid.u,
+      .access_cb = handle_read_node_status,
+      .arg = &this->desc_attr,
+      .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
       .val_handle = &this->desc_attr.node_status_chr_handle,
   };
   this->gatt_chr_defs[2] = {};

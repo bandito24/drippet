@@ -7,14 +7,22 @@
 #include "host/ble_uuid.h"
 #include <stdint.h>
 
-class NodeDescAttr {
+class SecondaryAttr {
 
 public:
-  NodeDescAttr(Head &head, const ConnContext &ctxt)
+  SecondaryAttr(Head &head, const ConnContext &ctxt)
       : head_node(head), conn_ctxt(ctxt){};
   Head &head_node;
-  uint16_t node_status_chr_handle;
+  uint16_t chr_handle;
   const ConnContext &conn_ctxt;
+};
+class NodeDescAttr : public SecondaryAttr {
+public:
+  using SecondaryAttr::SecondaryAttr;
+};
+class SysConfigAttr : public SecondaryAttr {
+public:
+  using SecondaryAttr::SecondaryAttr;
 };
 
 class GattService {
@@ -44,6 +52,11 @@ private:
                        0xef, 0x12, 0x12, 0x25, 0x00, 0x00, 0x00);
 
   ble_uuid128_t node_status_chr_uuid =
+
       BLE_UUID128_INIT(0x23, 0xd1, 0xbc, 0xea, 0x5f, 0x78, 0x23, 0x15, 0xde,
                        0xef, 0x12, 0x12, 0x25, 0x00, 0x00, 0x01);
+
+  ble_uuid128_t sys_conf_chr_uuid =
+      BLE_UUID128_INIT(0x23, 0xd1, 0xbc, 0xea, 0x5f, 0x78, 0x23, 0x15, 0xde,
+                       0xef, 0x12, 0x12, 0x25, 0x00, 0x00, 0x02);
 };

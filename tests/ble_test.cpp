@@ -2,6 +2,7 @@
 #include "fixtures.hpp"
 #include "gatt_attribute.hpp"
 #include "head.hpp"
+#include "logger.hpp"
 #include "mocks.hpp"
 #include "node.hpp"
 #include "protocol_types.hpp"
@@ -17,105 +18,114 @@
 // durations and its indexing
 void check_buffer_duration(HeadFixture &fix, GattAttribute &attr,
                            size_t node_index);
+constexpr uint8_t test_address = 1;
 
 TEST_CASE("BLE tests", "[ble]") {
   HeadFixture fix;
-  //  Mocks::populate_head_nodes(*fix.head, 5);
-  //  GattAttribute attr{*fix.head};
 
-  // SECTION("duration buffers are loaded propertly") {
-  //   SKIP();
-  //   auto res = attr.load_duration_buffer(0);
+  Mocks::populate_head_nodes(*fix.head, 5);
+  NodeTypes::DurationSchedule sch1 = {.duration = 900,
+                                      .cycle{true, false, true}};
+  NodeTypes::DurationSchedule sch2 = {.duration = 1000,
+                                      .cycle{false, true, false}};
+  auto sch1_byte = GattAttribute::duration_schedule_to_bytes(sch1, 0);
+  auto sch2_byte = GattAttribute::duration_schedule_to_bytes(sch2, 1);
+  fix.head->set_watering_cycle(0, sch1.cycle);
+  fix.head->set_node_duration(0, sch1.duration);
+  fix.head->set_watering_cycle(1, sch2.cycle);
+  fix.head->set_node_duration(1, sch2.duration);
+  GattAttribute attr{*fix.head};
+  // End Initialization
 
-  //   REQUIRE(res == BLE::Status::OP_OK);
-  //   check_buffer_duration(fix, attr, 0);
+  SECTION("duration schedule can be converted to bytes and vice versa") {
+    NodeTypes::DurationSchedule schedule{
+        .duration = 500,
+        .cycle = {true, true, true, false, false, false, true}};
+    FlatSchedule dur_bytes =
+        GattAttribute::duration_schedule_to_bytes(schedule, test_address);
+    auto re_schedule = GattAttribute::bytes_to_duration_schedule(dur_bytes);
 
-  //   auto res2 = attr.load_duration_buffer(1);
-  //   check_buffer_duration(fix, attr, 1);
-  //   REQUIRE(res2 == BLE::Status::OP_OK);
+    REQUIRE(dur_bytes[0] == test_address);
+    REQUIRE(schedule.cycle == re_schedule.cycle);
+  }
 
-  //   SECTION("does not load invalid node") {
-  //     auto res = attr.load_duration_buffer(6);
-  //     REQUIRE(res == BLE::Status::INVALID_NODE);
-  //     check_buffer_duration(fix, attr, 1);
-  //   }
-  // }
-  // SECTION("Testing handle_incoming_write main entrypoint") {
-  //   SKIP();
-  //   SECTION("handles load row operations") {
-  //     auto load_row1 = BleMocks::pkt_load_row();
-  //     load_row1[BLE::TGT_ROW_IDX] = 3;
-  //     BLE::Status res1 = attr.handle_incoming_write(load_row1);
-  //     check_buffer_duration(fix, attr, 3);
+  SECTION("duration buffers are loaded propertly") {
 
-  //     REQUIRE(res1 == BLE::Status::OP_OK);
-  //     load_row1[BLE::TGT_ROW_IDX] = 2;
-  //     attr.handle_incoming_write(load_row1);
-  //     check_buffer_duration(fix, attr, 2);
-  //     SECTION("will not execute invalid rows") {
-  //       load_row1[BLE::TGT_ROW_IDX] = config::max_nodes + 1;
-  //       BLE::Status res3 = attr.handle_incoming_write(load_row1);
-  //       REQUIRE(res3 == BLE::Status::INVALID_NODE);
-  //     }
-  //   }
-  //   SECTION("Handles write cell commands") {
-  //     auto cell1 = BleMocks::pkt_write_cell();
-  //     uint16_t val = Util::get_le16(&cell1[BLE::TGT_CELL_IDX + 1]);
-  //     auto target_node = cell1[BLE::TGT_ROW_IDX];
-  //     auto target_hose = cell1[BLE::TGT_CELL_IDX];
+    auto status = attr.load_duration_buffer(0);
+    REQUIRE(attr.duration_buffer == sch1_byte);
 
-  //     auto durations1 = fix.head->get_node_hose_durations(target_node);
-  //     auto res = attr.handle_incoming_write(cell1);
-  //     auto durations2 = fix.head->get_node_hose_durations(target_node);
-  //     REQUIRE(durations1.value() != durations2.value());
-  //     durations1.value()[target_hose] = val;
-  //     REQUIRE(durations1.value() == durations2.value());
-  //     check_buffer_duration(fix, attr, target_node);
-  //   }
-  //   SECTION("Handles write row commands") {
-  //     auto row_add = BleMocks::pkt_write_row();
-  //     NodeTypes::HoseDurations durations_add{};
-  //     auto target_node = row_add[BLE::TGT_ROW_IDX];
-  //     auto durations1 = fix.head->get_node_hose_durations(target_node);
-  //     size_t addr = 0;
-  //     for (size_t i = BLE::TGT_ROW_IDX + 1; i < row_add.size(); i += 2) {
-  //       uint16_t val = Util::get_le16(&row_add[i]);
-  //       durations_add[addr] = val;
-  //       addr += 1;
-  //     }
-  //     auto rc1 = attr.handle_incoming_write(row_add);
-  //     REQUIRE(rc1 == BLE::Status::OP_OK);
-  //     auto durations2 = fix.head->get_node_hose_durations(target_node);
-  //     REQUIRE(durations1.value() != durations2.value());
-  //     REQUIRE(durations2.value() == durations_add);
-  //     check_buffer_duration(fix, attr, target_node);
-  //   }
-  //   SECTION("invalid commands not processed") {
+    auto status2 = attr.load_duration_buffer(1);
+    REQUIRE(attr.duration_buffer == sch2_byte);
+    REQUIRE(status == BLE::Status::OP_OK);
 
-  //     auto row_add = BleMocks::pkt_write_row();
-  //     row_add[0] = 9;
-  //     auto res = attr.handle_incoming_write(row_add);
-  //     REQUIRE(res == BLE::Status::INVALID_CMD);
-  //   }
-  //   SECTION("invalid packet lengths not processed") {
+    SECTION("does not load invalid node") {
+      auto res = attr.load_duration_buffer(6);
+      REQUIRE(res == BLE::Status::INVALID_NODE);
+      REQUIRE(attr.duration_buffer == sch2_byte);
+    }
+  }
+  SECTION("Testing handle_incoming_write main entrypoint") {
+    SECTION("handles load row operations") {
+      auto load_row1 = BleMocks::pkt_load_row();
+      load_row1[BLE::TGT_ROW_IDX] = 3;
+      BLE::Status res1 = attr.handle_incoming_write(load_row1);
+      check_buffer_duration(fix, attr, 3);
 
-  //     auto row_add = BleMocks::pkt_write_row();
-  //     auto cel_add = BleMocks::pkt_write_cell();
-  //     auto load = BleMocks::pkt_load_row();
-  //     std::array<std::span<uint8_t>, 3> vals = {row_add, cel_add, load};
-  //     auto buff1 = attr.duration_buffer;
-  //     bool failed = false;
-  //     for (auto &pkt : vals) {
-  //       pkt[BLE::DATA_LEN_IDX] += 1;
-  //       auto rc = attr.handle_incoming_write(pkt);
-  //       if (rc != BLE::Status::INVALID_PKT_LEN) {
-  //         failed = true;
-  //       }
-  //     }
+      REQUIRE(res1 == BLE::Status::OP_OK);
+      load_row1[BLE::TGT_ROW_IDX] = 2;
+      attr.handle_incoming_write(load_row1);
+      check_buffer_duration(fix, attr, 2);
+      SECTION("will not execute invalid rows") {
+        load_row1[BLE::TGT_ROW_IDX] = config::max_nodes + 1;
+        BLE::Status res3 = attr.handle_incoming_write(load_row1);
+        REQUIRE(res3 == BLE::Status::INVALID_NODE);
+      }
+    }
+    SECTION("Handles write cell commands") {
+      auto cell1 = BleMocks::pkt_write_cell();
+      uint16_t val = Util::get_le16(&cell1[BLE::DATA_START_IDX]);
+      auto target_node = cell1[BLE::TGT_ROW_IDX];
 
-  //     auto buff2 = attr.duration_buffer;
-  //     REQUIRE(failed == false);
-  //     REQUIRE(buff1 == buff2);
-  //   }
-  // }
+      auto durations1 = fix.head->get_node_hose_duration(target_node);
+
+      auto res = attr.handle_incoming_write(cell1);
+      auto durations2 = fix.head->get_node_hose_duration(target_node);
+      REQUIRE(durations1.value() != durations2.value());
+      REQUIRE(val == durations2.value());
+      check_buffer_duration(fix, attr, target_node);
+    }
+    SECTION("invalid commands not processed") {
+
+      auto row_add = BleMocks::pkt_write_cell();
+      row_add[0] = 9;
+      auto res = attr.handle_incoming_write(row_add);
+      REQUIRE(res == BLE::Status::INVALID_CMD);
+    }
+    SECTION("invalid packet lengths not processed") {
+
+      auto cel_add = BleMocks::pkt_write_cell();
+      auto load = BleMocks::pkt_load_row();
+      std::array<std::span<uint8_t>, 2> vals = {cel_add, load};
+      auto buff1 = attr.duration_buffer;
+      bool failed = false;
+      for (auto &pkt : vals) {
+        pkt[BLE::DATA_LEN_IDX] += 1;
+        auto rc = attr.handle_incoming_write(pkt);
+        if (rc != BLE::Status::INVALID_PKT_LEN) {
+          failed = true;
+        }
+      }
+
+      auto buff2 = attr.duration_buffer;
+      REQUIRE(failed == false);
+      REQUIRE(buff1 == buff2);
+    }
+  }
+}
+
+void check_buffer_duration(HeadFixture &fix, GattAttribute &attr,
+                           size_t node_index) {
+  auto check1 = fix.head->get_node_duration_schedule(node_index);
+  auto check2 = GattAttribute::bytes_to_duration_schedule(attr.duration_buffer);
+  REQUIRE(check1.value() == check2);
 }

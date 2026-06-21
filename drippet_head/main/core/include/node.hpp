@@ -21,6 +21,10 @@ using WateringCycle = std::array<bool, PHASE_CYCLE_LEN>;
 struct DurationSchedule {
   NodeTypes::HoseDuration duration{};
   NodeTypes::WateringCycle cycle{true, true, true, true, true, true, true};
+
+  bool operator==(DurationSchedule &other) {
+    return other.duration == this->duration && other.cycle == this->cycle;
+  }
 };
 } // namespace NodeTypes
 

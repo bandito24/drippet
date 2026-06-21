@@ -2,6 +2,7 @@
 #include "clock.hpp"
 #include "config.hpp"
 #include "head.hpp"
+#include "logger.hpp"
 #include "node.hpp"
 #include "protocol_types.hpp"
 #include "util.hpp"
@@ -9,25 +10,26 @@
 #include <optional>
 
 FlatSchedule GattAttribute::duration_schedule_to_bytes(
-    const NodeTypes::DurationSchedule &schedule) {
+    const NodeTypes::DurationSchedule &schedule, config::Address address) {
   FlatSchedule res{};
   uint8_t bitmask{};
-  Util::put_le16(&res, schedule.duration);
+  res[0] = address;
+  Util::put_le16(res.data() + 1, schedule.duration);
   for (size_t i = 0; i < schedule.cycle.size(); i++) {
     bitmask |= static_cast<uint8_t>(schedule.cycle.at(i)) << i;
   }
-  res[2] = bitmask;
+  res[3] = bitmask;
   return res;
 }
 
 NodeTypes::DurationSchedule
-bytes_to_duration_schedule(const FlatSchedule &byte_sch) {
+GattAttribute::bytes_to_duration_schedule(const FlatSchedule &byte_sch) {
   auto schedule = NodeTypes::DurationSchedule{};
-  schedule.duration = Util::get_le16(byte_sch.data());
-  uint8_t bitmask = byte_sch.at(BLE::FLAT_DURATION_LENGTH);
+  schedule.duration = Util::get_le16(byte_sch.data() + 1);
+  uint8_t bitmask = byte_sch.at(BLE::FLAT_BITMASK_IDX);
 
   for (size_t i = 0; i < schedule.cycle.size(); i++) {
-    schedule.cycle[1] = (bitmask & (1U << i)) != 0;
+    schedule.cycle[i] = (bitmask & (1U << i)) != 0;
   }
   return schedule;
 }
@@ -41,13 +43,8 @@ BLE::Status GattAttribute::load_duration_buffer(size_t row) {
   if (!duration) {
     return BLE::Status::INVALID_NODE;
   }
-  FlatSchedule schedule = GattAttribute::duration_schedule_to_bytes(*duration);
-
-  uint8_t buffer[Protocol::MAX_DATA_LEN * 2]{};
-
-  std::copy(std::begin(buffer), std::end(buffer),
-            this->duration_buffer.begin() + 1);
-  this->duration_buffer[0] = row;
+  this->duration_buffer =
+      GattAttribute::duration_schedule_to_bytes(*duration, row);
 
   return BLE::Status::OP_OK;
 }
@@ -69,21 +66,20 @@ BLE::Status GattAttribute::handle_incoming_write(std::span<uint8_t> raw_data) {
     break;
   }
   case BLE::Cmds::WRITE_CELL: {
-    // FIX: THE ADDRESSING, wont be accurate
-    uint16_t new_duration = Util::get_le16(&raw_data[BLE::TGT_ROW_IDX + 2]);
+    uint16_t new_duration = Util::get_le16(&raw_data[BLE::DATA_START_IDX]);
 
     this->head.set_node_duration(target_row, new_duration);
     return this->load_duration_buffer(target_row);
     break;
   }
-  case BLE::Cmds::WRITE_ROW: {
+    // case BLE::Cmds::WRITE_ROW: {
 
-    // FIX: Do we want this? idk, fix it
-    std::optional<NodeTypes::HoseDuration> hose_durations =
-        this->head.get_node_hose_duration(target_row);
-    return this->load_duration_buffer(target_row);
-    break;
-  }
+    //   // FIX: Do we want this? idk, fix it
+    //   std::optional<NodeTypes::HoseDuration> hose_durations =
+    //       this->head.get_node_hose_duration(target_row);
+    //   return this->load_duration_buffer(target_row);
+    //   break;
+    // }
   default:
     return BLE::Status::INVALID_CMD;
   };
