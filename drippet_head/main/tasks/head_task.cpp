@@ -11,7 +11,6 @@
 #include <optional>
 
 using CMD = Protocol::Command;
-using OptMsg = std::optional<UartMessage>;
 void HeadTask::run() {
   // Look for any nodes right away
   for (;;) {

@@ -26,14 +26,13 @@ constexpr size_t DATA_LEN_IDX = static_cast<size_t>(Header::DATA_LEN);
 constexpr size_t TGT_ROW_IDX = DATA_LEN_IDX + 1;
 constexpr size_t DATA_START_IDX = TGT_ROW_IDX + 1;
 constexpr size_t HEADER_LEN = 2;
-constexpr size_t LOAD_ROW_DATA_LEN = 1; // Header plus 1 row
-constexpr size_t MAX_DATA_LEN =
-    (Protocol::MAX_DATA_LEN * 2);        // uint16_t fragments plus header
-constexpr size_t WRITE_CEL_DATA_LEN = 3; // Row and two uint16_t fragments
-
+constexpr size_t LOAD_ROW_DATA_LEN = 1;    // Row
+constexpr size_t WRITE_CEL_DATA_LEN = 3;   // Row and two uint16_t fragments
 constexpr size_t WRITE_CYCLE_DATA_LEN = 2; // Row and bitmask
-constexpr size_t MAX_PKT_LEN = HEADER_LEN + MAX_DATA_LEN;
-constexpr size_t DURATION_BUFF_LEN = 1 + (2 * Protocol::MAX_DATA_LEN);
+//
+// Row, 2 uint16_t fragments, bitmask for cycle
+constexpr size_t DURATION_BUFF_LEN = 1 + 2 + 1;
+constexpr size_t MAX_PKT_LEN = HEADER_LEN + DURATION_BUFF_LEN;
 constexpr size_t FLAT_DURATION_IDX = 1;
 constexpr size_t FLAT_BITMASK_IDX = 3;
 

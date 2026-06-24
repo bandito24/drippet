@@ -23,6 +23,7 @@ public:
 class SysConfigAttr : public SecondaryAttr {
 public:
   using SecondaryAttr::SecondaryAttr;
+  void request_head_write_clock(uint8_t hour, uint8_t minute) {}
 };
 
 class GattService {
@@ -32,8 +33,11 @@ public:
                                    void *arg);
   GattAttribute &attr;
   NodeDescAttr &desc_attr;
-  GattService(GattAttribute &attribute, NodeDescAttr &desc)
-      : attr{attribute}, desc_attr(desc){};
+
+  SysConfigAttr &conf_attr;
+  GattService(GattAttribute &attribute, NodeDescAttr &desc,
+              SysConfigAttr &confAttr)
+      : attr{attribute}, desc_attr(desc), conf_attr(confAttr){};
 
 private:
   static int handle_water_durations(uint16_t conn_handle, uint16_t attr_handle,
@@ -42,6 +46,10 @@ private:
   static int handle_read_node_status(uint16_t conn_handle, uint16_t attr_handle,
                                      struct ble_gatt_access_ctxt *ctxt,
                                      void *arg);
+
+  static int handle_conf_op(uint16_t conn_handle, uint16_t attr_handle,
+                            struct ble_gatt_access_ctxt *ctxt, void *arg);
+
   ble_gatt_chr_def gatt_chr_defs[3];
   ble_gatt_svc_def gatt_svc_table[3];
   ble_uuid128_t durations_svc_uuid =

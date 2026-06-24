@@ -22,14 +22,14 @@ Esp_Err_t GattService::init() {
       .val_handle = &this->desc_attr.chr_handle,
   };
   // TODO: define and make this
-  this->gatt_chr_defs[1] = {
+  this->gatt_chr_defs[2] = {
       .uuid = &sys_conf_chr_uuid.u,
-      .access_cb = handle_read_node_status,
-      .arg = &this->desc_attr,
+      .access_cb = handle_conf_op,
+      .arg = &this->conf_attr,
       .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
-      .val_handle = &this->desc_attr.node_status_chr_handle,
+      .val_handle = &this->conf_attr.chr_handle,
   };
-  this->gatt_chr_defs[2] = {};
+  this->gatt_chr_defs[3] = {};
 
   this->gatt_svc_table[0] = {
       .type = BLE_GATT_SVC_TYPE_PRIMARY,
@@ -121,8 +121,56 @@ int GattService::handle_read_node_status(uint16_t conn_handle,
     }
     return rc;
   }
+
   default:
 
+    Logger::log_error("Unresolved op event of %d", ctxt->op);
+    return 1;
+  }
+}
+
+int GattService::handle_conf_op(uint16_t conn_handle, uint16_t attr_handle,
+                                struct ble_gatt_access_ctxt *ctxt, void *arg) {
+
+  Esp_Err_t rc;
+  auto attr = static_cast<SysConfigAttr *>(arg);
+  switch (ctxt->op) {
+  case BLE_GATT_ACCESS_OP_READ_CHR: {
+
+    int rc = os_mbuf_append(ctxt->om, attr->duration_buffer.data(),
+                            BLE::DURATION_BUFF_LEN);
+    if (rc != 0) {
+      Logger::log_error("Could not write data into mbuf");
+    }
+    return rc;
+  }
+  case BLE_GATT_ACCESS_OP_WRITE_CHR: {
+    uint8_t raw_data[BLE::MAX_PKT_LEN]{};
+    if (ctxt->om->om_len) {
+      uint8_t header[2];
+      rc = os_mbuf_copydata(ctxt->om, 0, BLE::HEADER_LEN, header);
+      if (rc) {
+        Logger::log_error("Could not allocate enough data for BLE header");
+        return rc;
+      }
+      size_t needed_len = BLE::HEADER_LEN + header[BLE::DATA_LEN_IDX];
+      rc = os_mbuf_copydata(ctxt->om, 0, needed_len, raw_data);
+
+      if (rc) {
+        Logger::log_error("Could not allocate enough data for BLE data");
+        return rc;
+      }
+
+      attr->handle_incoming_write(raw_data);
+
+    } else {
+      Logger::log_error("Received empty write os_mbuf");
+      return 1;
+    }
+
+    return 0;
+  }
+  default:
     Logger::log_error("Unresolved op event of %d", ctxt->op);
     return 1;
   }

@@ -1,5 +1,6 @@
 #pragma once
 #include "constants.hpp"
+#include "node.hpp"
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
@@ -32,6 +33,22 @@ inline uint16_t get_le16(const void *buf) {
 
   return x;
 }
+inline NodeTypes::WateringCycle byte_to_water_cycle(uint8_t bitmask) {
+  NodeTypes::WateringCycle res{};
+  for (size_t i = 0; i < res.size(); i++) {
+    res[i] = (bitmask & (1U << i)) != 0;
+  }
+  return res;
+}
+
+inline uint8_t water_cycle_to_bytes(NodeTypes::WateringCycle cycle) {
+  uint8_t bitmask{};
+  for (size_t i = 0; i < cycle.size(); i++) {
+    bitmask |= static_cast<uint8_t>(cycle.at(i)) << i;
+  }
+  return bitmask;
+}
+
 inline std::array<uint16_t, 2> serialize_key(NodeKey_t key) {
   std::array<uint16_t, 2> res{};
   res[0] = static_cast<uint16_t>(key);

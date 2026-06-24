@@ -11,7 +11,6 @@
 #include <optional>
 
 enum class RC { OK, ERR };
-using OptMsg = std::optional<UartMessage>;
 using SolenoidPtr = std::unique_ptr<SolenoidValve>;
 using SwitchPtr = std::unique_ptr<Switch>;
 

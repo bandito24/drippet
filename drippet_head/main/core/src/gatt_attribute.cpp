@@ -12,12 +12,9 @@
 FlatSchedule GattAttribute::duration_schedule_to_bytes(
     const NodeTypes::DurationSchedule &schedule, config::Address address) {
   FlatSchedule res{};
-  uint8_t bitmask{};
   res[0] = address;
   Util::put_le16(res.data() + 1, schedule.duration);
-  for (size_t i = 0; i < schedule.cycle.size(); i++) {
-    bitmask |= static_cast<uint8_t>(schedule.cycle.at(i)) << i;
-  }
+  uint8_t bitmask = Util::water_cycle_to_bytes(schedule.cycle);
   res[3] = bitmask;
   return res;
 }
@@ -28,9 +25,7 @@ GattAttribute::bytes_to_duration_schedule(const FlatSchedule &byte_sch) {
   schedule.duration = Util::get_le16(byte_sch.data() + 1);
   uint8_t bitmask = byte_sch.at(BLE::FLAT_BITMASK_IDX);
 
-  for (size_t i = 0; i < schedule.cycle.size(); i++) {
-    schedule.cycle[i] = (bitmask & (1U << i)) != 0;
-  }
+  schedule.cycle = Util::byte_to_water_cycle(bitmask);
   return schedule;
 }
 
@@ -68,18 +63,10 @@ BLE::Status GattAttribute::handle_incoming_write(std::span<uint8_t> raw_data) {
   case BLE::Cmds::WRITE_CELL: {
     uint16_t new_duration = Util::get_le16(&raw_data[BLE::DATA_START_IDX]);
 
-    this->head.set_node_duration(target_row, new_duration);
+    this->head.ext_req_set_node_duration(new_duration, target_row);
     return this->load_duration_buffer(target_row);
     break;
   }
-    // case BLE::Cmds::WRITE_ROW: {
-
-    //   // FIX: Do we want this? idk, fix it
-    //   std::optional<NodeTypes::HoseDuration> hose_durations =
-    //       this->head.get_node_hose_duration(target_row);
-    //   return this->load_duration_buffer(target_row);
-    //   break;
-    // }
   default:
     return BLE::Status::INVALID_CMD;
   };

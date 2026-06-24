@@ -19,7 +19,7 @@ inline NodeTypes::HoseDuration get_new_hose_durations(int increaser) {
   return hose_duration * (1 + increaser);
 }
 inline UartMessage incoming_adressing_frame(config::Address addr,
-                                            NodeKey_t key = sample_key) {
+                                            NodeKey_t key) {
   auto key_arr = Util::serialize_key(key);
   return {.address = addr,
           .command = Protocol::Command::ADDRESSING,
@@ -46,24 +46,48 @@ inline UartMessage incoming_status_frame(config::Address addr,
           .data = {static_cast<uint16_t>(status)},
           .data_length = 1};
 }
+
+inline OptMsg create_node_pending(Head &head, NodeKey_t key) {
+  auto msg = Mocks::incoming_discovery_frame(key);
+  return head.handle_incoming_frame(msg);
+}
+inline OptMsg confirm_node_pending(Head &head, config::Address addr,
+                                   NodeKey_t key) {
+  auto msg = Mocks::incoming_adressing_frame(addr, key);
+  return head.handle_incoming_frame(msg);
+}
+inline OptMsg create_and_confirm_node(Head &head, NodeKey_t key) {
+  auto msg = Mocks::create_node_pending(head, key);
+  return Mocks::confirm_node_pending(head, msg->address, key);
+}
+inline void set_node_duration(Head &head, config::Address addr,
+                              NodeTypes::HoseDuration duration) {
+
+  head.ext_req_set_node_duration(duration, addr);
+  head.process_external_requests();
+}
+
+inline void populate_single_node(Head &head, config::Address addr,
+                                 NodeTypes::HoseDuration duration) {
+  auto key = NodeKey_t{addr};
+  assert(head.get_node_addr_by_key(key) == std::nullopt);
+  Mocks::create_and_confirm_node(head, key);
+  Mocks::set_node_duration(head, addr, duration);
+}
 inline void populate_head_nodes(Head &head,
                                 size_t node_count = config::max_nodes) {
 
   assert(node_count <= config::max_nodes);
   for (size_t addr = 0; addr < node_count; addr++) {
-    head.create_node_pending(addr);
-    head.confirm_node_pending(addr, addr);
     auto new_durations = get_new_hose_durations(addr);
-    head.set_node_duration(addr, new_durations);
+    populate_single_node(head, addr, new_durations);
   }
 }
-inline void populate_single_node(Head &head, config::Address addr,
-                                 NodeTypes::HoseDuration duration) {
-  auto key = NodeKey_t{addr};
-  assert(head.get_node_by_key(key) == std::nullopt);
-  head.create_node_pending(addr);
-  head.confirm_node_pending(key, addr);
-  head.set_node_duration(addr, duration);
+inline void set_node_status(Head &head, config::Address addr,
+                            NodeStatus status) {
+
+  auto msg = Mocks::incoming_status_frame(addr, status);
+  head.handle_incoming_frame(msg);
 }
 
 inline uint8_t uint8(BLE::Cmds cmd) { return static_cast<uint8_t>(cmd); }

@@ -37,48 +37,44 @@ TEST_CASE("create node pending behaves correctly", "[head]") {
   SECTION("successfully creates a node in initializing state") {
 
     Fixture fix;
-    auto address = fix.head->create_node_pending(TEST_KEY);
-    REQUIRE(*address == 0); // First address location;
-    REQUIRE(fix.head->get_node_status(*address) == NodeStatus::INITIALIZING);
+    auto address = Mocks::create_node_pending(*fix.head, TEST_KEY);
+    REQUIRE(fix.head->get_node_status(0) == NodeStatus::INITIALIZING);
   }
   SECTION("head does not allow more than max addresses") {
 
     Fixture fix;
     bool add_correct = true;
     for (size_t i = 0; i < config::max_nodes; i++) {
-      auto address = fix.head->create_node_pending(i);
-      if (!address) {
+      auto msg = Mocks::create_node_pending(*fix.head, i);
+      if (!msg) {
         add_correct = false;
         break;
       }
     }
     REQUIRE(add_correct);
-    auto last_address = fix.head->create_node_pending(TEST_KEY);
-
-    auto last_address2 = fix.head->create_node_pending(TEST_KEY + 5);
-    REQUIRE(last_address == std::nullopt);
-    REQUIRE(last_address2 ==
-            std::nullopt); // Means it full--this return means full
+    auto last_msg = Mocks::create_node_pending(*fix.head, TEST_KEY);
+    REQUIRE(last_msg == std::nullopt);
   }
   SECTION("will not create another instance if key has been seen before") {
     Fixture fix;
     // Tests to make sure if a key is duplicate then it just sends back first
     // address
-    auto address = fix.head->create_node_pending(TEST_KEY);
-    auto addressAgain = fix.head->create_node_pending(TEST_KEY);
+    auto address = Mocks::create_node_pending(*fix.head, TEST_KEY);
+    auto addressAgain = Mocks::create_node_pending(*fix.head, TEST_KEY);
     REQUIRE(addressAgain == address);
+    REQUIRE(fix.head->get_node_status(1) == NodeStatus::NODE_NONEXISTANT);
 
     SECTION("will only confirm node pending if the key matches the stored "
             "address") {
 
-      auto address2 = fix.head->create_node_pending(TEST_KEY + 1);
-      auto address3 = fix.head->create_node_pending(TEST_KEY + 2);
-      auto status1 = fix.head->confirm_node_pending(TEST_KEY + 1, 0);
-      REQUIRE(status1 == NodeLinkStatus::LINK_KEY_MISMATCH);
+      auto address2 = Mocks::create_node_pending(*fix.head, TEST_KEY + 1);
+      auto address3 = Mocks::create_node_pending(*fix.head, TEST_KEY + 2);
+      // Addr 0 should map to TEST_KEY so this is mismatch
+      Mocks::confirm_node_pending(*fix.head, 0, TEST_KEY + 1);
+
       REQUIRE(fix.head->get_node_status(1) == NodeStatus::INITIALIZING);
 
-      auto status2 = fix.head->confirm_node_pending(TEST_KEY + 1, 1);
-      REQUIRE(status2 == NodeLinkStatus::LINK_OK);
+      Mocks::confirm_node_pending(*fix.head, 1, TEST_KEY + 1);
       REQUIRE(fix.head->get_node_status(1) == NodeStatus::READY);
       REQUIRE(fix.head->get_node_status(0) == NodeStatus::INITIALIZING);
       REQUIRE(fix.head->get_node_status(2) == NodeStatus::INITIALIZING);
@@ -109,7 +105,8 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
       // Replies to duplicates without
       SECTION("Replies to duplicates without creating new node") {
         auto res2 = fix.head->handle_incoming_frame(incoming);
-        REQUIRE(res2->address == fix.head->get_node_by_key(incoming.data[0]));
+        REQUIRE(res2->address ==
+                fix.head->get_node_addr_by_key(incoming.data[0]));
         REQUIRE(!fix.head->node_exists(1));
       }
       SECTION("Will correct an incorrect addressing response") {
@@ -126,7 +123,7 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
         auto right = Mocks::incoming_adressing_frame(0, Mocks::sample_key);
         auto res2 = fix.head->handle_incoming_frame(right);
         REQUIRE(res2->command == CMD::ACK);
-        REQUIRE(fix.head->get_node_status(*fix.head->get_node_by_key(
+        REQUIRE(fix.head->get_node_status(*fix.head->get_node_addr_by_key(
                     Mocks::sample_key)) == NodeStatus::READY);
       }
     }
@@ -145,8 +142,8 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
       config::Address add_check = config::max_nodes - 1;
       config::Address add_check_2 = config::max_nodes - 2;
       config::Address add_check_3 = config::max_nodes - 3;
-      fix.head->set_node_status(add_check, NodeStatus::INITIALIZING);
-      fix.head->set_node_duration(add_check_2, 0);
+      Mocks::set_node_status(*fix.head, add_check, NodeStatus::INITIALIZING);
+      Mocks::set_node_duration(*fix.head, add_check_2, 0);
       NodeTypes::WateringCycle falseCycle = {false, false, false, false,
                                              false, false, false};
       fix.head->set_watering_cycle(add_check_3, falseCycle);
@@ -297,7 +294,7 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
     SECTION(
         "Initialization of pairing mode clears out all nodes and resets head") {
 
-      fix.head->request_pairing_mode();
+      fix.head->ext_req_pairing_mode();
       // NOTE: This will begin pairing procedure
       fix.head->process_external_requests();
       Verify(Method(fix.mockReset, do_it)).AtLeastOnce();
@@ -355,7 +352,7 @@ TEST_CASE("testing calculation and handling of time pool", "[time_pool]") {
     SECTION(
         "modifying existing nodes will accurately recalculate the time pool") {
       auto first_node_replacement = 20;
-      fix.head->set_node_duration(0, first_node_replacement);
+      Mocks::set_node_duration(*fix.head, 0, first_node_replacement);
       auto new_check =
           PHASE_LEN - first_node_replacement - second_hose_duration;
       REQUIRE(fix.head->get_remaining_time_pool() == new_check);
@@ -375,7 +372,7 @@ TEST_CASE("testing calculation and handling of time pool", "[time_pool]") {
         // Can't add a single second more than time pool
         REQUIRE(fix.head->get_node_hose_duration(3) == 0);
         SECTION("calling init pairing mode resets time pool to phase len") {
-          fix.head->request_pairing_mode();
+          fix.head->ext_req_pairing_mode();
           fix.head->process_external_requests();
 
           REQUIRE(fix.head->get_remaining_time_pool() == PHASE_LEN);

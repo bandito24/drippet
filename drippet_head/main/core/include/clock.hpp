@@ -28,6 +28,10 @@ struct iClock {
   CyclePhase phase_of_cycle = CyclePhase::FIRST;
   CyclePhase get_phase_of_cycle() const { return this->phase_of_cycle; };
   virtual Time::Long get_phase_length() const = 0;
+  virtual time_t set_next_phase_start_time(uint8_t hour, uint8_t min) = 0;
+
+  virtual time_t set_time(int year, int month, int day, int hour, int min,
+                          int second = 0) = 0;
 };
 
 class Esp32Clock : public iClock {
@@ -36,10 +40,8 @@ public:
       : phase_length{_phase_length}, sys{_sys} {};
   Time::Time_Point now() const override;
   time_t set_time(int year, int month, int day, int hour, int min,
-                  int second = 0);
-  time_t set_next_phase_start_time(uint8_t hour, uint8_t min);
-  // Time::UserSetWaterTime user_set_water_time{};
-  // Esp32Clock(iSysClock &sysClock) : sys{sysClock} {};
+                  int second = 0) override;
+  time_t set_next_phase_start_time(uint8_t hour, uint8_t min) override;
   static time_t makeTime(int year, int month, int day, int hour, int min,
                          int second);
   std::optional<Time::Time_Point> get_next_watering_point() {

@@ -28,4 +28,5 @@ TEST_CASE("utils test", "[utils]") {
     NodeKey_t key2 = Util::deserialize_key(val);
     REQUIRE(key == key2);
   }
+  SECTION("bytes")
 }

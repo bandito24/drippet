@@ -40,6 +40,7 @@ struct UartMessage {
                       msg.data.begin());
   }
 };
+using OptMsg = std::optional<UartMessage>;
 
 struct FrameIndexes {
   bool has_data = false;

@@ -3,6 +3,7 @@
 #include "conn_context.hpp"
 #include "constants.hpp"
 #include "driver.hpp"
+#include "gatt_attribute.hpp"
 #include "logger.hpp"
 #include "node.hpp"
 #include "protocol.hpp"
@@ -18,7 +19,7 @@
 
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
-  std::optional<size_t> exising_addr = this->get_node_by_key(key);
+  std::optional<size_t> exising_addr = this->get_node_addr_by_key(key);
   if (exising_addr) { // Has already requested, send back addr used
     return *exising_addr;
   }
@@ -34,7 +35,7 @@ std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
       this->storage.read_boot_durations(next_address));
   return next_address;
 }
-std::optional<config::Address> Head::get_node_by_key(NodeKey_t key) {
+std::optional<config::Address> Head::get_node_addr_by_key(NodeKey_t key) {
   for (config::Address addr = 0; addr < config::max_nodes; addr++) {
     NodeTypes::Node &node = this->node_link[addr];
     if (node && node->get_id_key() == key) {
@@ -86,8 +87,6 @@ iNode *Head::get_node(std::size_t index) const {
   }
   return node_link.at(index).get();
 }
-
-std::size_t Head::get_node_count() const { return node_count; }
 
 UartMessage Head::create_watering_frame(config::Address address) {
   assert(this->get_node(address) != nullptr);
@@ -381,10 +380,35 @@ void Head::print_node_durations() {
 }
 
 // This should only be called at the very end/beginning of the head_tqsk loop
+// TEST: This functionality
 void Head::process_external_requests() {
-  if (this->ext_requested_pairing_mode) {
-    this->ext_requested_pairing_mode = false;
-    this->init_pairing_mode();
+  OptionalRequest opt = this->extRequestsManager.pop();
+  while (opt.has_value()) {
+    ExtRequest req = *opt;
+    switch (req.type) {
+    case Req_t::INIT_PAIRING:
+      this->init_pairing_mode();
+      break;
+    case Req_t::MODIFY_NODE_DURATIONS:
+      this->set_node_duration(req.data[0], req.data[1]);
+      break;
+    case Req_t::MODIFY_NODE_CYCLE: {
+      NodeTypes::WateringCycle wc = Util::byte_to_water_cycle(req.data[1]);
+      this->set_watering_cycle(req.data[0], wc);
+      break;
+    }
+    case Req_t::MODIFY_PHASE_START_TIME:
+      this->clock.set_next_phase_start_time(req.data[0], req.data[1]);
+      break;
+    case Req_t::MODIFY_CLOCK_TIME:
+      this->clock.set_time(2026, 12, 12, req.data[0], req.data[1]);
+      break;
+
+    default:
+      Logger::log_error("Invalid external request of %d", req.type);
+      break;
+    }
+    opt = this->extRequestsManager.pop();
   }
 }
 
