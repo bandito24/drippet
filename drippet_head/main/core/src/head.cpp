@@ -386,20 +386,29 @@ void Head::process_external_requests() {
   while (opt.has_value()) {
     ExtRequest req = *opt;
     switch (req.type) {
+      // Queued by ext_req_pairing_mode
     case Req_t::INIT_PAIRING:
       this->init_pairing_mode();
       break;
+
+      // Queued by ext_req_set_node_duration
     case Req_t::MODIFY_NODE_DURATIONS:
       this->set_node_duration(req.data[0], req.data[1]);
       break;
+
+      // Queued by ext_req_set_node_cycle
     case Req_t::MODIFY_NODE_CYCLE: {
       NodeTypes::WateringCycle wc = Util::byte_to_water_cycle(req.data[1]);
       this->set_watering_cycle(req.data[0], wc);
       break;
     }
+
+      // Queued by ext_req_set_phase
     case Req_t::MODIFY_PHASE_START_TIME:
       this->clock.set_next_phase_start_time(req.data[0], req.data[1]);
       break;
+
+      // Queued by ext_req_set_clock
     case Req_t::MODIFY_CLOCK_TIME:
       this->clock.set_time(2026, 12, 12, req.data[0], req.data[1]);
       break;

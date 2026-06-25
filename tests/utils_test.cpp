@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "node.hpp"
 #include "protocol_types.hpp"
 #include "util.hpp"
 
@@ -28,5 +29,10 @@ TEST_CASE("utils test", "[utils]") {
     NodeKey_t key2 = Util::deserialize_key(val);
     REQUIRE(key == key2);
   }
-  SECTION("bytes")
+  SECTION("bytes are serialized with water cycle") {
+    NodeTypes::WateringCycle cycle{true, false, false, false, true, true, true};
+    uint8_t bytes = Util::water_cycle_to_bytes(cycle);
+    auto res = Util::byte_to_water_cycle(bytes);
+    REQUIRE(res == cycle);
+  }
 }

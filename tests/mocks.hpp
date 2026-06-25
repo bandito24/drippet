@@ -60,6 +60,13 @@ inline OptMsg create_and_confirm_node(Head &head, NodeKey_t key) {
   auto msg = Mocks::create_node_pending(head, key);
   return Mocks::confirm_node_pending(head, msg->address, key);
 }
+
+inline void set_watering_cycle(Head &head, size_t index,
+                               const NodeTypes::WateringCycle &schedule) {
+  uint8_t cycle_bitmask = Util::water_cycle_to_bytes(schedule);
+  head.ext_req_set_node_cycle(cycle_bitmask, index);
+  head.process_external_requests();
+}
 inline void set_node_duration(Head &head, config::Address addr,
                               NodeTypes::HoseDuration duration) {
 

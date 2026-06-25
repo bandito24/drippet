@@ -115,10 +115,10 @@ private:
   ActionStatus set_node_duration(size_t index,
                                  const NodeTypes::HoseDuration duration);
 
-public:
   ActionStatus set_watering_cycle(size_t index,
                                   const NodeTypes::WateringCycle &cycle);
 
+public:
   //////////////
   Head(iClock &clock, Storage &store, std::function<void()> killNodeTaskFn)
       : clock{clock}, storage{store}, phase_length{clock.get_phase_length()},

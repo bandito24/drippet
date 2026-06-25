@@ -4,6 +4,7 @@
 #include "fixtures.hpp"
 #include "logger.hpp"
 #include "mocks.hpp"
+#include "node.hpp"
 #include "protocol_types.hpp"
 #include "util.hpp"
 
@@ -57,5 +58,13 @@ TEST_CASE("mocks test", "[mocks]") {
 
     REQUIRE(fix.head->get_node_status(0) == NodeStatus::READY);
     REQUIRE(fix.head->get_node_addr_by_key(300) == 0);
+  }
+  SECTION("set watering cycle mock works") {
+
+    Mocks::create_and_confirm_node(*fix.head, 300);
+    NodeTypes::WateringCycle cycle{true, false, false, true, true, true, false};
+    Mocks::set_watering_cycle(*fix.head, 0, cycle);
+    auto check = fix.head->get_node_duration_schedule(0);
+    REQUIRE(check->cycle == cycle);
   }
 }

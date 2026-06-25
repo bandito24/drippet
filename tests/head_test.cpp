@@ -146,7 +146,7 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
       Mocks::set_node_duration(*fix.head, add_check_2, 0);
       NodeTypes::WateringCycle falseCycle = {false, false, false, false,
                                              false, false, false};
-      fix.head->set_watering_cycle(add_check_3, falseCycle);
+      Mocks::set_watering_cycle(*fix.head, add_check_3, falseCycle);
 
       fix.head->process_watering_schedule();
       REQUIRE(fix.head->get_head_status() == HeadStatus::WATERING_CMDS);
