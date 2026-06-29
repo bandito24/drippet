@@ -20,6 +20,11 @@ class NodeDescAttr : public SecondaryAttr {
 public:
   using SecondaryAttr::SecondaryAttr;
 };
+
+class ExtReqResponseAttr : public SecondaryAttr {
+public:
+  using SecondaryAttr::SecondaryAttr;
+};
 class SysConfigAttr : public SecondaryAttr {
 public:
   using SecondaryAttr::SecondaryAttr;
@@ -35,9 +40,11 @@ public:
   NodeDescAttr &desc_attr;
 
   SysConfigAttr &conf_attr;
+  ExtReqResponseAttr &rsp_attr;
   GattService(GattAttribute &attribute, NodeDescAttr &desc,
-              SysConfigAttr &confAttr)
-      : attr{attribute}, desc_attr(desc), conf_attr(confAttr){};
+              SysConfigAttr &confAttr, ExtReqResponseAttr &rspAttr)
+      : attr{attribute}, desc_attr(desc), conf_attr(confAttr),
+        rsp_attr{rspAttr} {};
 
 private:
   static int handle_water_durations(uint16_t conn_handle, uint16_t attr_handle,

@@ -22,5 +22,9 @@ private:
   QueueHandle_t incoming_queue;
   QueueHandle_t outgoing_queue;
   Head &headNode;
+  // Get this from BLE task and is the handle for the events (curr status_task)
+  // task
   TaskHandle_t cccd_task_handle;
 };
+
+enum class EVENT_BITS { NODE_CHANGE = 1 << 0, EXT_RESPONSE = 1 << 1 };

@@ -2,6 +2,7 @@
 #include "clock.hpp"
 #include "config.hpp"
 #include "constants.hpp"
+#include "external_requests.hpp"
 #include "logger.hpp"
 #include "protocol.hpp"
 #include "self_node.hpp"
@@ -29,51 +30,6 @@ enum class HeadStatus { PAIRING, STANDBY, FAULTY_NODE, WATERING_CMDS };
 enum ValveStatus { VALVE_OPEN, VALVE_CLOSED };
 using all_node_status_t = std::array<uint8_t, config::max_nodes>;
 
-enum class Req_t {
-
-  MODIFY_CLOCK_TIME,
-  MODIFY_NODE_DURATIONS,
-  MODIFY_NODE_CYCLE,
-  // THis is just the daily time that it starts watering procedure
-  MODIFY_PHASE_START_TIME,
-  // NOTE: Init_pairing should be the last thing since node durations will be
-  // reset with init pairing
-  INIT_PAIRING,
-  REQUEST_COUNT
-};
-constexpr size_t ExtRqLen = static_cast<size_t>(Req_t::REQUEST_COUNT);
-struct ExtRequest {
-  ExtRequest(Req_t _type, std::array<uint16_t, 4> _data)
-      : type{_type}, data{_data} {};
-
-  ExtRequest(Req_t _type) : type{_type} {};
-  Req_t type;
-  std::array<uint16_t, 4> data{};
-  void put() {
-    for (size_t i = 0; i < data.size(); i++) {
-    }
-  }
-};
-using OptionalRequest = std::optional<ExtRequest>;
-class ExtRqManager {
-private:
-  std::array<OptionalRequest, ExtRqLen> extRequests{};
-
-public:
-  void put(const ExtRequest &req) { this->extRequests[to_i(req.type)] = req; }
-  OptionalRequest pop() {
-    for (size_t i = 0; i < this->extRequests.size(); i++) {
-      if (extRequests[i]) {
-        auto res = extRequests[i];
-        extRequests[i] = std::nullopt;
-        return res;
-      }
-    }
-    return std::nullopt;
-  }
-  static std::size_t to_i(Req_t t) { return static_cast<size_t>(t); }
-};
-
 class Head {
 private:
   iClock &clock;
@@ -84,7 +40,6 @@ private:
   void advance_active_watering_index();
   std::optional<size_t> active_watering_index = std::nullopt;
   std::function<void()> kill_node_task_fn;
-  ExtRqManager extRequestsManager{};
 
   void initialize_watering_states();
 
@@ -99,11 +54,11 @@ private:
     this->head_status = resolve_status;
   }
   iNode *get_node(std::size_t node_index) const;
-  int no_reponse_pairing_count = 0;
+  int no_response_pairing_count = 0;
   void init_pairing_mode();
   void end_pairing_mode() {
     this->head_status = HeadStatus::STANDBY;
-    this->no_reponse_pairing_count = 0;
+    this->no_response_pairing_count = 0;
     Esp_Err_t modify_clock_time(uint8_t hour, uint8_t min);
   }
 
@@ -119,13 +74,14 @@ private:
                                   const NodeTypes::WateringCycle &cycle);
 
 public:
-  //////////////
   Head(iClock &clock, Storage &store, std::function<void()> killNodeTaskFn)
       : clock{clock}, storage{store}, phase_length{clock.get_phase_length()},
         time_pool{phase_length}, kill_node_task_fn{killNodeTaskFn} {};
   std::optional<size_t> get_active_watering_index() const {
     return this->active_watering_index;
   }
+
+  ExtRqManager extRequestsManager{};
   Time::Long get_remaining_time_pool() const { return this->time_pool; }
   HeadStatus &get_head_status() { return this->head_status; };
   const HeadStatus &read_node_status() const { return this->head_status; }
@@ -164,7 +120,7 @@ public:
 
   std::optional<UartMessage> handle_incoming_frame(const UartMessage &msg);
   void process_watering_schedule();
-  void process_external_requests();
+  uint8_t process_external_requests();
   OptMsg process_pairing(OptMsg response, uint32_t tick_key);
   int get_node_retry_count(size_t addr) {
     if (this->get_node(addr)) {
@@ -173,31 +129,33 @@ public:
       return -1;
     }
   }
-  int get_no_reponse_pairing_count() { return this->no_reponse_pairing_count; }
+  int get_no_response_pairing_count() {
+    return this->no_response_pairing_count;
+  }
   //  all_durations_t retrieve_all_durations();
   void print_node_durations();
   void handle_incoming_node_status(const UartMessage &frame);
 
   // NOTE: External Requests begin
   void ext_req_pairing_mode() {
-    this->extRequestsManager.put(ExtRequest{Req_t::INIT_PAIRING});
+    this->extRequestsManager.putRequest(ExtRequest{Req_t::INIT_PAIRING});
   }
   void ext_req_set_node_duration(NodeTypes::HoseDuration duration,
                                  config::Address addr) {
-    this->extRequestsManager.put(
+    this->extRequestsManager.putRequest(
         ExtRequest{Req_t::MODIFY_NODE_DURATIONS, {addr, duration}});
   }
   void ext_req_set_node_cycle(uint8_t cycle_bitmask, config::Address addr) {
-    this->extRequestsManager.put(
+    this->extRequestsManager.putRequest(
         ExtRequest{Req_t::MODIFY_NODE_CYCLE, {addr, cycle_bitmask}});
   }
   void ext_req_set_clock(uint8_t hour, uint8_t minute) {
-    this->extRequestsManager.put(
+    this->extRequestsManager.putRequest(
         ExtRequest{Req_t::MODIFY_CLOCK_TIME, {hour, minute}});
   }
 
   void ext_req_set_phase(uint8_t hour, uint8_t minute) {
-    this->extRequestsManager.put(
+    this->extRequestsManager.putRequest(
         ExtRequest{Req_t::MODIFY_PHASE_START_TIME, {hour, minute}});
   }
   //////////////

@@ -19,9 +19,9 @@
 
 std::optional<config::Address> Head::create_node_pending(NodeKey_t key) {
 
-  std::optional<size_t> exising_addr = this->get_node_addr_by_key(key);
-  if (exising_addr) { // Has already requested, send back addr used
-    return *exising_addr;
+  std::optional<size_t> existing_addr = this->get_node_addr_by_key(key);
+  if (existing_addr) { // Has already requested, send back addr used
+    return *existing_addr;
   }
   // Next address neing max size means its full, handler must hqndle accordingly
   auto next_address = this->get_available_address();
@@ -379,46 +379,57 @@ void Head::print_node_durations() {
   }
 }
 
-// This should only be called at the very end/beginning of the head_tqsk loop
+// This should only be called at the very end/beginning of the head_task loop
 // TEST: This functionality
-void Head::process_external_requests() {
-  OptionalRequest opt = this->extRequestsManager.pop();
+uint8_t Head::process_external_requests() {
+  OptionalRequest opt = this->extRequestsManager.popRequest();
+  uint8_t enqueued = 0;
   while (opt.has_value()) {
+    enqueued += 1;
     ExtRequest req = *opt;
     switch (req.type) {
       // Queued by ext_req_pairing_mode
     case Req_t::INIT_PAIRING:
       this->init_pairing_mode();
+      this->extRequestsManager.putEvents(ExtRequest{Req_t::INIT_PAIRING});
       break;
-
       // Queued by ext_req_set_node_duration
-    case Req_t::MODIFY_NODE_DURATIONS:
-      this->set_node_duration(req.data[0], req.data[1]);
+    case Req_t::MODIFY_NODE_DURATIONS: {
+      ActionStatus status = this->set_node_duration(req.data[0], req.data[1]);
+      this->extRequestsManager.putEvents(ExtRequest{
+          Req_t::MODIFY_NODE_DURATIONS, {static_cast<uint8_t>(status)}});
       break;
-
+    }
       // Queued by ext_req_set_node_cycle
     case Req_t::MODIFY_NODE_CYCLE: {
       NodeTypes::WateringCycle wc = Util::byte_to_water_cycle(req.data[1]);
-      this->set_watering_cycle(req.data[0], wc);
+      ActionStatus status = this->set_watering_cycle(req.data[0], wc);
+      this->extRequestsManager.putEvents(
+          ExtRequest{Req_t::MODIFY_NODE_CYCLE, {static_cast<uint8_t>(status)}});
       break;
     }
 
       // Queued by ext_req_set_phase
     case Req_t::MODIFY_PHASE_START_TIME:
       this->clock.set_next_phase_start_time(req.data[0], req.data[1]);
+      this->extRequestsManager.putEvents(
+          ExtRequest{Req_t::MODIFY_PHASE_START_TIME, {ActionStatus::OK}});
       break;
 
       // Queued by ext_req_set_clock
     case Req_t::MODIFY_CLOCK_TIME:
       this->clock.set_time(2026, 12, 12, req.data[0], req.data[1]);
+      this->extRequestsManager.putEvents(
+          ExtRequest{Req_t::MODIFY_CLOCK_TIME, {ActionStatus::OK}});
       break;
 
     default:
       Logger::log_error("Invalid external request of %d", req.type);
       break;
     }
-    opt = this->extRequestsManager.pop();
+    opt = this->extRequestsManager.popRequest();
   }
+  return enqueued;
 }
 
 void Head::init_pairing_mode() {
@@ -441,18 +452,18 @@ OptMsg Head::process_pairing(OptMsg response, uint32_t tick_key) {
     return std::nullopt;
   }
 
-  if (this->no_reponse_pairing_count >= STOP_PAIRING_COUNT) {
+  if (this->no_response_pairing_count >= STOP_PAIRING_COUNT) {
     this->end_pairing_mode();
   } else {
     if (!response) {
-      this->no_reponse_pairing_count++;
+      this->no_response_pairing_count++;
       auto key = Util::serialize_key(tick_key);
       return UartMessage{.address = ADDR_UNSET,
                          .command = CMD::DISCOVERY,
                          .data = {key[0], key[1]}};
 
     } else {
-      this->no_reponse_pairing_count = 0;
+      this->no_response_pairing_count = 0;
     }
   }
   return std::nullopt;

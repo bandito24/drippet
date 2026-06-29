@@ -129,6 +129,7 @@ int GattService::handle_read_node_status(uint16_t conn_handle,
   }
 }
 
+// TODO: This still has copied code, update it
 int GattService::handle_conf_op(uint16_t conn_handle, uint16_t attr_handle,
                                 struct ble_gatt_access_ctxt *ctxt, void *arg) {
 

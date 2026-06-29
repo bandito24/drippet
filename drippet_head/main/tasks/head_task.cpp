@@ -49,11 +49,17 @@ void HeadTask::run() {
     }
 
     all_node_status_t after_status = this->headNode.get_node_statuses();
+    uint8_t indicate_type = 0;
     if (before_status != after_status) {
-      xTaskNotifyGive(this->cccd_task_handle);
+      indicate_type |= static_cast<uint8_t>(EVENT_BITS::NODE_CHANGE);
     }
-
-    this->headNode.process_external_requests();
+    uint8_t queue_count = this->headNode.process_external_requests();
+    if (queue_count) {
+      indicate_type |= static_cast<uint8_t>(EVENT_BITS::EXT_RESPONSE);
+    }
+    if (indicate_type) {
+      xTaskNotify(this->cccd_task_handle, indicate_type, eSetBits);
+    }
     vTaskDelay(pdMS_TO_TICKS(500));
   }
 }

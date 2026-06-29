@@ -214,6 +214,7 @@ int GapManager::gap_event_handler(ble_gap_event *event, void *arg) {
     ConnContext &ctxt = gap_manager->conn_context;
     ctxt.conn_handle = event->subscribe.conn_handle;
     ctxt.indicate_status = event->subscribe.cur_indicate;
+    ctxt.notify_status = event->subscribe.cur_notify;
 
     return rc;
   }
