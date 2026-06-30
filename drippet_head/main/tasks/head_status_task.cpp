@@ -2,6 +2,7 @@
 #include "head_status_task.hpp"
 #include "constants.hpp"
 #include "head.hpp"
+#include "logger.hpp"
 #include "protocol_types.hpp"
 
 void HeadStatusTask::run() {

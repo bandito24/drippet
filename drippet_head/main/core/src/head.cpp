@@ -381,23 +381,30 @@ void Head::print_node_durations() {
 
 // This should only be called at the very end/beginning of the head_task loop
 // TEST: This functionality
-uint8_t Head::process_external_requests() {
+bool Head::process_external_requests() {
+  Logger::log_simple("Processing ext requests");
   OptionalRequest opt = this->extRequestsManager.popRequest();
-  uint8_t enqueued = 0;
+  bool enqueued = 0;
   while (opt.has_value()) {
-    enqueued += 1;
+    enqueued = true;
     ExtRequest req = *opt;
     switch (req.type) {
       // Queued by ext_req_pairing_mode
     case Req_t::INIT_PAIRING:
+
+      Logger::log_simple("Processing pairing");
       this->init_pairing_mode();
       this->extRequestsManager.putEvents(ExtRequest{Req_t::INIT_PAIRING});
       break;
       // Queued by ext_req_set_node_duration
+      // NOTE: For node specific operations, index 0 is status and index 1 is
+      // the node affected
     case Req_t::MODIFY_NODE_DURATIONS: {
       ActionStatus status = this->set_node_duration(req.data[0], req.data[1]);
-      this->extRequestsManager.putEvents(ExtRequest{
-          Req_t::MODIFY_NODE_DURATIONS, {static_cast<uint8_t>(status)}});
+      this->extRequestsManager.putEvents(
+          ExtRequest{Req_t::MODIFY_NODE_DURATIONS,
+                     {static_cast<uint8_t>(status), req.data[0]}});
+
       break;
     }
       // Queued by ext_req_set_node_cycle
@@ -405,7 +412,8 @@ uint8_t Head::process_external_requests() {
       NodeTypes::WateringCycle wc = Util::byte_to_water_cycle(req.data[1]);
       ActionStatus status = this->set_watering_cycle(req.data[0], wc);
       this->extRequestsManager.putEvents(
-          ExtRequest{Req_t::MODIFY_NODE_CYCLE, {static_cast<uint8_t>(status)}});
+          ExtRequest{Req_t::MODIFY_NODE_CYCLE,
+                     {static_cast<uint8_t>(status), req.data[0]}});
       break;
     }
 

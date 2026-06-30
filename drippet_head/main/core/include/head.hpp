@@ -120,7 +120,7 @@ public:
 
   std::optional<UartMessage> handle_incoming_frame(const UartMessage &msg);
   void process_watering_schedule();
-  uint8_t process_external_requests();
+  bool process_external_requests();
   OptMsg process_pairing(OptMsg response, uint32_t tick_key);
   int get_node_retry_count(size_t addr) {
     if (this->get_node(addr)) {
@@ -139,6 +139,7 @@ public:
   // NOTE: External Requests begin
   void ext_req_pairing_mode() {
     this->extRequestsManager.putRequest(ExtRequest{Req_t::INIT_PAIRING});
+    Logger::log_simple("PUT IN A REQUEST");
   }
   void ext_req_set_node_duration(NodeTypes::HoseDuration duration,
                                  config::Address addr) {

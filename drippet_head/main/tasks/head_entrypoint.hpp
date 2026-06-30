@@ -29,11 +29,13 @@ public:
     ESP_ERROR_CHECK(this->ble_task.init_stack());
     this->ble_task.start();
     this->status_task.start();
-    head_task = std::make_unique<HeadTask>(
+    this->reset_node();
+    this->head_task = std::make_unique<HeadTask>(
         head_node, q_manager.get_handle(QueueOrder::EXT_INCOMING),
         q_manager.get_handle(QueueOrder::EXT_OUTGOING),
         ble_task.get_cccd_subtask_handle());
-    head_task->start();
+    this->head_task->start();
+    this->head_node.ext_req_pairing_mode();
   }
 
 protected:

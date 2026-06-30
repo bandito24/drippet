@@ -1,8 +1,11 @@
 #include "gatt_service.hpp"
+#include "constants.hpp"
 #include "gatt_attribute.hpp"
 #include "head.hpp"
 #include "host/ble_gatt.h"
+#include "logger.hpp"
 #include "os/os_mbuf.h"
+#include "secondary_attribute.hpp"
 #include "util.hpp"
 
 Esp_Err_t GattService::init() {
@@ -26,10 +29,18 @@ Esp_Err_t GattService::init() {
       .uuid = &sys_conf_chr_uuid.u,
       .access_cb = handle_conf_op,
       .arg = &this->conf_attr,
-      .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
+      .flags = BLE_GATT_CHR_F_WRITE,
       .val_handle = &this->conf_attr.chr_handle,
   };
-  this->gatt_chr_defs[3] = {};
+
+  this->gatt_chr_defs[3] = {
+      .uuid = &ext_response_chr_uuid.u,
+      .access_cb = handle_ext_response,
+      .arg = &this->rsp_attr,
+      .flags = BLE_GATT_CHR_F_NOTIFY,
+      .val_handle = &this->rsp_attr.chr_handle,
+  };
+  this->gatt_chr_defs[4] = {};
 
   this->gatt_svc_table[0] = {
       .type = BLE_GATT_SVC_TYPE_PRIMARY,
@@ -61,43 +72,24 @@ int GattService::handle_water_durations(uint16_t conn_handle,
                                         uint16_t attr_handle,
                                         struct ble_gatt_access_ctxt *ctxt,
                                         void *arg) {
-  Esp_Err_t rc;
   auto attr = static_cast<GattAttribute *>(arg);
   switch (ctxt->op) {
   case BLE_GATT_ACCESS_OP_READ_CHR: {
 
     int rc = os_mbuf_append(ctxt->om, attr->duration_buffer.data(),
-                            BLE::DURATION_BUFF_LEN);
+                            attr->duration_buffer.size());
     if (rc != 0) {
       Logger::log_error("Could not write data into mbuf");
     }
     return rc;
   }
   case BLE_GATT_ACCESS_OP_WRITE_CHR: {
-    uint8_t raw_data[BLE::MAX_PKT_LEN]{};
-    if (ctxt->om->om_len) {
-      uint8_t header[2];
-      rc = os_mbuf_copydata(ctxt->om, 0, BLE::HEADER_LEN, header);
-      if (rc) {
-        Logger::log_error("Could not allocate enough data for BLE header");
-        return rc;
-      }
-      size_t needed_len = BLE::HEADER_LEN + header[BLE::DATA_LEN_IDX];
-      rc = os_mbuf_copydata(ctxt->om, 0, needed_len, raw_data);
 
-      if (rc) {
-        Logger::log_error("Could not allocate enough data for BLE data");
-        return rc;
-      }
-
-      attr->handle_incoming_write(raw_data);
-
-    } else {
-      Logger::log_error("Received empty write os_mbuf");
-      return 1;
+    BleReadRes res = GattService::read_incoming_data(ctxt);
+    if (res.rc == OK_ESP) {
+      attr->handle_incoming_write(res.raw_data);
     }
-
-    return 0;
+    return res.rc;
   }
   default:
     Logger::log_error("Unresolved op event of %d", ctxt->op);
@@ -114,7 +106,6 @@ int GattService::handle_read_node_status(uint16_t conn_handle,
   switch (ctxt->op) {
   case BLE_GATT_ACCESS_OP_READ_CHR: {
     all_node_status_t nodes_state = desc_attr->head_node.get_node_statuses();
-
     int rc = os_mbuf_append(ctxt->om, nodes_state.data(), nodes_state.size());
     if (rc != 0) {
       Logger::log_error("Could not write data into mbuf");
@@ -128,48 +119,65 @@ int GattService::handle_read_node_status(uint16_t conn_handle,
     return 1;
   }
 }
+BleReadRes GattService::read_incoming_data(struct ble_gatt_access_ctxt *ctxt) {
 
-// TODO: This still has copied code, update it
+  BleReadRes read_res{};
+  Esp_Err_t &rc = read_res.rc;
+  IncomingBLE &raw_data = read_res.raw_data;
+
+  if (ctxt->om->om_len) {
+    uint8_t header[2];
+    rc = os_mbuf_copydata(ctxt->om, 0, BLE::HEADER_LEN, header);
+    if (rc) {
+      Logger::log_error("Could not allocate enough data for BLE header");
+    }
+    size_t needed_len = BLE::HEADER_LEN + header[BLE::DATA_LEN_IDX];
+    rc = os_mbuf_copydata(ctxt->om, 0, needed_len, raw_data.data());
+
+    if (rc) {
+      Logger::log_error("Could not allocate enough data for BLE data");
+    }
+  } else {
+    Logger::log_error("Received empty write os_mbuf");
+  }
+  return read_res;
+}
+
 int GattService::handle_conf_op(uint16_t conn_handle, uint16_t attr_handle,
                                 struct ble_gatt_access_ctxt *ctxt, void *arg) {
 
-  Esp_Err_t rc;
   auto attr = static_cast<SysConfigAttr *>(arg);
   switch (ctxt->op) {
-  case BLE_GATT_ACCESS_OP_READ_CHR: {
+  case BLE_GATT_ACCESS_OP_WRITE_CHR: {
+    BleReadRes res = GattService::read_incoming_data(ctxt);
+    if (res.rc == OK_ESP) {
+      attr->handle_ext_write_conf(res.raw_data);
+    }
+    return res.rc;
+  }
+  default:
+    Logger::log_error("Unresolved op event of %d", ctxt->op);
+    return 1;
+  }
+}
 
-    int rc = os_mbuf_append(ctxt->om, attr->duration_buffer.data(),
-                            BLE::DURATION_BUFF_LEN);
+int GattService::handle_ext_response(uint16_t conn_handle, uint16_t attr_handle,
+                                     struct ble_gatt_access_ctxt *ctxt,
+                                     void *arg) {
+
+  auto attr = static_cast<ExtReqResponseAttr *>(arg);
+  switch (ctxt->op) {
+  case BLE_GATT_ACCESS_OP_READ_CHR: {
+    OptionalRequest rsp = attr->get_request_response();
+    if (!rsp) {
+      Logger::log_error("No read available on external response");
+      return 1;
+    }
+    int rc = os_mbuf_append(ctxt->om, rsp->data.data(), rsp->data.size());
     if (rc != 0) {
       Logger::log_error("Could not write data into mbuf");
     }
     return rc;
-  }
-  case BLE_GATT_ACCESS_OP_WRITE_CHR: {
-    uint8_t raw_data[BLE::MAX_PKT_LEN]{};
-    if (ctxt->om->om_len) {
-      uint8_t header[2];
-      rc = os_mbuf_copydata(ctxt->om, 0, BLE::HEADER_LEN, header);
-      if (rc) {
-        Logger::log_error("Could not allocate enough data for BLE header");
-        return rc;
-      }
-      size_t needed_len = BLE::HEADER_LEN + header[BLE::DATA_LEN_IDX];
-      rc = os_mbuf_copydata(ctxt->om, 0, needed_len, raw_data);
-
-      if (rc) {
-        Logger::log_error("Could not allocate enough data for BLE data");
-        return rc;
-      }
-
-      attr->handle_incoming_write(raw_data);
-
-    } else {
-      Logger::log_error("Received empty write os_mbuf");
-      return 1;
-    }
-
-    return 0;
   }
   default:
     Logger::log_error("Unresolved op event of %d", ctxt->op);

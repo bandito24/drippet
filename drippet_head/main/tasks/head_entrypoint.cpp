@@ -1,18 +1,18 @@
 #include "head_entrypoint.hpp"
 #include "esp_err.h"
 void HeadEntrypointTask::run() {
-  this->init();
 
   setenv("TZ", "UTC", 1);
   tzset();
   this->clock.set_time(2026, 1, 1, 2, 0);
-
   clock.set_next_phase_start_time(1, 0);
+
+  this->init();
 
   for (;;) {
 
-    this->head_node.request_pairing_mode();
-    vTaskDelay(pdMS_TO_TICKS(14000));
+    this->head_node.ext_req_pairing_mode();
+    vTaskDelay(pdMS_TO_TICKS(5000));
   }
 }
 void HeadEntrypointTask::reset_node() {

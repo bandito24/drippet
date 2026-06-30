@@ -1,3 +1,4 @@
+#pragma once
 #include <cstdint>
 struct ConnContext {
   uint8_t indicate_status{};

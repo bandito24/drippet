@@ -6,6 +6,7 @@ enum ActionStatus { OK, INVALID_TIME, INVALID_NODE };
 
 using Pin = uint8_t;
 using Esp_Err_t = int;
+constexpr uint8_t OK_ESP = 0;
 using byte_count = int;
 
 namespace Time {

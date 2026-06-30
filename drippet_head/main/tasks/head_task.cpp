@@ -53,7 +53,8 @@ void HeadTask::run() {
     if (before_status != after_status) {
       indicate_type |= static_cast<uint8_t>(EVENT_BITS::NODE_CHANGE);
     }
-    uint8_t queue_count = this->headNode.process_external_requests();
+    this->headNode.process_external_requests();
+    uint8_t queue_count = this->headNode.extRequestsManager.peek_event_count();
     if (queue_count) {
       indicate_type |= static_cast<uint8_t>(EVENT_BITS::EXT_RESPONSE);
     }

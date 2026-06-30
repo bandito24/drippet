@@ -25,10 +25,6 @@ struct ExtRequest {
   ExtRequest(Req_t _type) : type{_type} {};
   Req_t type;
   std::array<uint16_t, 4> data{};
-  void put() {
-    for (size_t i = 0; i < data.size(); i++) {
-    }
-  }
 };
 using OptionalRequest = std::optional<ExtRequest>;
 using ExternalQueue = std::array<OptionalRequest, ExtRqLen>;
@@ -52,7 +48,7 @@ private:
   }
   void putRequest(const ExtRequest &req) { this->put(req, this->extRequests); }
   void putEvents(const ExtRequest &req) { this->put(req, this->extEvents); }
-  OptionalRequest popRequest() { return this->pop(this->extEvents); }
+  OptionalRequest popRequest() { return this->pop(this->extRequests); }
 
 public:
   OptionalRequest popEvent() { return this->pop(this->extEvents); }

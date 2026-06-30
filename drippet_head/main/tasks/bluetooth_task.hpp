@@ -15,8 +15,11 @@ public:
         gatt_attr{head_node},
         node_desc_attr{head_node, this->gap_manager.get_ctxt()},
         conf_attr(head_node, this->gap_manager.get_ctxt()),
-        gatt_svc(this->gatt_attr, this->node_desc_attr, this->conf_attr),
-        cccd_subtask(this->node_desc_attr, this->gap_manager.get_ctxt()){};
+        ext_req_attr(head_node, this->gap_manager.get_ctxt()),
+        gatt_svc(this->gatt_attr, this->node_desc_attr, this->conf_attr,
+                 this->ext_req_attr),
+        cccd_subtask(this->node_desc_attr, this->ext_req_attr,
+                     this->gap_manager.get_ctxt()){};
   Esp_Err_t init_stack();
   TaskHandle_t get_cccd_subtask_handle() const {
     return this->cccd_subtask.get_handle();
@@ -31,6 +34,7 @@ private:
   GattAttribute gatt_attr;
   NodeDescAttr node_desc_attr;
   SysConfigAttr conf_attr;
+  ExtReqResponseAttr ext_req_attr;
   GattService gatt_svc;
   StatusTask cccd_subtask;
 };
