@@ -379,8 +379,6 @@ void Head::print_node_durations() {
   }
 }
 
-// This should only be called at the very end/beginning of the head_task loop
-// TEST: This functionality
 size_t Head::process_external_requests() {
   OptionalRequest opt = this->extRequestsManager.popRequest();
   size_t enqueued = 0;
