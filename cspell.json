@@ -3,7 +3,8 @@
     "uart",
     "durs",
     "popleft",
-    "gatts"
+    "gatts",
+    "fakeit"
   ],
   "words": [
     "cccd"

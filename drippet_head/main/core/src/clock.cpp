@@ -22,6 +22,9 @@ constexpr int SECONDS_PER_DAY = 24 * 60 * 60;
 // Zero defaults on min and second
 time_t Esp32Clock::set_time(int year, int month, int day, int hour, int min,
                             int second) {
+
+  hour = hour % 24;
+  min = min % 60;
   time_t t = Esp32Clock::makeTime(year, month, day, hour, min, second);
   Time::Time_Point t_point = system_clock::from_time_t(t);
   struct timeval now = {.tv_sec = t, .tv_usec = 0};
@@ -45,6 +48,8 @@ Time::Time_Point Esp32Clock::now() const { return this->sys.now(); }
 
 time_t Esp32Clock::set_next_phase_start_time(uint8_t hour, uint8_t min) {
   // this->user_set_water_time = {.rour = hour, .minute = min};
+  hour = hour % 24;
+  min = min % 60;
 
   Time::Time_Point now_point = this->now();
   time_t now_ts = system_clock::to_time_t(now_point);

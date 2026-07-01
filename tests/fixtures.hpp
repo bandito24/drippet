@@ -35,6 +35,9 @@ struct HeadFixture {
     When(Method(clockMock, is_watering_due)).AlwaysReturn();
     When(Method(clockMock, progress_watering_due)).AlwaysReturn();
     When(Method(clockMock, now)).AlwaysReturn();
+
+    When(Method(clockMock, set_next_phase_start_time)).AlwaysReturn();
+    When(Method(clockMock, set_time)).AlwaysReturn();
     When(Method(clockMock, get_phase_length)).AlwaysReturn(phase_length);
     head = std::make_unique<Head>(clockMock.get(), storageMock.get(),
                                   [this]() { this->mockReset.get().do_it(); });

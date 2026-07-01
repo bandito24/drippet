@@ -93,6 +93,7 @@ public:
   all_node_status_t get_node_statuses();
   std::optional<NodeTypes::DurationSchedule>
   get_node_duration_schedule(size_t node_addr) const;
+  size_t get_node_status_count(NodeStatus type) const;
 
   NodeStatus get_node_status(size_t addr) {
     if (this->get_node(addr)) {
@@ -120,7 +121,7 @@ public:
 
   std::optional<UartMessage> handle_incoming_frame(const UartMessage &msg);
   void process_watering_schedule();
-  bool process_external_requests();
+  size_t process_external_requests();
   OptMsg process_pairing(OptMsg response, uint32_t tick_key);
   int get_node_retry_count(size_t addr) {
     if (this->get_node(addr)) {

@@ -46,20 +46,32 @@ private:
     }
     return std::nullopt;
   }
+  OptionalRequest peek(Req_t type, ExternalQueue &queue) {
+    return queue[to_i(type)];
+  }
   void putRequest(const ExtRequest &req) { this->put(req, this->extRequests); }
   void putEvents(const ExtRequest &req) { this->put(req, this->extEvents); }
   OptionalRequest popRequest() { return this->pop(this->extRequests); }
-
-public:
-  OptionalRequest popEvent() { return this->pop(this->extEvents); }
-  uint8_t peek_event_count() {
+  uint8_t peek_count(ExternalQueue &queue) {
     uint8_t count = 0;
-    for (size_t i = 0; i < this->extEvents.size(); i++) {
-      if (this->extEvents[i]) {
+    for (size_t i = 0; i < queue.size(); i++) {
+      if (queue[i]) {
         count++;
       }
     }
     return count;
   }
+
+public:
+  OptionalRequest popEvent() { return this->pop(this->extEvents); }
+  uint8_t peek_event_count() { return this->peek_count(this->extEvents); }
+  uint8_t peek_request_count() { return this->peek_count(this->extRequests); }
+  OptionalRequest peek_event(Req_t type) {
+    return this->peek(type, this->extEvents);
+  }
+  OptionalRequest peek_request(Req_t type) {
+    return this->peek(type, this->extRequests);
+  }
+
   friend class Head;
 };

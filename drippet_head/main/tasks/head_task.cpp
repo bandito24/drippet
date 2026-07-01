@@ -34,8 +34,6 @@ void HeadTask::run() {
       if (optMsg) {
         xQueueSend(this->outgoing_queue, &(*optMsg), portMAX_DELAY);
       }
-      // Stop pairing if there has been no response
-
     } else {
       headNode.process_watering_schedule();
       if (headNode.get_head_status() == HeadStatus::WATERING_CMDS) {

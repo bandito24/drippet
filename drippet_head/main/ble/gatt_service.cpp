@@ -168,7 +168,7 @@ int GattService::handle_ext_response(uint16_t conn_handle, uint16_t attr_handle,
   auto attr = static_cast<ExtReqResponseAttr *>(arg);
   switch (ctxt->op) {
   case BLE_GATT_ACCESS_OP_READ_CHR: {
-    OptionalRequest rsp = attr->get_request_response();
+    OptionalRequest rsp = attr->head_node.extRequestsManager.popEvent();
     if (!rsp) {
       Logger::log_error("No read available on external response");
       return 1;

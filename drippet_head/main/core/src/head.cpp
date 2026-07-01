@@ -381,12 +381,11 @@ void Head::print_node_durations() {
 
 // This should only be called at the very end/beginning of the head_task loop
 // TEST: This functionality
-bool Head::process_external_requests() {
-  Logger::log_simple("Processing ext requests");
+size_t Head::process_external_requests() {
   OptionalRequest opt = this->extRequestsManager.popRequest();
-  bool enqueued = 0;
+  size_t enqueued = 0;
   while (opt.has_value()) {
-    enqueued = true;
+    enqueued++;
     ExtRequest req = *opt;
     switch (req.type) {
       // Queued by ext_req_pairing_mode
@@ -411,6 +410,7 @@ bool Head::process_external_requests() {
     case Req_t::MODIFY_NODE_CYCLE: {
       NodeTypes::WateringCycle wc = Util::byte_to_water_cycle(req.data[1]);
       ActionStatus status = this->set_watering_cycle(req.data[0], wc);
+      Logger::log_simple("RC ON OP WAS %d", status);
       this->extRequestsManager.putEvents(
           ExtRequest{Req_t::MODIFY_NODE_CYCLE,
                      {static_cast<uint8_t>(status), req.data[0]}});
@@ -438,6 +438,15 @@ bool Head::process_external_requests() {
     opt = this->extRequestsManager.popRequest();
   }
   return enqueued;
+}
+size_t Head::get_node_status_count(NodeStatus type) const {
+  size_t count = 0;
+  for (size_t i = 0; i < this->node_link.size(); i++) {
+    if (this->node_link[i] && this->node_link[i]->get_node_status() == type) {
+      count++;
+    }
+  }
+  return count;
 }
 
 void Head::init_pairing_mode() {

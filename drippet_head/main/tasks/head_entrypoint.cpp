@@ -8,11 +8,9 @@ void HeadEntrypointTask::run() {
   clock.set_next_phase_start_time(1, 0);
 
   this->init();
-
+  this->head_node.ext_req_pairing_mode();
   for (;;) {
-
-    this->head_node.ext_req_pairing_mode();
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
   }
 }
 void HeadEntrypointTask::reset_node() {

@@ -129,4 +129,7 @@ inline void print_schedule(const std::array<bool, 7> &schedule,
   }
   printf("]\n");
 }
+template <typename T> inline size_t to_i(T input) {
+  return static_cast<size_t>(input);
+}
 } // namespace Util
