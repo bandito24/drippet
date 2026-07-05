@@ -1,4 +1,5 @@
 #pragma once
+#include "ble_types.hpp"
 #include "clock.hpp"
 #include "config.hpp"
 #include "constants.hpp"
@@ -118,6 +119,12 @@ public:
   int calculate_new_time_pool(size_t index,
                               NodeTypes::HoseDuration new_duration);
   bool is_node_watering_this_phase(size_t addr);
+  HourMin get_hourmin_curr_time() const {
+    return this->clock.get_hourmin_curr_time();
+  }
+  std::optional<HourMin> get_hourmin_next_phase() const {
+    return this->clock.get_hourmin_next_phase();
+  }
 
   std::optional<UartMessage> handle_incoming_frame(const UartMessage &msg);
   void process_watering_schedule();
@@ -139,26 +146,35 @@ public:
 
   // NOTE: External Requests begin
   void ext_req_pairing_mode() {
-    this->extRequestsManager.putRequest(ExtRequest{Req_t::INIT_PAIRING});
-    Logger::log_simple("PUT IN A REQUEST");
+    this->extRequestsManager.putRequest(ExtRequest{BLE::Cmds::INIT_PAIRING});
   }
-  void ext_req_set_node_duration(NodeTypes::HoseDuration duration,
-                                 config::Address addr) {
-    this->extRequestsManager.putRequest(
-        ExtRequest{Req_t::MODIFY_NODE_DURATIONS, {addr, duration}});
+  void ext_req_set_node_duration(config::Address addr,
+                                 NodeTypes::HoseDuration duration) {
+    ExtRequest req = {BLE::Cmds::WRITE_CELL};
+    req.data[REQ_ADDR_INPUT] = addr;
+    req.data[REQ_DATA_INPUT] = duration;
+    this->extRequestsManager.putRequest(req);
   }
-  void ext_req_set_node_cycle(uint8_t cycle_bitmask, config::Address addr) {
-    this->extRequestsManager.putRequest(
-        ExtRequest{Req_t::MODIFY_NODE_CYCLE, {addr, cycle_bitmask}});
+  void ext_req_set_node_cycle(config::Address addr, uint8_t cycle_bitmask) {
+
+    ExtRequest req = {BLE::Cmds::WRITE_CYCLE};
+    req.data[REQ_ADDR_INPUT] = addr;
+    req.data[REQ_DATA_INPUT] = cycle_bitmask;
+    this->extRequestsManager.putRequest(req);
   }
   void ext_req_set_clock(uint8_t hour, uint8_t minute) {
-    this->extRequestsManager.putRequest(
-        ExtRequest{Req_t::MODIFY_CLOCK_TIME, {hour, minute}});
+
+    ExtRequest req = {BLE::Cmds::WRITE_CONF_TIME};
+    req.data[REQ_HOUR_INPUT] = hour;
+    req.data[REQ_MIN_INPUT] = minute;
+    this->extRequestsManager.putRequest(req);
   }
 
   void ext_req_set_phase(uint8_t hour, uint8_t minute) {
-    this->extRequestsManager.putRequest(
-        ExtRequest{Req_t::MODIFY_PHASE_START_TIME, {hour, minute}});
+    ExtRequest req = {BLE::Cmds::WRITE_CONF_PHASE};
+    req.data[REQ_HOUR_INPUT] = hour;
+    req.data[REQ_MIN_INPUT] = minute;
+    this->extRequestsManager.putRequest(req);
   }
   //////////////
   /////////////

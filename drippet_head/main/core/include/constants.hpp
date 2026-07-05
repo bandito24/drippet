@@ -1,7 +1,9 @@
-#include <stdio.h>
+
 #pragma once
+#include "named_types.hpp"
 #include <chrono>
 #include <stdint.h>
+#include <stdio.h>
 enum ActionStatus { OK, INVALID_TIME, INVALID_NODE };
 
 using Pin = uint8_t;
@@ -57,7 +59,7 @@ enum class NodeStatus {
 };
 constexpr size_t PHASE_CYCLE_LEN = static_cast<size_t>(CyclePhase::CYCLE_LEN);
 constexpr size_t SELF_NODE_ADDR = 0;
-constexpr int DEV_PHASE_LEN = 10;
+constexpr int DEV_PHASE_LEN = 60;
 constexpr int LISTEN_FOR_INIT_COMMS_DUR = 1000;
 
 using NodeKey_t = uint32_t;

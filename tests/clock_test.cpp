@@ -26,6 +26,11 @@ TEST_CASE("Clock and next watering durations set correctly", "[clock]") {
     REQUIRE(clock.get_next_watering_point() == std::nullopt);
 
     clock.set_next_phase_start_time(Fix::CURR_TIME_HR + 1, Fix::CURR_TIME_MIN);
+    SECTION("Make sure hourmin helper function works for seeing phase") {
+      REQUIRE(
+          (clock.get_hourmin_next_phase()).value() ==
+          HourMin{.hour = Fix::CURR_TIME_HR + 1, .minute = Fix::CURR_TIME_MIN});
+    }
     auto first_watering = fix.espClock.get_next_watering_point();
 
     REQUIRE((fix.espClock.now() + std::chrono::hours{1}) == *first_watering);
@@ -34,6 +39,13 @@ TEST_CASE("Clock and next watering durations set correctly", "[clock]") {
     // watering it doesn't just start watering immediately and sitches to the
     // next day
     fix.set_test_time(Fix::CURR_TIME_HR + 2, Fix::CURR_TIME_MIN);
+
+    SECTION("Make sure hourmin helper function works for seeing time") {
+      REQUIRE(
+          clock.get_hourmin_curr_time() ==
+          HourMin{.hour = Fix::CURR_TIME_HR + 2, .minute = Fix::CURR_TIME_MIN});
+    }
+
     auto second_watering = fix.espClock.get_next_watering_point();
     REQUIRE((*first_watering + std::chrono::days{1}) == *second_watering);
   }

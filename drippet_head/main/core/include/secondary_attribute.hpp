@@ -16,10 +16,6 @@ public:
   using SecondaryAttr::SecondaryAttr;
 };
 
-enum CONF_DATA_IDX { HOUR = BLE::HEADER_LEN, MINUTE = HOUR + 1 };
-const size_t HOUR_IDX = static_cast<size_t>(CONF_DATA_IDX::HOUR);
-const size_t MIN_IDX = static_cast<size_t>(CONF_DATA_IDX::MINUTE);
-
 class ExtReqResponseAttr : public SecondaryAttr {
 public:
   using SecondaryAttr::SecondaryAttr;

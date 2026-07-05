@@ -7,6 +7,13 @@
 
 //
 
+struct HourMin {
+  uint8_t hour;
+  uint8_t minute;
+  bool operator==(const HourMin &other) const {
+    return this->hour == other.hour && this->minute == other.minute;
+  }
+};
 struct iSysClock {
 
   virtual ~iSysClock() = default;
@@ -32,6 +39,8 @@ struct iClock {
 
   virtual time_t set_time(int year, int month, int day, int hour, int min,
                           int second = 0) = 0;
+  virtual HourMin get_hourmin_curr_time() const = 0;
+  virtual std::optional<HourMin> get_hourmin_next_phase() const = 0;
 };
 
 class Esp32Clock : public iClock {
@@ -51,9 +60,13 @@ public:
   bool is_watering_due() const override;
   void progress_watering_due() override;
 
+  HourMin get_hourmin_curr_time() const override;
+  std::optional<HourMin> get_hourmin_next_phase() const override;
+
 private:
   std::optional<Time::Time_Point> next_watering_point = std::nullopt;
   Time::Long phase_length;
+  HourMin cast_hour_min(const Time::Time_Point &point) const;
   iSysClock &sys;
   bool initalized = false;
 };

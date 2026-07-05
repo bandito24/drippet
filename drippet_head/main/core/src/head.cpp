@@ -3,6 +3,7 @@
 #include "conn_context.hpp"
 #include "constants.hpp"
 #include "driver.hpp"
+#include "external_requests.hpp"
 #include "gatt_attribute.hpp"
 #include "logger.hpp"
 #include "node.hpp"
@@ -387,46 +388,49 @@ size_t Head::process_external_requests() {
     ExtRequest req = *opt;
     switch (req.type) {
       // Queued by ext_req_pairing_mode
-    case Req_t::INIT_PAIRING:
+    case BLE::Cmds::INIT_PAIRING:
 
       Logger::log_simple("Processing pairing");
       this->init_pairing_mode();
-      this->extRequestsManager.putEvents(ExtRequest{Req_t::INIT_PAIRING});
+      this->extRequestsManager.putEvents(ExtRequest{BLE::Cmds::INIT_PAIRING});
       break;
       // Queued by ext_req_set_node_duration
       // NOTE: For node specific operations, index 0 is status and index 1 is
       // the node affected
-    case Req_t::MODIFY_NODE_DURATIONS: {
-      ActionStatus status = this->set_node_duration(req.data[0], req.data[1]);
-      this->extRequestsManager.putEvents(
-          ExtRequest{Req_t::MODIFY_NODE_DURATIONS,
-                     {static_cast<uint8_t>(status), req.data[0]}});
+    case BLE::Cmds::WRITE_CELL: {
+      ActionStatus status = this->set_node_duration(req.data[REQ_ADDR_INPUT],
+                                                    req.data[REQ_DATA_INPUT]);
+      this->extRequestsManager.putEvents(ExtRequest{
+          BLE::Cmds::WRITE_CELL, {static_cast<uint8_t>(status), req.data[0]}});
 
       break;
     }
       // Queued by ext_req_set_node_cycle
-    case Req_t::MODIFY_NODE_CYCLE: {
-      NodeTypes::WateringCycle wc = Util::byte_to_water_cycle(req.data[1]);
-      ActionStatus status = this->set_watering_cycle(req.data[0], wc);
-      Logger::log_simple("RC ON OP WAS %d", status);
+    case BLE::Cmds::WRITE_CYCLE: {
+      NodeTypes::WateringCycle wc =
+          Util::byte_to_water_cycle(req.data[REQ_DATA_INPUT]);
+      ActionStatus status =
+          this->set_watering_cycle(req.data[REQ_ADDR_INPUT], wc);
       this->extRequestsManager.putEvents(
-          ExtRequest{Req_t::MODIFY_NODE_CYCLE,
-                     {static_cast<uint8_t>(status), req.data[0]}});
+          ExtRequest{BLE::Cmds::WRITE_CYCLE,
+                     {static_cast<uint8_t>(status), req.data[REQ_ADDR_INPUT]}});
       break;
     }
 
       // Queued by ext_req_set_phase
-    case Req_t::MODIFY_PHASE_START_TIME:
-      this->clock.set_next_phase_start_time(req.data[0], req.data[1]);
+    case BLE::Cmds::WRITE_CONF_PHASE:
+      this->clock.set_next_phase_start_time(req.data[REQ_HOUR_INPUT],
+                                            req.data[REQ_MIN_INPUT]);
       this->extRequestsManager.putEvents(
-          ExtRequest{Req_t::MODIFY_PHASE_START_TIME, {ActionStatus::OK}});
+          ExtRequest{BLE::Cmds::WRITE_CONF_PHASE, {ActionStatus::OK}});
       break;
 
       // Queued by ext_req_set_clock
-    case Req_t::MODIFY_CLOCK_TIME:
-      this->clock.set_time(2026, 12, 12, req.data[0], req.data[1]);
+    case BLE::Cmds::WRITE_CONF_TIME:
+      this->clock.set_time(2026, 12, 12, req.data[REQ_HOUR_INPUT],
+                           req.data[REQ_MIN_INPUT]);
       this->extRequestsManager.putEvents(
-          ExtRequest{Req_t::MODIFY_CLOCK_TIME, {ActionStatus::OK}});
+          ExtRequest{BLE::Cmds::WRITE_CONF_TIME, {ActionStatus::OK}});
       break;
 
     default:

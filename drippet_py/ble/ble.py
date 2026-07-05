@@ -11,7 +11,6 @@ ESP_ADDR = "9C891099-DFFD-39B2-7509-0247C708220F"
 GATT_CHAR = "00000025-1212-efde-1523-785feabcd123"
 NODE_STAT_CHAR = "01000025-1212-efde-1523-785feabcd123"
 WRITE_CELL_PKT_LEN = 5  # CMD, DATA_LEN, ROW, COL, DURATION
-WRITE_ROW_PKT_LEN = 3 + const.NODE_HOSE_COUNT  # CMD, DATA_LEN, ROW, NODE_HOSE_COUNTS
 LOAD_ROW_PKT_LEN = 3  # CMD, DATA_LEN, ROW
 VAL_THRESHOLD = 65535
 GATT_CHR_HANDLE = None
@@ -19,22 +18,19 @@ GATT_CHR_HANDLE = None
 
 class Ble_Cmd(Enum):
     LOAD_ROW_CMD = 0
-    WRITE_ROW_CMD = 1
+    WRITE_CYCLE_CMD = 1
     WRITE_CELL_CMD = 2
-    READ_BUFF_CMD = 3
-    READ_NODE_STAT = 4
+    WRITE_CONF_TIME = 3
+    WRITE_CONF_PHASE = 4
 
 
 class HeaderIdx(Enum):
     CMDS = 0
     DATA_LEN = 1
-    TGT_ROW = 2
+    DATA_START = 2
 
 
-ROW_OP_IDX = HeaderIdx.TGT_ROW.value
-COL_OP_IDX = ROW_OP_IDX + 1
-DUR_IDX_START_ROW = ROW_OP_IDX + 1
-DUR_IDX_START_CELL = COL_OP_IDX + 1
+ROW_OP_IDX = HeaderIdx.DATA_START.value
 
 
 def print_bytes(raw_bytes: bytearray):
@@ -50,13 +46,8 @@ def prepare_write_bytes(input: str, cmd: Ble_Cmd) -> bytearray:
 
     match cmd:
         case Ble_Cmd.WRITE_CELL_CMD:
-            if packet[COL_OP_IDX] >= const.NODE_HOSE_COUNT:
-                raise RuntimeError(f"Invalid column index of {packet[COL_OP_IDX]}")
             data_start = DUR_IDX_START_CELL
             needed_len = WRITE_CELL_PKT_LEN
-        case Ble_Cmd.WRITE_ROW_CMD:
-            data_start = DUR_IDX_START_ROW
-            needed_len = WRITE_ROW_PKT_LEN
         case Ble_Cmd.LOAD_ROW_CMD:
             data_start = len(packet)
             needed_len = LOAD_ROW_PKT_LEN

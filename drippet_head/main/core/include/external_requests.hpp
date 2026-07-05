@@ -1,29 +1,33 @@
-
+#pragma once
+#include "ble_types.hpp"
 #include <array>
 #include <cstddef>
 #include <optional>
 #include <stdint.h>
-enum class Req_t {
+// enum class BLE::Cmds {
+//
+//   MODIFY_CLOCK_TIME,
+//   MODIFY_NODE_DURATIONS,
+//   MODIFY_NODE_CYCLE,
+//   // THis is just the daily time that it starts watering procedure
+//   MODIFY_PHASE_START_TIME,
+//   MODIFY_NODE_STATE,
+//   INIT_PAIRING,
+//   REQUEST_COUNT
+// };
+constexpr size_t ExtRqLen = static_cast<size_t>(BLE::Cmds::REQUEST_COUNT);
+constexpr size_t REQ_ADDR_INPUT = 0;
+constexpr size_t REQ_DATA_INPUT = 1;
 
-  MODIFY_CLOCK_TIME,
-  MODIFY_NODE_DURATIONS,
-  MODIFY_NODE_CYCLE,
-  // THis is just the daily time that it starts watering procedure
-  MODIFY_PHASE_START_TIME,
-  // NOTE: Init_pairing should be the last thing since node durations will be
-  // reset with init pairing
-  MODIFY_NODE_STATE,
-  INIT_PAIRING,
-  REQUEST_COUNT
-};
-constexpr size_t ExtRqLen = static_cast<size_t>(Req_t::REQUEST_COUNT);
+constexpr size_t REQ_HOUR_INPUT = 0;
+constexpr size_t REQ_MIN_INPUT = 0;
 
 struct ExtRequest {
-  ExtRequest(Req_t _type, std::array<uint16_t, 4> _data)
+  ExtRequest(BLE::Cmds _type, std::array<uint16_t, 4> _data)
       : type{_type}, data{_data} {};
 
-  ExtRequest(Req_t _type) : type{_type} {};
-  Req_t type;
+  ExtRequest(BLE::Cmds _type) : type{_type} {};
+  BLE::Cmds type;
   std::array<uint16_t, 4> data{};
 };
 using OptionalRequest = std::optional<ExtRequest>;
@@ -32,7 +36,7 @@ class ExtRqManager {
 private:
   ExternalQueue extRequests{};
   ExternalQueue extEvents{};
-  static std::size_t to_i(Req_t t) { return static_cast<size_t>(t); }
+  static std::size_t to_i(BLE::Cmds t) { return static_cast<size_t>(t); }
   void put(const ExtRequest &req, ExternalQueue &queue) {
     queue[to_i(req.type)] = req;
   }
@@ -46,7 +50,7 @@ private:
     }
     return std::nullopt;
   }
-  OptionalRequest peek(Req_t type, ExternalQueue &queue) {
+  OptionalRequest peek(BLE::Cmds type, ExternalQueue &queue) {
     return queue[to_i(type)];
   }
   void putRequest(const ExtRequest &req) { this->put(req, this->extRequests); }
@@ -66,10 +70,10 @@ public:
   OptionalRequest popEvent() { return this->pop(this->extEvents); }
   uint8_t peek_event_count() { return this->peek_count(this->extEvents); }
   uint8_t peek_request_count() { return this->peek_count(this->extRequests); }
-  OptionalRequest peek_event(Req_t type) {
+  OptionalRequest peek_event(BLE::Cmds type) {
     return this->peek(type, this->extEvents);
   }
-  OptionalRequest peek_request(Req_t type) {
+  OptionalRequest peek_request(BLE::Cmds type) {
     return this->peek(type, this->extRequests);
   }
 

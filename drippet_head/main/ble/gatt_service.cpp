@@ -1,4 +1,6 @@
 #include "gatt_service.hpp"
+#include "ble_serializer.hpp"
+#include "clock.hpp"
 #include "constants.hpp"
 #include "gatt_attribute.hpp"
 #include "head.hpp"
@@ -29,7 +31,7 @@ Esp_Err_t GattService::init() {
       .uuid = &sys_conf_chr_uuid.u,
       .access_cb = handle_conf_op,
       .arg = &this->conf_attr,
-      .flags = BLE_GATT_CHR_F_WRITE,
+      .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_READ,
       .val_handle = &this->conf_attr.chr_handle,
   };
 
@@ -106,7 +108,8 @@ int GattService::handle_read_node_status(uint16_t conn_handle,
   switch (ctxt->op) {
   case BLE_GATT_ACCESS_OP_READ_CHR: {
     all_node_status_t nodes_state = desc_attr->head_node.get_node_statuses();
-    int rc = os_mbuf_append(ctxt->om, nodes_state.data(), nodes_state.size());
+    BlePacket pkt = BleSerializer::write_node_statuses(nodes_state);
+    int rc = os_mbuf_append(ctxt->om, pkt.data(), pkt.size());
     if (rc != 0) {
       Logger::log_error("Could not write data into mbuf");
     }
@@ -154,6 +157,26 @@ int GattService::handle_conf_op(uint16_t conn_handle, uint16_t attr_handle,
       attr->handle_ext_write_conf(res.raw_data);
     }
     return res.rc;
+  }
+  case BLE_GATT_ACCESS_OP_READ_CHR: {
+    HourMin curr_time = attr->head_node.get_hourmin_curr_time();
+
+    std::optional<HourMin> next_phase = attr->head_node.get_hourmin_curr_time();
+    std::array<uint8_t, 4> cfg{curr_time.hour, curr_time.minute};
+    uint8_t len = 2;
+
+    if (next_phase) {
+      len = 4;
+      cfg[2] = next_phase->hour;
+      cfg[3] = next_phase->minute;
+    }
+    BlePacket pkt = BleSerializer::write_clock_and_phase(cfg, len);
+
+    int rc = os_mbuf_append(ctxt->om, pkt.data(), pkt.size());
+    if (rc != 0) {
+      Logger::log_error("Could not write data into mbuf");
+    }
+    return rc;
   }
   default:
     Logger::log_error("Unresolved op event of %d", ctxt->op);

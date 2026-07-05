@@ -3,6 +3,7 @@
 #include "logger.hpp"
 #include <chrono>
 #include <ctime>
+#include <optional>
 using namespace std::chrono;
 
 time_t Esp32Clock::makeTime(int year, int month, int day, int hour, int min,
@@ -37,6 +38,24 @@ time_t Esp32Clock::set_time(int year, int month, int day, int hour, int min,
   }
   return t;
 }
+HourMin Esp32Clock::get_hourmin_curr_time() const {
+  return this->cast_hour_min(this->now());
+};
+
+std::optional<HourMin> Esp32Clock::get_hourmin_next_phase() const {
+  if (this->next_watering_point) {
+    return this->cast_hour_min(*this->next_watering_point);
+  }
+  return std::nullopt;
+}
+HourMin Esp32Clock::cast_hour_min(const Time::Time_Point &time_point) const {
+
+  std::chrono::hh_mm_ss time_of_day{
+      time_point - std::chrono::floor<std::chrono::days>(time_point)};
+  return {.hour = static_cast<uint8_t>(time_of_day.hours().count()),
+          .minute = static_cast<uint8_t>(time_of_day.minutes().count())};
+}
+
 Time::Time_Point SystemClock::now() const {
   const time_point<system_clock> now = system_clock::now();
   return now;
@@ -47,7 +66,6 @@ void SystemClock::change_system_clock(const timeval &time) {
 Time::Time_Point Esp32Clock::now() const { return this->sys.now(); }
 
 time_t Esp32Clock::set_next_phase_start_time(uint8_t hour, uint8_t min) {
-  // this->user_set_water_time = {.rour = hour, .minute = min};
   hour = hour % 24;
   min = min % 60;
 
@@ -65,12 +83,6 @@ time_t Esp32Clock::set_next_phase_start_time(uint8_t hour, uint8_t min) {
   Time::Time_Point next_watering_point =
       system_clock::from_time_t(next_watering_ts);
 
-  // If the new time is before the current time, advance watering cycle a day
-  // NOTE: commented out for debugging, though the below method should work the
-  // same
-  // if (next_watering_ts <= now_ts) {
-  //   next_watering_point += std::chrono::days{1};
-  // }
   while (next_watering_ts <= now_ts) {
     next_watering_point += std::chrono::seconds{this->phase_length};
     next_watering_ts += this->phase_length;

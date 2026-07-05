@@ -15,6 +15,10 @@ void SysConfigAttr::handle_ext_write_conf(const std::span<uint8_t> &raw_data) {
   case BLE::Cmds::WRITE_CONF_PHASE:
     this->head_node.ext_req_set_phase(hour, min);
     break;
+  case BLE::Cmds::INIT_PAIRING:
+    this->head_node.ext_req_pairing_mode();
+    break;
+
   default:
     Logger::log_error("Unrecognized conf write command of %d", raw_data[0]);
   }

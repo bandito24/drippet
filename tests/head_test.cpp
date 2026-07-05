@@ -383,7 +383,7 @@ TEST_CASE("testing calculation and handling of time pool", "[time_pool]") {
 }
 // NOTE: we subtract one because node change req type is called by head task.
 // also dont call init so - 2
-size_t target_req_count = Util::to_i(Req_t::REQUEST_COUNT) - 2;
+size_t target_req_count = Util::to_i(BLE::Cmds::REQUEST_COUNT) - 2;
 TEST_CASE("Processes external requests correctly", "[head_req]") {
 
   Fixture fix;
@@ -397,13 +397,13 @@ TEST_CASE("Processes external requests correctly", "[head_req]") {
 
     fix.head->ext_req_set_clock(12, 12);
     REQUIRE(mgr.peek_request_count() == 1);
-    REQUIRE(mgr.peek_request(Req_t::MODIFY_CLOCK_TIME) != std::nullopt);
+    REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CONF_TIME) != std::nullopt);
     fix.head->ext_req_set_phase(12, 12);
-    REQUIRE(mgr.peek_request(Req_t::MODIFY_PHASE_START_TIME) != std::nullopt);
+    REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CONF_PHASE) != std::nullopt);
     fix.head->ext_req_set_node_cycle(Util::water_cycle_to_bytes(sch.cycle), 0);
-    REQUIRE(mgr.peek_request(Req_t::MODIFY_NODE_CYCLE) != std::nullopt);
+    REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CYCLE) != std::nullopt);
     fix.head->ext_req_set_node_duration(sch.duration, 0);
-    REQUIRE(mgr.peek_request(Req_t::MODIFY_NODE_DURATIONS) != std::nullopt);
+    REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CELL) != std::nullopt);
 
     size_t op_count = fix.head->process_external_requests();
     REQUIRE(op_count == target_req_count);
@@ -416,7 +416,7 @@ TEST_CASE("Processes external requests correctly", "[head_req]") {
     REQUIRE(*check == sch);
 
     fix.head->ext_req_pairing_mode();
-    REQUIRE(mgr.peek_request(Req_t::INIT_PAIRING) != std::nullopt);
+    REQUIRE(mgr.peek_request(BLE::Cmds::INIT_PAIRING) != std::nullopt);
     fix.head->process_external_requests();
     size_t ready_count = fix.head->get_node_status_count(NodeStatus::READY);
     REQUIRE(ready_count == 0);
@@ -433,8 +433,8 @@ TEST_CASE("Processes external requests correctly", "[head_req]") {
     }
 
     // REQUIRE(mgr.peek_request_count() == 0);
-    // REQUIRE(mgr.peek_request(Req_t::INIT_PAIRING) == std::nullopt);
+    // REQUIRE(mgr.peek_request(BLE::Cmds::INIT_PAIRING) == std::nullopt);
   }
 
-  // REQUIRE(mgr.peek_event(Req_t::MODIFY_NODE_DURATIONS) == std::nullopt);
+  // REQUIRE(mgr.peek_event(BLE::Cmds::WRITE_CELL) == std::nullopt);
 }

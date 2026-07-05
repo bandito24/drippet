@@ -18,7 +18,6 @@ void StatusTask::run() {
     if (this->conn_ctxt.notify_status &&
         (value & static_cast<uint32_t>(EVENT_BITS::EXT_RESPONSE))) {
       ble_gatts_notify(this->conn_ctxt.conn_handle, this->rsp_attr.chr_handle);
-      // TODO: make associated static function etc
     }
   }
 }

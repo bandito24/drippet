@@ -8,7 +8,6 @@ void HeadEntrypointTask::run() {
   clock.set_next_phase_start_time(1, 0);
 
   this->init();
-  this->head_node.ext_req_pairing_mode();
   for (;;) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
   }
