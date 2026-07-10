@@ -1,8 +1,10 @@
 #pragma once
+#include "ble_link_interface.hpp"
+#include "ble_types.hpp"
 #include "constants.hpp"
 #include "driver.hpp"
-#include "gatt_attribute.hpp"
 #include "head.hpp"
+#include "logger.hpp"
 #include "switch.hpp"
 #include "util.hpp"
 #include <assert.h>
@@ -18,8 +20,8 @@ constexpr NodeTypes::HoseDuration hose_duration = {100};
 inline NodeTypes::HoseDuration get_new_hose_durations(int increaser) {
   return hose_duration * (1 + increaser);
 }
-inline UartMessage incoming_adressing_frame(config::Address addr,
-                                            NodeKey_t key) {
+inline UartMessage incoming_addressing_frame(config::Address addr,
+                                             NodeKey_t key) {
   auto key_arr = Util::serialize_key(key);
   return {.address = addr,
           .command = Protocol::Command::ADDRESSING,
@@ -53,7 +55,7 @@ inline OptMsg create_node_pending(Head &head, NodeKey_t key) {
 }
 inline OptMsg confirm_node_pending(Head &head, config::Address addr,
                                    NodeKey_t key) {
-  auto msg = Mocks::incoming_adressing_frame(addr, key);
+  auto msg = Mocks::incoming_addressing_frame(addr, key);
   return head.handle_incoming_frame(msg);
 }
 inline OptMsg create_and_confirm_node(Head &head, NodeKey_t key) {
@@ -103,6 +105,53 @@ inline uint8_t uint8(BLE::Cmds cmd) { return static_cast<uint8_t>(cmd); }
   //
 
 namespace BleMocks {
+using MockWrite = std::array<uint8_t, BLE::MAX_INCOMING_PKT_LEN>;
+inline MockWrite make_incoming_cmd(BLE::Cmds cmd_type) {
+  switch (cmd_type) {
+  case BLE::Cmds::WRITE_NODE_CYCLE: {
+    NodeTypes::WateringCycle cycle = {1, 0, 1, 1, 0, 0, 0};
+    uint8_t bitmask = Util::water_cycle_to_bytes(cycle);
+    return {
+        Mocks::uint8(BLE::Cmds::WRITE_NODE_CYCLE), // COMMAND
+        0,                                         // ROW INDEX
+        bitmask,                                   // Data
+    };
+  }
+  case BLE::Cmds::WRITE_NODE_DURATION: {
+    return {
+        Mocks::uint8(BLE::Cmds::WRITE_NODE_DURATION), // COMMAND
+        0,                                            // ROW
+        235,                                          // Little Endian, Data 1
+        0                                             // (little-endian), Data 2
+    };
+  }
+
+  case BLE::Cmds::WRITE_CONF_PHASE: {
+    return {
+        Mocks::uint8(BLE::Cmds::WRITE_CONF_PHASE), // COMMAND
+        3                                          // Phase Number
+    };
+  }
+  case BLE::Cmds::WRITE_CONF_TIME: {
+    return {Mocks::uint8(BLE::Cmds::WRITE_CONF_TIME), // COMMAND
+            0,                                        // Hour
+            1};                                       // Minute
+  }
+
+  case BLE::Cmds::WRITE_CONF_TIME_PHASE: {
+    return {Mocks::uint8(BLE::Cmds::WRITE_CONF_TIME_PHASE), // COMMAND
+            2,                                              // Hour
+            12};                                            // Minute
+  }
+  case BLE::Cmds::INIT_PAIRING:
+    return {
+        Mocks::uint8(BLE::Cmds::INIT_PAIRING), // COMMAND
+    };
+  default:
+    Logger::log_error("INVALID MOCK REQUEST FOR BLE");
+    return {};
+  }
+}
 // inline std::array<uint8_t, 13> pkt_write_row() {
 //   return {Mocks::uint8(BLE::Cmds::WRITE_ROW), // COMMAND
 //           11,                                 // DATA_LEN
@@ -111,18 +160,10 @@ namespace BleMocks {
 //           6, 0};
 // }
 
-inline std::array<uint8_t, 3> pkt_load_row() {
-  return {
-      Mocks::uint8(BLE::Cmds::LOAD_ROW), // COMMAND
-      1,                                 // DATA_LEN
-      0                                  // ROW
-  };
-}
 inline std::array<uint8_t, 6> pkt_write_cell() {
   return {
-      Mocks::uint8(BLE::Cmds::WRITE_CELL), // COMMAND
-      3,                                   // DATA_LEN
-      0,                                   // ROW
+      Mocks::uint8(BLE::Cmds::WRITE_NODE_DURATION), // COMMAND
+      0,                                            // ROW
       235,
       0 // (little-endian)
         // }

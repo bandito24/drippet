@@ -19,8 +19,8 @@ EXT_REQ_CHAR = "03000025-1212-efde-1523-785feabcd123"
 
 class CMD(Enum):
     LOAD_ROW = 0
-    WRITE_CYCLE = 1
-    WRITE_CELL = 2
+    WRITE_NODE_CYCLE = 1
+    WRITE_NODE_DURATION = 2
     WRITE_CONF_TIME = 3
     WRITE_CONF_PHASE = 4
     INIT_PAIRING = 5
@@ -34,7 +34,7 @@ def ble_task():
     class Actions(StrEnum):
         INIT_PAIRING = "Init Pairing"
         WRITE_DURATION = "Write Node Duration"
-        WRITE_CYCLE = "Write Node Cycle"
+        WRITE_NODE_CYCLE = "Write Node Cycle"
         SET_TIME = "Set Time"
         SET_PHASE = "Set Next Phase"
         GET_TIME = "Get Clock Times"

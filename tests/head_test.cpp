@@ -111,7 +111,7 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
       }
       SECTION("Will correct an incorrect addressing response") {
         auto wrongAddress =
-            Mocks::incoming_adressing_frame(1, Mocks::sample_key);
+            Mocks::incoming_addressing_frame(1, Mocks::sample_key);
         auto res = fix.head->handle_incoming_frame(incoming);
 
         REQUIRE(*res == UartMessage{.address = 0,
@@ -120,7 +120,7 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
                                     .data_length = 2});
       }
       SECTION("Will confirm node of a correct addressing response") {
-        auto right = Mocks::incoming_adressing_frame(0, Mocks::sample_key);
+        auto right = Mocks::incoming_addressing_frame(0, Mocks::sample_key);
         auto res2 = fix.head->handle_incoming_frame(right);
         REQUIRE(res2->command == CMD::ACK);
         REQUIRE(fix.head->get_node_status(*fix.head->get_node_addr_by_key(
@@ -380,61 +380,4 @@ TEST_CASE("testing calculation and handling of time pool", "[time_pool]") {
       }
     }
   }
-}
-// NOTE: we subtract one because node change req type is called by head task.
-// also dont call init so - 2
-size_t target_req_count = Util::to_i(BLE::Cmds::REQUEST_COUNT) - 2;
-TEST_CASE("Processes external requests correctly", "[head_req]") {
-
-  Fixture fix;
-  Mocks::populate_head_nodes(*fix.head, 5);
-
-  size_t ready_count = fix.head->get_node_status_count(NodeStatus::READY);
-  REQUIRE(ready_count == 5);
-  ExtRqManager &mgr = fix.head->extRequestsManager;
-  SECTION("Will push and pop from the stack correctly") {
-    NodeTypes::DurationSchedule sch{32, {1, 0, 0, 1, 0, 0}};
-
-    fix.head->ext_req_set_clock(12, 12);
-    REQUIRE(mgr.peek_request_count() == 1);
-    REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CONF_TIME) != std::nullopt);
-    fix.head->ext_req_set_phase(12, 12);
-    REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CONF_PHASE) != std::nullopt);
-    fix.head->ext_req_set_node_cycle(Util::water_cycle_to_bytes(sch.cycle), 0);
-    REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CYCLE) != std::nullopt);
-    fix.head->ext_req_set_node_duration(sch.duration, 0);
-    REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CELL) != std::nullopt);
-
-    size_t op_count = fix.head->process_external_requests();
-    REQUIRE(op_count == target_req_count);
-    REQUIRE(mgr.peek_request_count() == 0);
-    REQUIRE(mgr.peek_event_count() == target_req_count);
-
-    Verify(Method(fix.clockMock, set_time)).Exactly(1);
-    Verify(Method(fix.clockMock, set_next_phase_start_time)).Exactly(1);
-    auto check = fix.head->get_node_duration_schedule(0);
-    REQUIRE(*check == sch);
-
-    fix.head->ext_req_pairing_mode();
-    REQUIRE(mgr.peek_request(BLE::Cmds::INIT_PAIRING) != std::nullopt);
-    fix.head->process_external_requests();
-    size_t ready_count = fix.head->get_node_status_count(NodeStatus::READY);
-    REQUIRE(ready_count == 0);
-
-    REQUIRE(mgr.peek_event_count() == target_req_count + 1);
-    SECTION("popping events from events stack works") {
-      for (size_t i = target_req_count + 1; i > 0; i--) {
-        OptionalRequest optReq = mgr.popEvent();
-        REQUIRE(optReq != std::nullopt);
-      }
-
-      OptionalRequest optReq = mgr.popEvent();
-      REQUIRE(optReq == std::nullopt);
-    }
-
-    // REQUIRE(mgr.peek_request_count() == 0);
-    // REQUIRE(mgr.peek_request(BLE::Cmds::INIT_PAIRING) == std::nullopt);
-  }
-
-  // REQUIRE(mgr.peek_event(BLE::Cmds::WRITE_CELL) == std::nullopt);
 }

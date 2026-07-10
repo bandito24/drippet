@@ -74,7 +74,7 @@ struct ClockFixture {
 
     time_t time = Clk::make_ex_time(hour, min);
     this->curr_time = std::chrono::system_clock::from_time_t(time);
-    time_t time2 = this->espClock.set_time(2026, 3, 3, hour, min);
+    time_t time2 = this->espClock.set_time(hour, min);
   }
 
   using Clk = ClockFixture;

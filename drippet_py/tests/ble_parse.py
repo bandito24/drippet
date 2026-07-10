@@ -13,11 +13,11 @@ def test_writes_load_command():
 
 def test_writes_write_cell_command():
     check_val = int(5000).to_bytes(2, "little")
-    args = f"{b_str(Ble_Cmd.WRITE_CELL_CMD)} 4 2 3 5000"
+    args = f"{b_str(Ble_Cmd.WRITE_NODE_DURATION_CMD)} 4 2 3 5000"
 
-    res = prepare_write_bytes(args, Ble_Cmd.WRITE_CELL_CMD)
+    res = prepare_write_bytes(args, Ble_Cmd.WRITE_NODE_DURATION_CMD)
     assert res == bytes(
-        [Ble_Cmd.WRITE_CELL_CMD.value, 4, 2, 3, check_val[0], check_val[1]]
+        [Ble_Cmd.WRITE_NODE_DURATION_CMD.value, 4, 2, 3, check_val[0], check_val[1]]
     )
 
 

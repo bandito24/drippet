@@ -3,6 +3,7 @@
 #include "constants.hpp"
 #include "esp_err.h"
 #include "head.hpp"
+#include "logger.hpp"
 #include "node.hpp"
 #include "nvs_flash.h"
 #include "util.hpp"

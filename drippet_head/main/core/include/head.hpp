@@ -6,12 +6,9 @@
 #include "external_requests.hpp"
 #include "logger.hpp"
 #include "protocol.hpp"
-#include "self_node.hpp"
 #include "storage.hpp"
-#include "switch.hpp"
 #include <array>
 #include <functional>
-#include <memory>
 #include <node.hpp>
 #include <optional>
 
@@ -125,6 +122,9 @@ public:
   std::optional<HourMin> get_hourmin_next_phase() const {
     return this->clock.get_hourmin_next_phase();
   }
+  CyclePhase get_phase_pf_cycle() const {
+    return this->clock.get_phase_of_cycle();
+  }
 
   std::optional<UartMessage> handle_incoming_frame(const UartMessage &msg);
   void process_watering_schedule();
@@ -150,16 +150,16 @@ public:
   }
   void ext_req_set_node_duration(config::Address addr,
                                  NodeTypes::HoseDuration duration) {
-    ExtRequest req = {BLE::Cmds::WRITE_CELL};
+    ExtRequest req = {BLE::Cmds::WRITE_NODE_DURATION};
     req.data[REQ_ADDR_INPUT] = addr;
-    req.data[REQ_DATA_INPUT] = duration;
+    req.data[REQ_ADDRESSED_DATA_START] = duration;
     this->extRequestsManager.putRequest(req);
   }
   void ext_req_set_node_cycle(config::Address addr, uint8_t cycle_bitmask) {
 
-    ExtRequest req = {BLE::Cmds::WRITE_CYCLE};
+    ExtRequest req = {BLE::Cmds::WRITE_NODE_CYCLE};
     req.data[REQ_ADDR_INPUT] = addr;
-    req.data[REQ_DATA_INPUT] = cycle_bitmask;
+    req.data[REQ_ADDRESSED_DATA_START] = cycle_bitmask;
     this->extRequestsManager.putRequest(req);
   }
   void ext_req_set_clock(uint8_t hour, uint8_t minute) {
@@ -170,10 +170,16 @@ public:
     this->extRequestsManager.putRequest(req);
   }
 
-  void ext_req_set_phase(uint8_t hour, uint8_t minute) {
-    ExtRequest req = {BLE::Cmds::WRITE_CONF_PHASE};
+  void ext_req_set_phase_time(uint8_t hour, uint8_t minute) {
+    ExtRequest req = {BLE::Cmds::WRITE_CONF_TIME_PHASE};
     req.data[REQ_HOUR_INPUT] = hour;
     req.data[REQ_MIN_INPUT] = minute;
+    this->extRequestsManager.putRequest(req);
+  }
+  void ext_req_set_phase(uint8_t phase) {
+
+    ExtRequest req = {BLE::Cmds::WRITE_CONF_PHASE};
+    req.data[REQ_NO_ADDR_DATA_START] = phase;
     this->extRequestsManager.putRequest(req);
   }
   //////////////

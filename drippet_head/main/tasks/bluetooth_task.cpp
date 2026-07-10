@@ -4,8 +4,8 @@
 #include "status_task.hpp"
 
 #include "gap_manager.hpp"
+#include "logger.hpp"
 #include "nimble/nimble_port.h"
-#include "nvs_flash.h"
 
 #ifdef __cplusplus
 extern "C" {

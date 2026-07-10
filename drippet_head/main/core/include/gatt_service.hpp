@@ -1,14 +1,13 @@
 #pragma once
+#include "ble_link_interface.hpp"
+#include "ble_types.hpp"
 #include "constants.hpp"
-#include "gap_manager.hpp"
-#include "gatt_attribute.hpp"
-#include "head.hpp"
+#include "gatt_char.hpp"
 #include "host/ble_gatt.h"
 #include "host/ble_uuid.h"
-#include "secondary_attribute.hpp"
 #include <stdint.h>
 
-using IncomingBLE = std::array<uint8_t, BLE::MAX_PKT_LEN>;
+using IncomingBLE = std::array<uint8_t, BLE::MAX_INCOMING_PKT_LEN>;
 struct BleReadRes {
   Esp_Err_t rc;
   IncomingBLE raw_data;
@@ -18,15 +17,21 @@ public:
   Esp_Err_t init();
   static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt,
                                    void *arg);
-  GattAttribute &attr;
-  NodeDescAttr &desc_attr;
+  // NodeConfigChar &attr;
+  // NodeDescAttr &desc_attr;
 
-  SysConfigAttr &conf_attr;
-  ExtReqResponseAttr &rsp_attr;
-  GattService(GattAttribute &attribute, NodeDescAttr &desc,
-              SysConfigAttr &confAttr, ExtReqResponseAttr &rspAttr)
-      : attr{attribute}, desc_attr(desc), conf_attr(confAttr),
-        rsp_attr{rspAttr} {};
+  // SysConfigAttr &conf_attr;
+  // ExtReqResponseAttr &rsp_attr;
+  NodeConfigChar &node_cfg_chr;
+  NodeDescChar &node_desc_chr;
+  SysConfigChar &sys_cfg_chr;
+  ExtReqChar &ext_req_chr;
+  BLELinkInterface &ble_interface;
+  GattService(NodeConfigChar &attribute, NodeDescChar &desc,
+              SysConfigChar &confAttr, ExtReqChar &rspAttr,
+              BLELinkInterface &interface)
+      : node_cfg_chr{attribute}, node_desc_chr(desc), sys_cfg_chr(confAttr),
+        ext_req_chr{rspAttr}, ble_interface(interface){};
 
 private:
   static int handle_water_durations(uint16_t conn_handle, uint16_t attr_handle,
@@ -41,6 +46,11 @@ private:
 
   static int handle_ext_response(uint16_t conn_handle, uint16_t attr_handle,
                                  struct ble_gatt_access_ctxt *ctxt, void *arg);
+  static int handle_service_read(BLE::Read_T read_t,
+                                 BLELinkInterface *ble_interface,
+                                 struct ble_gatt_access_ctxt *ctxt);
+  static int handle_service_writes(BLELinkInterface *ble_interface,
+                                   struct ble_gatt_access_ctxt *ctxt);
   static BleReadRes read_incoming_data(struct ble_gatt_access_ctxt *ctxt);
 
   ble_gatt_chr_def gatt_chr_defs[5];

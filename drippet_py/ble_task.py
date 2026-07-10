@@ -11,7 +11,7 @@ action = "start"
 class Actions(StrEnum):
     INIT_PAIRING = "Init Pairing"
     WRITE_DURATION = "Write Node Duration"
-    WRITE_CYCLE = "Write Node Cycle"
+    WRITE_NODE_CYCLE = "Write Node Cycle"
     SET_TIME = "Set Time"
     SET_PHASE = "Set Next Phase"
     GET_TIME = "Get Clock Times"

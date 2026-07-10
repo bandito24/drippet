@@ -12,21 +12,26 @@ struct SerializedPacketBuffer {
 };
 constexpr size_t CMD_IDX = 0;
 
+using FlatNodeSchedule = std::array<uint8_t, 3>;
+
 class BLELinkInterface {
 public:
-  BLELinkInterface(Head &head) : head_node(head){};
-  void handle_read_buffer();
-  void handle_write_buffer();
-  void load_incoming_buffer(std::span<const uint8_t> pkt);
-  const SerializedPacketBuffer &read_outgoing_buffer() const;
+  BLELinkInterface(Head &head) : head_node(head) {};
+  void handle_writes(std::span<const uint8_t> pkt);
+  const SerializedPacketBuffer &handle_reads(BLE::Read_T read);
+
+  static FlatNodeSchedule
+  duration_schedule_to_bytes(const NodeTypes::DurationSchedule &dur_sch);
+
+  static NodeTypes::DurationSchedule
+  bytes_to_duration_schedule(const FlatNodeSchedule &byte_sch);
 
 private:
   void reset_buffer(SerializedPacketBuffer &buffer) {
     buffer = SerializedPacketBuffer{};
   }
   Head &head_node;
-  SerializedPacketBuffer incoming_buffer{};
-  SerializedPacketBuffer outgoing_buffer{};
+  SerializedPacketBuffer buffer{};
   void load_outgoing_buffer(std::span<const uint8_t> pkt);
   const SerializedPacketBuffer &read_incoming_buffer() const;
 };

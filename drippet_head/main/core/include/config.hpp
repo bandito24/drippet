@@ -5,6 +5,7 @@
 #include <cstdint>
 
 namespace config {
+// RS485 communication specifies 32 max.
 constexpr std::size_t max_nodes = 12;
 using Address = uint8_t;
 constexpr uint8_t invalid_address = 0xFF;

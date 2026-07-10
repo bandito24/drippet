@@ -17,13 +17,15 @@
 // };
 constexpr size_t ExtRqLen = static_cast<size_t>(BLE::Cmds::REQUEST_COUNT);
 constexpr size_t REQ_ADDR_INPUT = 0;
-constexpr size_t REQ_DATA_INPUT = 1;
+constexpr size_t REQ_ADDRESSED_DATA_START = 1;
+constexpr size_t REQ_NO_ADDR_DATA_START = 0;
 
 constexpr size_t REQ_HOUR_INPUT = 0;
-constexpr size_t REQ_MIN_INPUT = 0;
+constexpr size_t REQ_MIN_INPUT = 1;
 
 struct ExtRequest {
   ExtRequest(BLE::Cmds _type, std::array<uint16_t, 4> _data)
+
       : type{_type}, data{_data} {};
 
   ExtRequest(BLE::Cmds _type) : type{_type} {};
