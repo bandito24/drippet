@@ -6,6 +6,7 @@ START_BYTE = 0xAA
 MAX_NODE_COUNT = 5
 NODE_HOSE_COUNT = 5
 ADDR_UNSET = 5
+CYCLE_LEN = 7
 
 
 class Command(IntEnum):
@@ -15,6 +16,15 @@ class Command(IntEnum):
     ACK = 3
     STATUS = 4
     BUGGER_OFF = 5
+
+
+class BleCommand(IntEnum):
+    WRITE_CONF_TIME = 0
+    WRITE_NODE_DURATION = 1
+    WRITE_NODE_CYCLE = 2
+    WRITE_CONF_PHASE = 3
+    WRITE_CONF_TIME_PHASE = 4
+    INIT_PAIRING = 5
 
 
 ##class Command(IntEnum):
