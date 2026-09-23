@@ -33,6 +33,8 @@ public:
       : node_cfg_chr{attribute}, node_desc_chr(desc), sys_cfg_chr(confAttr),
         ext_req_chr{rspAttr}, ble_interface(interface){};
 
+  static const ble_uuid128_t drippet_service_uuid;
+
 private:
   static int handle_water_durations(uint16_t conn_handle, uint16_t attr_handle,
                                     struct ble_gatt_access_ctxt *ctxt,

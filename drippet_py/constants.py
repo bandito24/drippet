@@ -27,6 +27,23 @@ class BleCommand(IntEnum):
     INIT_PAIRING = 5
 
 
+class ActionStatus(IntEnum):
+    OK = 0
+    INVALID_TIME = 1
+    INVALID_NODE = 2
+
+
+WEEKDAY_INDEX: dict[str, int] = {
+    "Sunday": 0,
+    "Monday": 1,
+    "Tuesday": 2,
+    "Wednesday": 3,
+    "Thursday": 4,
+    "Friday": 5,
+    "Saturday": 6,
+}
+
+
 ##class Command(IntEnum):
 ##    DISCOVERY = 0
 ##    ADDRESSING = 1

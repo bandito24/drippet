@@ -2,6 +2,7 @@
 #include "freertos/idf_additions.h"
 #include "head_task.hpp"
 #include "host/ble_gatt.h"
+#include "logger.hpp"
 #include "portmacro.h"
 void StatusTask::run() {
   for (;;) {
@@ -15,6 +16,8 @@ void StatusTask::run() {
     }
     if (this->conn_ctxt.notify_status &&
         (value & static_cast<uint32_t>(EVENT_BITS::EXT_RESPONSE))) {
+
+      Logger::log_simple("In Status Task: notifying");
       ble_gatts_notify(this->conn_ctxt.conn_handle, this->rsp_chr.chr_handle);
     }
   }

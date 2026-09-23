@@ -1,3 +1,61 @@
+# BLE Write Characteristics
+
+BLE write commands are sent to one of two characteristics depending on the type of operation being performed.
+
+| Characteristic | UUID                                   |
+| -------------- | -------------------------------------- |
+| Node Durations | `00000025-1212-efde-1523-785feabcd123` |
+| Configuration  | `02000025-1212-efde-1523-785feabcd123` |
+
+---
+
+## Configuration Characteristic
+
+UUID:
+
+```text id="k6o3fd"
+02000025-1212-efde-1523-785feabcd123
+```
+
+The following commands must be written to the Configuration characteristic:
+
+| Command               |
+| --------------------- |
+| WRITE_CONF_TIME       |
+| WRITE_CONF_PHASE      |
+| WRITE_CONF_TIME_PHASE |
+| INIT_PAIRING          |
+
+These commands affect controller-wide configuration and are not associated with a specific irrigation node.
+
+---
+
+## Node Durations Characteristic
+
+UUID:
+
+```text id="h6epfo"
+00000025-1212-efde-1523-785feabcd123
+```
+
+The following commands must be written to the Node Durations characteristic:
+
+| Command             |
+| ------------------- |
+| WRITE_NODE_DURATION |
+| WRITE_NODE_CYCLE    |
+
+These commands modify watering schedules for individual irrigation nodes.
+
+The payload for these commands contains a node index identifying which node should be updated.
+
+---
+
+# BLE Command Payload Format
+
+This document describes the expected payload format for incoming BLE write commands.
+
+All commands are transmitted as a sequence of bytes where the first byte is always the command identifier (`Cmds` enum value).
 # BLE Command Payload Format
 
 This document describes the expected payload format for incoming BLE write commands.

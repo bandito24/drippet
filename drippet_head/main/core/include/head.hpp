@@ -8,6 +8,7 @@
 #include "protocol.hpp"
 #include "storage.hpp"
 #include <array>
+#include <cstddef>
 #include <functional>
 #include <node.hpp>
 #include <optional>
@@ -92,6 +93,13 @@ public:
   std::optional<NodeTypes::DurationSchedule>
   get_node_duration_schedule(size_t node_addr) const;
   size_t get_node_status_count(NodeStatus type) const;
+  size_t get_discovered_node_count() const {
+    size_t result = 0;
+    while (this->get_node(result) != nullptr) {
+      result += 1;
+    }
+    return result;
+  }
 
   NodeStatus get_node_status(size_t addr) {
     if (this->get_node(addr)) {
@@ -122,7 +130,7 @@ public:
   std::optional<HourMin> get_hourmin_next_phase() const {
     return this->clock.get_hourmin_next_phase();
   }
-  CyclePhase get_phase_pf_cycle() const {
+  CyclePhase get_phase_of_cycle() const {
     return this->clock.get_phase_of_cycle();
   }
 

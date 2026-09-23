@@ -1,3 +1,4 @@
+from bleak import BleakScanner
 import asyncio
 import traceback
 from bleak import BleakClient
@@ -8,15 +9,11 @@ from . import protocol
 async def init() -> BleakClient | None:
     try:
         print("Connecting...")
-        async with BleakClient(protocol.ESP_ADDR) as client:
-            if client is not None:
-                print(f"name: {client.name}: {client.address}")
-                for service in client.services:
-                    print(f"Service uuid is: {service.uuid}")
-                    for characteristic in service.characteristics:
-                        print(f"characteristic uuid is {characteristic.uuid}")
-
-                return await ble_task(client)
+        device = await BleakScanner.find_device_by_name("Drippet", 15)
+        if not device:
+            raise RuntimeError("Could not discover the Drippet Node by Name")
+        async with BleakClient(device) as client:
+            await ble_task(client)
 
     except KeyboardInterrupt:
         print("exiting...\n")
@@ -26,10 +23,7 @@ async def init() -> BleakClient | None:
 
 async def main():
     try:
-        client = await init()
-        if not client:
-            raise RuntimeError("Client connection could not be established")
-        await ble_task(client)
+        await init()
 
     except RuntimeError as e:
         print(e)

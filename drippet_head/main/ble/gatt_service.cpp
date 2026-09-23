@@ -161,10 +161,16 @@ BleReadRes GattService::read_incoming_data(struct ble_gatt_access_ctxt *ctxt) {
   IncomingBLE &raw_data = read_res.raw_data;
 
   if (ctxt->om->om_len) {
-    rc = os_mbuf_copydata(ctxt->om, 0, BLE::MAX_INCOMING_PKT_LEN, raw_data.data());
+    int len = OS_MBUF_PKTLEN(ctxt->om);
+    if (len <= raw_data.size()) {
 
-    if (rc) {
-      Logger::log_error("Could not allocate enough data for BLE data");
+      rc = os_mbuf_copydata(ctxt->om, 0, len, raw_data.data());
+
+      if (rc) {
+        Logger::log_error("Could not allocate enough data for BLE data");
+      }
+    } else {
+      Logger::log_error("Incoming Packet Exceeds Available Size");
     }
   } else {
     Logger::log_error("Received empty write os_mbuf");
@@ -208,3 +214,7 @@ void GattService::gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt,
     break;
   }
 }
+
+const ble_uuid128_t GattService::drippet_service_uuid =
+    BLE_UUID128_INIT(0x23, 0xd1, 0xbc, 0xea, 0x5f, 0x78, 0x23, 0x15, 0xde, 0xef,
+                     0x12, 0x12, 0x25, 0x00, 0x02, 0x00);

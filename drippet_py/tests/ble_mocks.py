@@ -1,3 +1,4 @@
+from constants import BleCommand
 from ble.protocol import GATT
 
 
@@ -13,162 +14,120 @@ class BLEClientMock:
         return self.read_buffer
 
 
-# Node Durations
-# Node 0: 235 min, all days
-# Node 1: 210 min, Sun/Tue/Thu
-NODE_DURATIONS = bytes(
-    [
-        0xEB,
-        0x00,
-        0x7F,
-        0xD2,
-        0x00,
-        0x15,
-    ]
-)
+class Mocks:
+    @staticmethod
+    def write_conf_time(hour: int, minute: int) -> bytes:
+        return bytes(
+            [
+                BleCommand.WRITE_CONF_TIME.value,
+                hour,
+                minute,
+            ]
+        )
 
+    @staticmethod
+    def write_node_duration(node: int, duration: int) -> bytes:
+        return bytes(
+            [
+                BleCommand.WRITE_NODE_DURATION.value,
+                node,
+                *duration.to_bytes(2, "little"),
+            ]
+        )
 
-# Three nodes:
-# 30 min, Mon/Wed/Fri
-# 120 min, every day
-# 5 min, Sunday only
-NODE_DURATIONS_3 = bytes(
-    [
-        0x1E,
-        0x00,
-        0x2A,
-        0x78,
-        0x00,
-        0x7F,
-        0x05,
-        0x00,
-        0x01,
-    ]
-)
+    @staticmethod
+    def write_node_cycle(node: int, bitmask: int) -> bytes:
+        return bytes(
+            [
+                BleCommand.WRITE_NODE_CYCLE.value,
+                node,
+                bitmask,
+            ]
+        )
 
+    @staticmethod
+    def write_conf_phase(phase: int) -> bytes:
+        return bytes(
+            [
+                BleCommand.WRITE_CONF_PHASE.value,
+                phase,
+            ]
+        )
 
-# ----------------------------------------------------
-# Node States
-# ----------------------------------------------------
+    @staticmethod
+    def write_conf_time_phase(hour: int, minute: int) -> bytes:
+        return bytes(
+            [
+                BleCommand.WRITE_CONF_TIME_PHASE.value,
+                hour,
+                minute,
+            ]
+        )
 
-NODE_STATES = bytes(
-    [
-        1,  # READY
-        4,  # WATERING
-        1,  # READY
-    ]
-)
+    @staticmethod
+    def write_init_pairing() -> bytes:
+        return bytes(
+            [
+                BleCommand.INIT_PAIRING.value,
+            ]
+        )
 
-NODE_STATES_ALL = bytes(
-    [
-        0,  # INITIALIZING
-        1,  # READY
-        2,  # IN_QUEUE
-        3,  # COMMAND_SENT
-        4,  # WATERING
-        5,  # ERR
-        6,  # INVALID_TIME
-        7,  # NODE_NONEXISTANT
-    ]
-)
+    @staticmethod
+    def read_node_durations(*nodes: tuple[int, int]) -> bytes:
+        """
+        nodes = (duration_minutes, day_bitmask)
 
+        Example:
+            Mocks.node_durations(
+                (235, 0x7F),
+                (210, 0x15),
+            )
+        """
+        data = bytearray()
 
-# ----------------------------------------------------
-# Configuration
-# ----------------------------------------------------
+        for duration, cycle in nodes:
+            data.extend(duration.to_bytes(2, "little"))
+            data.append(cycle)
 
-# 20:30
-# phase = Tuesday (2)
-# next phase enabled
-# next phase = 22:00
-CONFIG_WITH_NEXT = bytes(
-    [
-        20,
-        30,
-        2,
-        1,
-        22,
-        0,
-    ]
-)
+        return bytes(data)
 
-# 20:30
-# phase = Tuesday
-# no next phase
-CONFIG_NO_NEXT = bytes(
-    [
-        20,
-        30,
-        2,
-        0,
-        0,
-        0,
-    ]
-)
+    @staticmethod
+    def read_node_states(*states: int) -> bytearray:
+        return bytearray(states)
 
+    @staticmethod
+    def read_config(
+        hour: int = 20,
+        minute: int = 30,
+        phase: int = 2,
+        next_phase: tuple[int, int] | None = (22, 0),
+    ) -> bytearray:
+        data = bytearray(
+            [
+                hour,
+                minute,
+                phase,
+            ]
+        )
 
-# ----------------------------------------------------
-# Events
-# ----------------------------------------------------
+        if next_phase is None:
+            data.extend([0, 0, 0])
+        else:
+            next_hour, next_min = next_phase
+            data.extend([1, next_hour, next_min])
 
-# WRITE_NODE_DURATION
-# OK
-# node 3
-EVENT_DURATION_OK = bytes(
-    [
-        1,
-        0,
-        3,
-    ]
-)
+        return bytearray(data)
 
-# WRITE_NODE_CYCLE
-# INVALID_NODE
-# node 7
-EVENT_INVALID_NODE = bytes(
-    [
-        2,
-        2,
-        7,
-    ]
-)
-
-# WRITE_CONF_TIME
-# INVALID_TIME
-EVENT_INVALID_TIME = bytes(
-    [
-        0,
-        1,
-        0,
-    ]
-)
-
-# WRITE_CONF_PHASE
-# OK
-EVENT_PHASE_OK = bytes(
-    [
-        3,
-        0,
-        0,
-    ]
-)
-
-# WRITE_CONF_TIME_PHASE
-# OK
-EVENT_TIME_PHASE_OK = bytes(
-    [
-        4,
-        0,
-        0,
-    ]
-)
-
-# INIT_PAIRING
-# OK
-EVENT_PAIRING_OK = bytes(
-    [
-        5,
-        0,
-        0,
-    ]
-)
+    @staticmethod
+    def read_event(
+        command: int,
+        status: int,
+        node: int = 0,
+    ) -> bytes:
+        return bytes(
+            [
+                command,
+                status,
+                node,
+            ]
+        )

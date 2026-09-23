@@ -1,10 +1,12 @@
+from bleak import BleakClient
+from ble.task import CommandHandler
 from constants import NodeStatus, BleCommand
 
 from constants import CYCLE_LEN
 from .models import Node, SysConfig, HourMin, EventResult, BLEClient
 from enum import StrEnum
 
-ESP_ADDR = "9C891099-DFFD-39B2-7509-0247C708220F"
+ESP_ADDR = "1DDD0340-3563-5744-09EF-9E17AED13045"
 
 
 class GATT(StrEnum):
@@ -15,7 +17,7 @@ class GATT(StrEnum):
 
 
 class Transport:
-    def __init__(self, client: BLEClient):
+    def __init__(self, client: BleakClient):
         self.client = client
 
     async def write(self, gatt: GATT, data: bytes) -> None:
@@ -26,7 +28,7 @@ class Transport:
 
 
 def initPairing() -> bytes:
-    return bytes([BleCommand.INIT_PAIRING.value])
+    return bytes([BleCommand.INIT_PAIRING])
 
 
 def writeNodeDuration(nodeIndex: int, duration: int) -> bytes:
@@ -36,19 +38,14 @@ def writeNodeDuration(nodeIndex: int, duration: int) -> bytes:
 
 
 def writeNodeCycle(nodeIndex: int, cycleBitmask: int):
-    return bytes([BleCommand.WRITE_NODE_DURATION, nodeIndex, cycleBitmask])
+    return bytes([BleCommand.WRITE_NODE_CYCLE, nodeIndex, cycleBitmask])
 
 
 def read_durations(data: bytearray) -> list[Node]:
     res = []
-    for i in range(0, len(data), 4):
-        res.append(
-            Node(
-                data[i],
-                int.from_bytes(data[i + 1 : i + 3], "little"),
-                Node.bitmaskToCycle(data[3]),
-            )
-        )
+
+    for i in range(0, len(data), 3):
+        res.append(Node.create_from_bytes(i // 3, data[i : i + 3]))
     return res
 
 
@@ -79,4 +76,4 @@ def read_node_statuses(data: bytearray) -> list[NodeStatus]:
 
 
 def read_events(data: bytearray) -> EventResult:
-    return EventResult(BleCommand(data[0]), list(data[1:]))
+    return EventResult(data)

@@ -15,4 +15,9 @@ async def main():
         print("exiting for unforseen reason\n")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+def do_it():
+    print("hiya")

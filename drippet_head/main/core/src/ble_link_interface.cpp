@@ -33,6 +33,8 @@ void BLELinkInterface::handle_writes(std::span<const uint8_t> raw_data) {
 
     size_t target_row = raw_data[BLE::TGT_ROW_IDX];
     uint16_t new_duration = Util::get_le16(&raw_data[BLE::TGT_ROW_DATA_IDX]);
+
+    Logger::log_simple("DOING IT for %d, with %d", target_row, new_duration);
     this->head_node.ext_req_set_node_duration(target_row, new_duration);
     break;
   }
@@ -55,9 +57,10 @@ const SerializedPacketBuffer &BLELinkInterface::handle_reads(BLE::Read_T type) {
   switch (type) {
   case BLE::Read_T::READ_NODE_STATES: {
     all_node_status_t nodes_state = this->head_node.get_node_statuses();
-    std::copy(nodes_state.begin(), nodes_state.end(),
+    size_t node_count = this->head_node.get_discovered_node_count();
+    std::copy(nodes_state.begin(), nodes_state.begin() + node_count,
               this->buffer.data.begin());
-    this->buffer.len = nodes_state.size();
+    this->buffer.len = node_count;
 
     break;
   }
@@ -65,28 +68,30 @@ const SerializedPacketBuffer &BLELinkInterface::handle_reads(BLE::Read_T type) {
     // Probably need a flag whether next phase is set. Also what the current
     // phase of cycle is
     // Read is as follows:
-    // 1) curr_hour and min for index 1 & 2,
-    // 2) phase of cycle for index 3
-    // 3) index 4: (boolean flag) 1 for phase time set, 0 for phase time not set
-    // 4) index 5-6: hour and min of next phase (0,0 for not set)
+    // 1) curr_hour and min for index 0 & 1,
+    // 2) phase of cycle for index 2
+    // 3) index 3: (boolean flag) 1 for phase time set, 0 for phase time not set
+    // 4) index 4-5: hour and min of next phase (0,0 for not set)
 
     HourMin curr_time = this->head_node.get_hourmin_curr_time();
     std::optional<HourMin> next_phase =
         this->head_node.get_hourmin_next_phase();
-    CyclePhase phase_of_cycle = this->head_node.get_phase_pf_cycle();
+    CyclePhase phase_of_cycle = this->head_node.get_phase_of_cycle();
     uint8_t phase_set = next_phase ? 1 : 0;
 
-    std::array<uint8_t, 7> cfg{curr_time.hour, curr_time.minute,
+    std::array<uint8_t, 6> cfg{curr_time.hour, curr_time.minute,
                                static_cast<uint8_t>(phase_of_cycle), phase_set};
 
-    cfg[5] = next_phase ? next_phase->hour : 0;
-    cfg[6] = next_phase ? next_phase->minute : 0;
+    cfg[4] = next_phase ? next_phase->hour : 0;
+    cfg[5] = next_phase ? next_phase->minute : 0;
     std::copy(cfg.begin(), cfg.end(), this->buffer.data.begin());
     this->buffer.len = cfg.size();
+    break;
   }
 
   case BLE::Read_T::READ_EVENTS: {
 
+    Logger::log_simple("ATTEMPTING TO SEND OUT EVENT");
     OptionalRequest rsp = this->head_node.extRequestsManager.popEvent();
     if (!rsp) {
       Logger::log_error("No read available on external response");
@@ -96,6 +101,7 @@ const SerializedPacketBuffer &BLELinkInterface::handle_reads(BLE::Read_T type) {
     std::copy(rsp->data.begin(), rsp->data.end(),
               this->buffer.data.begin() + 1);
     this->buffer.len = rsp->data.size() + 1;
+    break;
   }
   case BLE::Read_T::READ_NODE_DURATIONS: {
     std::optional<NodeTypes::DurationSchedule> curr{};
@@ -116,9 +122,10 @@ const SerializedPacketBuffer &BLELinkInterface::handle_reads(BLE::Read_T type) {
       }
     }
     this->buffer.len = insert_idx;
+    break;
   }
   default:
-    Logger::log_error("Unrecognized type in handle_write_buffer of %d", type);
+    Logger::log_error("Unrecognized type in handle read buffer of %d", type);
   }
   return this->buffer;
 }

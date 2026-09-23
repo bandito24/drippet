@@ -386,6 +386,7 @@ size_t Head::process_external_requests() {
       // NOTE: For node specific operations, index 0 is status and index 1 is
       // the node affected
     case BLE::Cmds::WRITE_NODE_DURATION: {
+
       ActionStatus status = this->set_node_duration(
           req.data[REQ_ADDR_INPUT], req.data[REQ_ADDRESSED_DATA_START]);
       this->extRequestsManager.putEvents(

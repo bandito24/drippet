@@ -1,6 +1,8 @@
+from typing import cast
 from typing import Protocol
-from constants import BleCommand
-from constants import CYCLE_LEN
+from constants import ActionStatus, BleCommand
+from constants import WEEKDAY_INDEX
+
 
 from dataclasses import dataclass
 
@@ -14,28 +16,47 @@ class BLEClient(Protocol):
 class Node:
     nodeIndex: int
     duration: int
-    cycle: list[bool]
+    cycle: list[str]
 
     def __str__(self) -> str:
         return f"Node index {self.nodeIndex}: has duration {self.duration} with cycle {self.cycle}"
 
     @staticmethod
-    def bitmaskToCycle(mask: int) -> list[bool]:
-        res: list[bool] = []
-        for i in range(CYCLE_LEN):
-            res.append(bool(mask & (1 << i)))
+    def create_from_bytes(nodeIndex: int, bites: bytearray) -> "Node":
+        if len(bites) != 3:
+            raise RuntimeError("Invalid length for node creation from bytes")
+        return Node(
+            nodeIndex,
+            int.from_bytes(bites[0:1], "little"),
+            Node.bitmaskToWeekday(bites[2]),
+        )
+
+    def serialize_data(self) -> bytearray:
+        return cast(
+            bytearray,
+            self.duration.to_bytes(2, "little")
+            + bytes([Node.weekdayToBitmask(self.cycle)]),
+        )
+
+    @staticmethod
+    def bitmaskToWeekday(bitmask: int) -> list[str]:
+        res = []
+        weekdays = list(WEEKDAY_INDEX.keys())
+        for i in range(len(weekdays)):
+            if (1 << i) & bitmask:
+                res.append(weekdays[i])
         return res
 
     @staticmethod
-    def cycleToBitmask(cycle: list[bool]):
-        if len(cycle) != CYCLE_LEN:
-            raise RuntimeError(f"Cycle length for cycle bitmask is {len(cycle)}")
-        res: int = 0
-        for i in range(CYCLE_LEN):  # noqa: F821
-            if cycle[i]:
-                res = res | (1 << i)
+    def weekdayToBitmask(weekdays: list[str]) -> int:
+        bitmask = 0
 
-        return res
+        for item in weekdays:
+            if item not in WEEKDAY_INDEX:
+                raise RuntimeError("Item not in weekday index")
+
+            bitmask |= 1 << WEEKDAY_INDEX[item]
+        return bitmask
 
 
 @dataclass
@@ -44,7 +65,10 @@ class HourMin:
     min: int
 
     def __str__(self) -> str:
-        return f"{self.hour}:{self.min}"
+        hour = self.hour % 12 or 12
+        period = "AM" if self.hour < 12 else "PM"
+
+        return f"{hour}:{self.min:02d} {period}"
 
 
 @dataclass
@@ -54,17 +78,34 @@ class SysConfig:
     next_watering: HourMin | None
 
     def __str__(self) -> str:
-        return f"System Config: System Time={self.sys_time}. Current Phase={self.phase}. Next Watering={self.next_watering if self.next_watering else 'Not Set'}"
+        return f"System Config: System Time={self.sys_time}. Current Phase={list(WEEKDAY_INDEX.keys())[self.phase]}. Next Watering={self.next_watering if self.next_watering else 'Not Set'}"
 
 
 @dataclass
 class EventResult:
     event: BleCommand
-    data: list[int]
+    status: ActionStatus
+    node_index: int | None = None
+
+    def __init__(self, data: bytearray):
+        #  if len(data) > 3:
+        #      raise RuntimeError(f"Invalid Event Result Byte length of {len(data)}")
+        self.event = BleCommand(data[0])
+        self.status = ActionStatus(data[1])
+        if len(data) > 2:
+            self.node_index
 
     def __str__(self) -> str:
+        node_info = (
+            f" Action Performed on Node Index: {self.node_index}"
+            if self.node_index is not None
+            else ""
+        )
+
         return (
-            f"Event of {COMMAND_NAMES[self.event.value]}: returned data of {self.data}"
+            f"Event of {COMMAND_NAMES[self.event.value]}: "
+            f"returned data status of {self.status.name}."
+            f"{node_info}"
         )
 
 

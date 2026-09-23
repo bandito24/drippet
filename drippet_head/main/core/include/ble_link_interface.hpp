@@ -9,6 +9,7 @@ using DataPkt = std::array<uint8_t, BLE::MTU_SIZE>;
 struct SerializedPacketBuffer {
   DataPkt data;
   size_t len;
+  bool operator==(const SerializedPacketBuffer &other) const = default;
 };
 constexpr size_t CMD_IDX = 0;
 

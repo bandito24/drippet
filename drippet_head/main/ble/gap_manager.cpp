@@ -60,6 +60,10 @@ void GapManager::start_advertising() {
   adv_field.name_len = strlen(name);
   adv_field.name_is_complete = 1;
 
+  adv_field.svc_data_uuid128 = GattService::drippet_service_uuid.value;
+  adv_field.num_uuids128 = 1;
+  adv_field.uuids128_is_complete = 1;
+
   adv_field.appearance = BLE_GAP_APPEARANCE_GENERIC_TAG;
   adv_field.appearance_is_present = 1;
   adv_field.le_role = BLE_GAP_LE_ROLE_PERIPHERAL;
@@ -213,8 +217,9 @@ int GapManager::gap_event_handler(ble_gap_event *event, void *arg) {
     //    gatt_svr_subscribe_cb(event);
     ConnContext &ctxt = gap_manager->conn_context;
     ctxt.conn_handle = event->subscribe.conn_handle;
-    ctxt.indicate_status = event->subscribe.cur_indicate;
-    ctxt.notify_status = event->subscribe.cur_notify;
+    ctxt.indicate_status =
+        event->subscribe.cur_indicate || ctxt.indicate_status;
+    ctxt.notify_status = event->subscribe.cur_notify || ctxt.notify_status;
 
     return rc;
   }

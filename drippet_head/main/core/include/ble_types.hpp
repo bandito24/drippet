@@ -41,9 +41,9 @@ const size_t MINUTE_IDX = static_cast<size_t>(CONF_DATA_IDX::MINUTE);
 enum class Header : size_t { COMMAND };
 constexpr uint8_t MAX_INCOMING_PKT_LEN = 20;
 
-constexpr size_t TGT_ROW_IDX = HEADER_LEN + 1;
+constexpr size_t TGT_ROW_IDX = HEADER_LEN;
 constexpr size_t TGT_ROW_DATA_IDX = TGT_ROW_IDX + 1;
-constexpr size_t WRITE_CEL_DATA_LEN = 3;   // Row and two uint16_t fragments
+constexpr size_t WRITE_CEL_DATA_LEN = 3; // Row and two uint16_t fragments
 constexpr size_t WRITE_NODE_CYCLE_DATA_LEN = 2; // Row and bitmask
 constexpr size_t FLAT_BITMASK_IDX = 2;
 // Row, 2 uint16_t fragments, bitmask for cycle

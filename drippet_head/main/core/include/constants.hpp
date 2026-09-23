@@ -60,6 +60,6 @@ enum class NodeStatus {
 constexpr size_t PHASE_CYCLE_LEN = static_cast<size_t>(CyclePhase::CYCLE_LEN);
 constexpr size_t SELF_NODE_ADDR = 0;
 constexpr int DEV_PHASE_LEN = 60;
-constexpr int LISTEN_FOR_INIT_COMMS_DUR = 1000;
+constexpr int LISTEN_FOR_INIT_COMMS_DUR = 10000;
 
 using NodeKey_t = uint32_t;

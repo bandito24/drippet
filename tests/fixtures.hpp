@@ -29,6 +29,8 @@ struct HeadFixture {
 
     When(Method(mockReset, do_it)).AlwaysReturn();
     When(Method(storageMock, save_durations)).AlwaysReturn();
+
+    When(Method(storageMock, init)).AlwaysReturn();
     When(Method(storageMock, read_boot_durations))
         .AlwaysReturn(NodeTypes::DurationSchedule{});
 
@@ -37,6 +39,14 @@ struct HeadFixture {
     When(Method(clockMock, now)).AlwaysReturn();
 
     When(Method(clockMock, set_next_phase_start_time)).AlwaysReturn();
+
+    When(Method(clockMock, set_int_phase_of_cycle)).AlwaysReturn();
+
+    When(Method(clockMock, get_hourmin_curr_time))
+        .AlwaysReturn(HourMin{12, 12});
+
+    When(Method(clockMock, get_hourmin_next_phase))
+        .AlwaysReturn(HourMin{12, 12});
     When(Method(clockMock, set_time)).AlwaysReturn();
     When(Method(clockMock, get_phase_length)).AlwaysReturn(phase_length);
     head = std::make_unique<Head>(clockMock.get(), storageMock.get(),
@@ -74,7 +84,7 @@ struct ClockFixture {
 
     time_t time = Clk::make_ex_time(hour, min);
     this->curr_time = std::chrono::system_clock::from_time_t(time);
-    time_t time2 = this->espClock.set_time(hour, min);
+    time_t time2 = this->espClock.set_time(3, 3);
   }
 
   using Clk = ClockFixture;
@@ -105,4 +115,24 @@ struct ClockFixture {
       : espClock{phase_length, sysMock.get()} {
     this->initialize();
   }
+};
+
+struct HeadFixtureClockActive {
+
+  fakeit::Mock<MockFn> mockReset;
+  ClockFixture clockFixture{};
+  fakeit::Mock<Storage> storageMock;
+
+  std::unique_ptr<Head> head;
+
+  HeadFixtureClockActive(Time::Long phase_length = Time::Long{86400}) {
+
+    When(Method(mockReset, do_it)).AlwaysReturn();
+    When(Method(storageMock, save_durations)).AlwaysReturn();
+    When(Method(storageMock, read_boot_durations))
+        .AlwaysReturn(NodeTypes::DurationSchedule{});
+
+    head = std::make_unique<Head>(clockFixture.espClock, storageMock.get(),
+                                  [this]() { this->mockReset.get().do_it(); });
+  };
 };
