@@ -56,6 +56,7 @@ The payload for these commands contains a node index identifying which node shou
 This document describes the expected payload format for incoming BLE write commands.
 
 All commands are transmitted as a sequence of bytes where the first byte is always the command identifier (`Cmds` enum value).
+
 # BLE Command Payload Format
 
 This document describes the expected payload format for incoming BLE write commands.
@@ -120,13 +121,13 @@ Bitmask    = 77
 Each bit represents one day of the week.
 
 ```text
-Bit 0 = Monday
-Bit 1 = Tuesday
-Bit 2 = Wednesday
-Bit 3 = Thursday
-Bit 4 = Friday
-Bit 5 = Saturday
-Bit 6 = Sunday
+Bit 0 = Sunday
+Bit 1 = Monday
+Bit 2 = Tuesday 
+Bit 3 = Wednesday
+Bit 4 = Thursday
+Bit 5 = Friday
+Bit 6 = Saturday
 ```
 
 Example cycle:
