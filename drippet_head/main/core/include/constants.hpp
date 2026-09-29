@@ -16,8 +16,8 @@ using Time_Point = std::chrono::system_clock::time_point;
 using Time_Seconds = uint16_t;
 using Long = uint32_t;
 constexpr Time_Seconds No_Time = Time_Seconds{0};
+constexpr int Day_In_Seconds = (24 * 60 * 60);
 
-constexpr Time_Seconds Day_In_Seconds = static_cast<Time_Seconds>(24 * 60 * 60);
 struct UserSetWaterTime {
   uint8_t hour;
   uint8_t minute;
