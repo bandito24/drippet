@@ -416,16 +416,6 @@ size_t Head::process_external_requests() {
           ExtRequest{BLE::Cmds::WRITE_CONF_TIME_PHASE, {ActionStatus::OK}});
       break;
 
-      // Queued by ext_req_set_phase
-    case BLE::Cmds::WRITE_CONF_PHASE: {
-
-      ActionStatus status =
-          this->clock.set_int_phase_of_cycle(req.data[REQ_NO_ADDR_DATA_START]);
-      this->extRequestsManager.putEvents(ExtRequest{
-          BLE::Cmds::WRITE_CONF_PHASE, {static_cast<unsigned short>(status)}});
-      break;
-    }
-
       // Queued by ext_req_set_clock
     case BLE::Cmds::WRITE_CONF_TIME:
       this->clock.set_time(req.data[REQ_HOUR_INPUT], req.data[REQ_MIN_INPUT]);

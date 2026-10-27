@@ -60,11 +60,6 @@ TEST_CASE("BLE_Link_interface", "[ble_link]") {
     REQUIRE(mgr.peek_request_count() == 1);
     REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CONF_TIME) != std::nullopt);
 
-    auto set_phase_bytes =
-        BleMocks::make_incoming_cmd(BLE::Cmds::WRITE_CONF_PHASE);
-    ble_if.handle_writes(set_phase_bytes);
-    REQUIRE(mgr.peek_request(BLE::Cmds::WRITE_CONF_PHASE) != std::nullopt);
-
     auto set_phase_time_bytes =
         BleMocks::make_incoming_cmd(BLE::Cmds::WRITE_CONF_TIME_PHASE);
     ble_if.handle_writes(set_phase_time_bytes);
@@ -93,9 +88,6 @@ TEST_CASE("BLE_Link_interface", "[ble_link]") {
     Verify(Method(fix.clockMock, set_time)
                .Using(set_clock_bytes[1], set_clock_bytes[2]))
         .Exactly(1);
-    // Conf Phase
-    REQUIRE(fix.head->get_phase_of_cycle() ==
-            static_cast<CyclePhase>(set_phase_bytes[1]));
     // Conf Phase Time
     Verify(Method(fix.clockMock, set_next_phase_start_time)
                .Using(set_phase_time_bytes[1], set_phase_time_bytes[2]))
@@ -152,11 +144,6 @@ TEST_CASE("BLE_Link_interface", "[ble_link]") {
           count++;
           REQUIRE(buffer.data[1] == ActionStatus::OK);
           break;
-        case Cmd::WRITE_CONF_PHASE:
-          count++;
-          REQUIRE(buffer.data[1] == ActionStatus::OK);
-          break;
-
         case Cmd::WRITE_CONF_TIME:
           count++;
           REQUIRE(buffer.data[1] == ActionStatus::OK);

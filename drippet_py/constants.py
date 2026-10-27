@@ -22,9 +22,8 @@ class BleCommand(IntEnum):
     WRITE_CONF_TIME = 0
     WRITE_NODE_DURATION = 1
     WRITE_NODE_CYCLE = 2
-    WRITE_CONF_PHASE = 3
-    WRITE_CONF_TIME_PHASE = 4
-    INIT_PAIRING = 5
+    WRITE_CONF_TIME_PHASE = 3
+    INIT_PAIRING = 4
 
 
 class ActionStatus(IntEnum):

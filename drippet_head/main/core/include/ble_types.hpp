@@ -2,23 +2,12 @@
 #include <string>
 namespace BLE {
 
-// Header
-//[CMD, LEN]
-
-// LOAD_ROW:
-//[CMD, LEN, ROW] //data length 1
-
-// WRITE_NODE_DURATION:
-//[CMD, LEN, ROW, VALUE_LO, VALUE_HI] // data length 3
-
-// WRITE_NODE_CYCLE:
-//[CMD, LEN, ROW, uint8_t BITMASK] // data length 2
 constexpr std::string DEVICE_NAME = "Drippet";
 enum class Cmds {
+  // NOTE: WRITE_CONF_TIME will now handle time and phase with timestamp
   WRITE_CONF_TIME,
   WRITE_NODE_DURATION,
   WRITE_NODE_CYCLE,
-  WRITE_CONF_PHASE,
   WRITE_CONF_TIME_PHASE,
   // NOTE: Init_pairing should be the last thing since node durations will be
   // reset with init pairing
@@ -35,11 +24,22 @@ enum class Read_T {
 
 constexpr size_t HEADER_LEN = 1;
 enum CONF_DATA_IDX { HOUR = BLE::HEADER_LEN, MINUTE = BLE::HEADER_LEN + 1 };
+const size_t CONF_TIME_TS_IDX = HEADER_LEN;
+const size_t CONF_TIME_OFFSET_IDX = HEADER_LEN + 8;  // (9)
+const size_t CONF_TIME_PKT_LEN = HEADER_LEN + 8 + 2; // (11)
+// READ_CONFIGURATION response (no header byte)
+constexpr size_t READ_CONF_TS_IDX = 0;               // int64_t UTC seconds
+constexpr size_t READ_CONF_OFFSET_IDX = 8;           // int16_t offset minutes
+constexpr size_t READ_CONF_WATER_SET_IDX = 10;       // 0/1
+constexpr size_t READ_CONF_WATER_HOUR_IDX = 11;      // local 0-23
+constexpr size_t READ_CONF_WATER_MIN_IDX = 12;       // local 0-59
+constexpr size_t READ_CONF_PKT_LEN = 13;
 const size_t DATA_START_IDX = HEADER_LEN;
-const size_t HOUR_IDX = static_cast<size_t>(CONF_DATA_IDX::HOUR);
-const size_t MINUTE_IDX = static_cast<size_t>(CONF_DATA_IDX::MINUTE);
 enum class Header : size_t { COMMAND };
 constexpr uint8_t MAX_INCOMING_PKT_LEN = 20;
+
+const size_t HOUR_IDX = static_cast<size_t>(CONF_DATA_IDX::HOUR);
+const size_t MINUTE_IDX = static_cast<size_t>(CONF_DATA_IDX::MINUTE);
 
 constexpr size_t TGT_ROW_IDX = HEADER_LEN;
 constexpr size_t TGT_ROW_DATA_IDX = TGT_ROW_IDX + 1;

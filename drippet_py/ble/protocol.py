@@ -2,7 +2,6 @@ from bleak import BleakClient
 from ble.task import CommandHandler
 from constants import NodeStatus, BleCommand
 
-from constants import CYCLE_LEN
 from .models import Node, SysConfig, HourMin, EventResult, BLEClient
 from enum import StrEnum
 
@@ -55,12 +54,6 @@ def writeConfTime(hour: int, minute: int) -> bytes:
 
 def writePhaseStartTime(hour: int, minute: int) -> bytes:
     return bytes([BleCommand.WRITE_CONF_TIME_PHASE, hour, minute])
-
-
-def writeConfPhase(currentPhase: int) -> bytes:
-    if currentPhase >= CYCLE_LEN:
-        raise RuntimeError(f"Invalid phase request of {currentPhase}")
-    return bytes([BleCommand.WRITE_CONF_PHASE, currentPhase])
 
 
 def read_sys_conf(data: bytearray) -> SysConfig:

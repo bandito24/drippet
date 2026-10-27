@@ -1,3 +1,4 @@
+#pragma once
 #include "head.hpp"
 #include "task.hpp"
 class WateringTask : public Task {

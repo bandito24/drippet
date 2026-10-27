@@ -22,7 +22,6 @@ The following commands must be written to the Configuration characteristic:
 | Command               |
 | --------------------- |
 | WRITE_CONF_TIME       |
-| WRITE_CONF_PHASE      |
 | WRITE_CONF_TIME_PHASE |
 | INIT_PAIRING          |
 
@@ -72,7 +71,6 @@ enum class Cmds {
   WRITE_CONF_TIME,
   WRITE_NODE_DURATION,
   WRITE_NODE_CYCLE,
-  WRITE_CONF_PHASE,
   WRITE_CONF_TIME_PHASE,
   INIT_PAIRING,
   REQUEST_COUNT
@@ -84,9 +82,8 @@ enum class Cmds {
 | WRITE_CONF_TIME | 0 |
 | WRITE_NODE_DURATION | 1 |
 | WRITE_NODE_CYCLE | 2 |
-| WRITE_CONF_PHASE | 3 |
-| WRITE_CONF_TIME_PHASE | 4 |
-| INIT_PAIRING | 5 |
+| WRITE_CONF_TIME_PHASE | 3 |
+| INIT_PAIRING | 4 |
 
 ---
 
@@ -180,60 +177,45 @@ Duration = 0x00EB = 235
 
 ---
 
-# WRITE_CONF_PHASE
-
-Sets the active configuration phase.
-
-## Payload
-
-| Byte | Description |
-|--------|-------------|
-| 0 | Command (`WRITE_CONF_PHASE`) |
-| 1 | Phase Number |
-
-## Example
-
-```text
-[3, 3]
-```
-
-Represents:
-
-```text
-Phase = 3
-```
-
----
-
 # WRITE_CONF_TIME
 
-Sets the controller clock time.
+Sets the controller clock from the phone's current time.
 
 ## Payload
+
+Payload length: **11 bytes**. Multi-byte fields are little-endian.
 
 | Byte | Description |
 |--------|-------------|
 | 0 | Command (`WRITE_CONF_TIME`) |
-| 1 | Hour (0-23) |
-| 2 | Minute (0-59) |
+| 1-8 | Current time: UTC Unix seconds (`int64_t`) |
+| 9-10 | UTC offset in minutes (`int16_t`, `-720` to `840`) |
+
+The timestamp is true UTC. Do not add the offset to it: the controller does that itself (`local = utc + offset_minutes * 60`).
+
+The event for this command returns `INVALID_TIME` if the timestamp is before 2026-01-01 UTC (`1767225600`) or the offset is out of range. In that case the clock is not changed.
+
+Because the offset changes with daylight saving time, the client should resend this command on every connect.
 
 ## Example
 
 ```text
-[0, 12, 59]
+[0, 0x48, 0xCE, 0xBA, 0x6A, 0x00, 0x00, 0x00, 0x00, 0x5C, 0xFE]
 ```
 
 Represents:
 
 ```text
-12:59
+Timestamp = 0x000000006ABACE48 = 1790627400 = 2026-09-28 20:30:00 UTC
+Offset    = 0xFE5C = -420 minutes (-07:00)
+Local     = 2026-09-28 13:30
 ```
 
 ---
 
 # WRITE_CONF_TIME_PHASE
 
-Sets the start time associated with a configuration phase.
+Sets the daily watering start time, as a **local** time of day (not UTC).
 
 ## Payload
 
@@ -246,7 +228,7 @@ Sets the start time associated with a configuration phase.
 ## Example
 
 ```text
-[4, 2, 12]
+[3, 2, 12]
 ```
 
 Represents:
@@ -272,7 +254,7 @@ Resets node configuration and begins pairing mode.
 ## Example
 
 ```text
-[5]
+[4]
 ```
 
 ---
@@ -281,9 +263,8 @@ Resets node configuration and begins pairing mode.
 
 | Command | Payload Length |
 |----------|---------------|
-| WRITE_CONF_TIME | 3 bytes |
+| WRITE_CONF_TIME | 11 bytes |
 | WRITE_NODE_DURATION | 4 bytes |
 | WRITE_NODE_CYCLE | 3 bytes |
-| WRITE_CONF_PHASE | 2 bytes |
 | WRITE_CONF_TIME_PHASE | 3 bytes |
 | INIT_PAIRING | 1 byte |

@@ -46,15 +46,6 @@ class Mocks:
         )
 
     @staticmethod
-    def write_conf_phase(phase: int) -> bytes:
-        return bytes(
-            [
-                BleCommand.WRITE_CONF_PHASE.value,
-                phase,
-            ]
-        )
-
-    @staticmethod
     def write_conf_time_phase(hour: int, minute: int) -> bytes:
         return bytes(
             [

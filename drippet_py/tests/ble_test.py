@@ -19,11 +19,6 @@ def example_weekdays():
     return list(WEEKDAY_INDEX.keys())[2:]
 
 
-@pytest.fixture
-def weekday_keys():
-    return list(WEEKDAY_INDEX.keys())
-
-
 """Testing Raw Bytes From Writes"""
 
 
@@ -65,10 +60,6 @@ def testWriteSetPhaseTime(handler: CommandHandler):
     assert Mocks.write_conf_time_phase(12, 12) == handler.handle_write_phase_time(
         12, 12
     )
-
-
-def testWriteCurrPhase(handler: CommandHandler, weekday_keys: list[str]):
-    assert Mocks.write_conf_phase(4) == handler.handle_write_curr_phase(weekday_keys[4])
 
 
 def testReadNodeDurations(handler: CommandHandler, example_weekdays):

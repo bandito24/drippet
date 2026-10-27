@@ -56,21 +56,20 @@ Example: `2026-09-28 20:30:00 UTC`, offset `-07:00` (`-420`):
 
 ### 1.3 `READ_CONFIGURATION` (read, Configuration characteristic)
 
-New payload, **21 bytes** (20 without the synced flag; fits easily in `MTU_SIZE = 110`):
+New payload, **13 bytes** (fits easily in `MTU_SIZE = 110`). Index constants: `BLE::READ_CONF_*` in `ble_types.hpp`.
 
-| Byte | Description |
-| --- | --- |
-| 0-7 | Device's current UTC Unix seconds (`int64_t`, LE) |
-| 8-9 | Stored UTC offset in minutes (`int16_t`, LE) |
-| 10 | Current cycle phase (`CyclePhase`) |
-| 11 | Next phase configured flag (0/1) |
-| 12-19 | Next watering UTC Unix seconds (`int64_t`, LE). All zero if the flag is 0 |
-| 20 | Clock synced flag (0 = device still on its boot default, 1 = synced) |
+| Byte | Constant | Description |
+| --- | --- | --- |
+| 0-7 | `READ_CONF_TS_IDX` | Device's current time, true UTC Unix seconds (`int64_t`, LE). Offset **not** applied |
+| 8-9 | `READ_CONF_OFFSET_IDX` | Stored UTC offset in minutes (`int16_t`, LE) |
+| 10 | `READ_CONF_WATER_SET_IDX` | Watering time set flag (0/1) |
+| 11 | `READ_CONF_WATER_HOUR_IDX` | Watering hour, **local** (0-23). 0 if flag is 0 |
+| 12 | `READ_CONF_WATER_MIN_IDX` | Watering minute, **local** (0-59). 0 if flag is 0 |
 
-Drop byte 20 if you skip step 2.9.
-
-- [ ] Confirm the final layout (with/without the synced flag) before implementing both sides.
-- [ ] The app can now show the next watering **date**, and can auto-resync when `|device_ts - phone_ts|` exceeds a threshold (e.g. 60 s) or when the offset differs.
+- No clock set flag: the client always sends `WRITE_CONF_TIME` on connect, so the clock is set before any read.
+- The watering time is sent as the stored local `phase_start` hour/minute, not as a next-watering timestamp. It reads back exactly what `WRITE_CONF_TIME_PHASE` wrote, and with weekday-based phases the next daily trigger isn't necessarily a day anything waters.
+- The cycle phase byte is dropped. The client derives it from the local weekday (Sunday = 0).
+- [ ] The app can auto-resync when `|device_ts - phone_ts|` exceeds a threshold (e.g. 60 s) or when the offset differs.
 
 ---
 
@@ -92,7 +91,7 @@ Drop byte 20 if you skip step 2.9.
 - [ ] Change the `iClock` interface:
   - [ ] `virtual time_t set_time(int hour, int min) = 0;` → `virtual ActionStatus set_time(Time::Epoch utc_seconds, Time::UtcOffsetMin offset_min) = 0;`
   - [ ] Add `virtual Time::UtcOffsetMin get_utc_offset() const = 0;`
-  - [ ] Add `virtual std::optional<Time::Time_Point> get_next_watering_point() const = 0;` (needed by the new read layout; today it only exists on `Esp32Clock` and isn't `const`).
+  - [ ] Add `virtual std::optional<HourMin> get_phase_start() const = 0;` (needed by the new read layout).
   - [ ] Add `virtual bool is_synced() const = 0;` (if doing step 2.9).
 - [ ] In `Esp32Clock`, add members:
   - [ ] `std::chrono::minutes utc_offset{0};`
@@ -127,7 +126,7 @@ Drop byte 20 if you skip step 2.9.
   - [ ] Note: with `DEV_PHASE_LEN = 60` this still works (it steps in 60 s from today's start time). With 1-day phases it lands on today or tomorrow.
 - [ ] **`cast_hour_min`**: convert to local first (`time_point + utc_offset`) before `floor<days>`. That fixes `get_hourmin_curr_time()` and `get_hourmin_next_phase()` for non-UTC users.
 - [ ] **`progress_watering_due()`**: no change needed. It still steps by `phase_length` and advances the phase. Double-check it after the phase decision in 2.5.
-- [ ] Implement `get_utc_offset()`, `get_next_watering_point()` (const), `is_synced()`.
+- [ ] Implement `get_utc_offset()`, `get_phase_start()` (const), and `is_synced()` if doing step 2.9.
 
 ### 2.5 Phase of cycle (decision required)
 
@@ -153,7 +152,7 @@ The cycle bitmask is Sunday–Saturday and `CyclePhase` has 7 values, so the pha
 ### 2.7 `core/include/head.hpp`
 
 - [ ] `ext_req_set_clock(uint8_t hour, uint8_t minute)` → `ext_req_set_clock(Time::Epoch utc_seconds, Time::UtcOffsetMin offset_min)`. Fill `req.clock_sync`.
-- [ ] Add pass-through getters used by the new read: `get_utc_offset()`, `get_next_watering_point()`, `is_clock_synced()`, and something that returns the current `Time_Point` (e.g. `clock_now()`).
+- [ ] Add pass-through getters used by the new read: `get_utc_offset()`, `get_phase_start()`, and something that returns the current **UTC** `Time_Point` (e.g. `clock_now()`). The read must send UTC, so don't use `get_curr_time(true)` for it.
 - [ ] Decide whether `get_hourmin_curr_time()` / `get_hourmin_next_phase()` are still needed once the read response sends timestamps. Keep them if logs/other tasks use them.
 
 ### 2.8 `core/src/head.cpp` (`process_external_requests`, ~line 430)
@@ -184,7 +183,7 @@ The cycle bitmask is Sunday–Saturday and `CyclePhase` has 7 values, so the pha
   - [ ] `head_node.ext_req_set_clock(ts, off);`
 - [ ] While you're there: add minimum-length checks for the other commands too (`WRITE_NODE_DURATION` reads index 3, etc.).
 - [ ] `case BLE::Read_T::READ_CONFIGURATION:` rebuild with the new layout from 1.3, using `Util::put_le64` / `put_le16`. Update the explanatory comment block.
-- [ ] Update `buffer.len` to the new size (20 or 21).
+- [ ] Update `buffer.len` to `BLE::READ_CONF_PKT_LEN` (13).
 
 ---
 
@@ -198,14 +197,13 @@ The cycle bitmask is Sunday–Saturday and `CyclePhase` has 7 values, so the pha
   ```
 - [ ] `read_sys_conf(data)`:
   ```python
-  now_ts, offset, phase, has_next, next_ts = struct.unpack_from("<qhBBq", data)
-  # (+ synced = data[20] if used)
+  now_ts, offset, has_water, hour, minute = struct.unpack_from("<qhBBB", data)
   ```
   Build `datetime`s with `timezone(timedelta(minutes=offset))`.
 
 ### 3.2 `ble/models.py`
 
-- [ ] `SysConfig`: change `sys_time: HourMin` → `sys_time: datetime`, `next_watering: HourMin | None` → `datetime | None`. Add `utc_offset_min: int` (and `synced: bool`).
+- [ ] `SysConfig`: change `sys_time: HourMin` → `sys_time: datetime`. Keep `next_watering: HourMin | None` (local watering time). Add `utc_offset_min: int`. Drop the phase field or derive it from `sys_time`.
 - [ ] Update `SysConfig.__str__` to show the date, e.g. `Sat Sep 28 8:30 PM`.
 - [ ] Keep `HourMin`. It's still used for phase start time input.
 
@@ -251,16 +249,16 @@ The cycle bitmask is Sunday–Saturday and `CyclePhase` has 7 values, so the pha
   - [ ] `BleMocks::make_incoming_cmd(BLE::Cmds::WRITE_CONF_TIME)` (~line 57): build the 11-byte payload.
   - [ ] ~line 93 `Verify(Method(fix.clockMock, set_time)...)`: verify the epoch/offset args.
   - [ ] ~line 160 switch case for `WRITE_CONF_TIME`: update.
-  - [ ] ~lines 228/243 read-config mocks (`get_hourmin_curr_time`, `get_hourmin_next_phase`): switch to the new getters and assert the 20/21-byte layout.
+  - [ ] ~lines 228/243 read-config mocks (`get_hourmin_curr_time`, `get_hourmin_next_phase`): switch to the new getters and assert the 13-byte layout.
   - [ ] Add a short-packet test (length < 11 → no clock change, `INVALID_TIME` event).
 - [ ] `utils_test.cpp`: `le64` round-trip tests (2.2).
 
 ### 4.2 Python (`drippet_py/tests/`)
 
-- [ ] `ble_mocks.py`: `write_conf_time(hour, minute)` → `write_conf_time(utc_seconds, offset_min)`, and `read_config(...)` → build the new 20/21-byte layout.
+- [ ] `ble_mocks.py`: `write_conf_time(hour, minute)` → `write_conf_time(utc_seconds, offset_min)`, and `read_config(...)` → build the new 13-byte layout.
 - [ ] `ble_test.py`:
   - [ ] `testWriteSetTime`: use a fixed epoch + negative offset.
-  - [ ] `testReadConfig`: assert the new `SysConfig` with `datetime`s, both with and without a next phase.
+  - [ ] `testReadConfig`: assert the new `SysConfig` with a `datetime` current time, both with and without a watering time.
   - [ ] Add a test for `current_utc_and_offset()` with a patched timezone.
 
 ---

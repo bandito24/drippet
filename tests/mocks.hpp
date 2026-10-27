@@ -126,12 +126,6 @@ inline MockWrite make_incoming_cmd(BLE::Cmds cmd_type) {
     };
   }
 
-  case BLE::Cmds::WRITE_CONF_PHASE: {
-    return {
-        Mocks::uint8(BLE::Cmds::WRITE_CONF_PHASE), // COMMAND
-        3                                          // Phase Number
-    };
-  }
   case BLE::Cmds::WRITE_CONF_TIME: {
     return {Mocks::uint8(BLE::Cmds::WRITE_CONF_TIME), // COMMAND
             0,                                        // Hour

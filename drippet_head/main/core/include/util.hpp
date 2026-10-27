@@ -23,6 +23,34 @@ inline void put_le32(void *buf, uint32_t x) {
   u8ptr[3] = (uint8_t)(x >> 24);
 }
 
+inline uint32_t get_le32(const void *buf) {
+
+  uint32_t x;
+  auto u8ptr = static_cast<const uint8_t *>(buf);
+
+  x = u8ptr[0];
+  x |= (uint32_t)u8ptr[1] << 8;
+  x |= (uint32_t)u8ptr[2] << 16;
+  x |= (uint32_t)u8ptr[3] << 24;
+
+  return x;
+}
+inline void put_le64(void *buf, uint64_t x) {
+
+  auto u8ptr = static_cast<uint8_t *>(buf);
+  int low = static_cast<uint32_t>(x);
+  int high = static_cast<uint32_t>(x >> 32);
+  put_le32(u8ptr, low);
+  put_le32(u8ptr + 4, high);
+}
+inline uint64_t get_le64(const void *buf) {
+
+  auto u8ptr = static_cast<const uint8_t *>(buf);
+  uint32_t val_1 = get_le32(u8ptr);
+  uint32_t val_2 = get_le32(u8ptr + 4);
+  return (static_cast<uint64_t>(val_2) << 32) | val_1;
+}
+
 inline uint16_t get_le16(const void *buf) {
 
   uint16_t x;
@@ -59,18 +87,6 @@ inline NodeKey_t deserialize_key(std::span<const uint16_t> input) {
   return (uint32_t)input[0] | ((uint32_t)input[1] << 16);
 }
 
-inline uint32_t get_le32(const void *buf) {
-
-  uint32_t x;
-  auto u8ptr = static_cast<const uint8_t *>(buf);
-
-  x = u8ptr[0];
-  x |= (uint32_t)u8ptr[1] << 8;
-  x |= (uint32_t)u8ptr[2] << 16;
-  x |= (uint32_t)u8ptr[3] << 24;
-
-  return x;
-}
 inline void le16_to_le8(std::span<uint8_t> out, std::span<uint16_t> in) {
   assert(out.size() >= (in.size() * 2));
 

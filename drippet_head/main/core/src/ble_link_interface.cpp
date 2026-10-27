@@ -4,9 +4,9 @@
 #include "constants.hpp"
 #include "external_requests.hpp"
 #include "logger.hpp"
-#include "type_cast.hpp"
 #include "util.hpp"
 #include <algorithm>
+#include <chrono>
 
 // FOR WRITES
 void BLELinkInterface::handle_writes(std::span<const uint8_t> raw_data) {
@@ -17,13 +17,13 @@ void BLELinkInterface::handle_writes(std::span<const uint8_t> raw_data) {
     this->head_node.ext_req_pairing_mode();
     break;
   case BLE::Cmds::WRITE_CONF_TIME:
-    this->head_node.ext_req_set_clock(raw_data[BLE::HOUR_IDX],
-                                      raw_data[BLE::MINUTE_IDX]);
+    time_t time = Util::get_le64(&raw_data[BLE::CONF_TIME_TS_IDX]);
+    int min_offset = Util::get_le16(&raw_data[BLE::CONF_TIME_OFFSET_IDX]);
+
+    // FIX: Finish this, figure out how to send this. breaks external request,
+    // does it write data? this->head_node.ext_req_set_clock();
     break;
 
-  case BLE::Cmds::WRITE_CONF_PHASE:
-    this->head_node.ext_req_set_phase(raw_data[BLE::DATA_START_IDX]);
-    break;
   case BLE::Cmds::WRITE_CONF_TIME_PHASE:
     this->head_node.ext_req_set_phase_time(raw_data[BLE::HOUR_IDX],
                                            raw_data[BLE::MINUTE_IDX]);
@@ -65,25 +65,23 @@ const SerializedPacketBuffer &BLELinkInterface::handle_reads(BLE::Read_T type) {
     break;
   }
   case BLE::Read_T::READ_CONFIGURATION: {
-    // Probably need a flag whether next phase is set. Also what the current
-    // phase of cycle is
-    // Read is as follows:
-    // 1) curr_hour and min for index 0 & 1,
-    // 2) phase of cycle for index 2
-    // 3) index 3: (boolean flag) 1 for phase time set, 0 for phase time not set
-    // 4) index 4-5: hour and min of next phase (0,0 for not set)
+    // Layout documented above handle_reads in ble_link_interface.hpp
 
-    HourMin curr_time = this->head_node.get_hourmin_curr_time();
+    Time::Time_Point curr_time = this->head_node.get_curr_utc_time();
     std::optional<HourMin> next_phase =
         this->head_node.get_hourmin_next_phase();
-    CyclePhase phase_of_cycle = this->head_node.get_phase_of_cycle();
     uint8_t phase_set = next_phase ? 1 : 0;
 
-    std::array<uint8_t, 6> cfg{curr_time.hour, curr_time.minute,
-                               static_cast<uint8_t>(phase_of_cycle), phase_set};
+    std::array<uint8_t, 13> cfg{};
 
-    cfg[4] = next_phase ? next_phase->hour : 0;
-    cfg[5] = next_phase ? next_phase->minute : 0;
+    Util::put_le64(cfg.data(), std::chrono::system_clock::to_time_t(curr_time));
+
+    size_t idx = static_cast<size_t>(BLE::READ_CONF_OFFSET_IDX);
+    Util::put_le16(cfg.data() + idx, this->head_node.get_utc_offset_min());
+    idx += 2;
+    cfg[idx++] = phase_set;
+    cfg[idx++] = next_phase ? next_phase->hour : 0;
+    cfg[idx++] = next_phase ? next_phase->minute : 0;
     std::copy(cfg.begin(), cfg.end(), this->buffer.data.begin());
     this->buffer.len = cfg.size();
     break;

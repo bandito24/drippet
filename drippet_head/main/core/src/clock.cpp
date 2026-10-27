@@ -21,23 +21,28 @@ time_t Esp32Clock::makeTime(int year, int month, int day, int hour, int min,
 constexpr int SECONDS_PER_DAY = 24 * 60 * 60;
 
 // Zero defaults on min and second
-time_t Esp32Clock::set_time(int hour, int min) {
+ActionStatus Esp32Clock::set_time(time_t time_point, int offsetMin) {
 
-  hour = hour % 24;
-  min = min % 60;
-  time_t t = Esp32Clock::makeTime(DEFAULT_YEAR, DEFAULT_MONTH, DEFAULT_DAY,
-                                  hour, min, 0);
-  Time::Time_Point t_point = system_clock::from_time_t(t);
-  struct timeval now = {.tv_sec = t, .tv_usec = 0};
+  time_t adjusted = time_point + offsetMin;
+  if (offsetMin > Time::OFFSET_RANGES[1] ||
+      offsetMin < Time::OFFSET_RANGES[0] || adjusted < Time::MIN_VALID_EPOCH) {
+    return ActionStatus::INVALID_TIME;
+  }
+
+  Time::Time_Point t_point = system_clock::from_time_t(time_point);
+
+  timeval now = {.tv_sec = adjusted, .tv_usec = 0};
   this->sys.change_system_clock(now);
+  this->UTC_OFFSET_MIN = offsetMin;
   this->initalized = true;
   // If the new phase time has already been passed, advance a day
   while (this->next_watering_point && *this->next_watering_point < t_point) {
     //*this->next_watering_point += std::chrono::days{1};
     *this->next_watering_point += std::chrono::seconds{this->phase_length};
   }
-  return t;
+  return ActionStatus::OK;
 }
+
 HourMin Esp32Clock::get_hourmin_curr_time() const {
   return this->cast_hour_min(this->now());
 };
@@ -99,11 +104,10 @@ bool Esp32Clock::is_watering_due() const {
   return this->now() >= *this->next_watering_point;
 }
 void Esp32Clock::progress_watering_due() {
-  int phase = static_cast<int>(this->phase_of_cycle);
+  int phase = static_cast<int>(this->get_phase_of_cycle());
   int phase_len = static_cast<int>(CyclePhase::CYCLE_LEN);
   while (this->is_watering_due()) {
     *this->next_watering_point += std::chrono::seconds{this->phase_length};
     phase = (phase + 1) % phase_len;
   }
-  this->phase_of_cycle = static_cast<CyclePhase>(phase);
 }

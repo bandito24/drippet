@@ -8,6 +8,7 @@
 #include "protocol.hpp"
 #include "storage.hpp"
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <functional>
 #include <node.hpp>
@@ -79,8 +80,10 @@ public:
   std::optional<size_t> get_active_watering_index() const {
     return this->active_watering_index;
   }
+  int get_utc_offset_min() { return this->clock.UTC_OFFSET_MIN; }
 
   ExtRqManager extRequestsManager{};
+  Time::Time_Point get_curr_utc_time() { return this->clock.now(); }
   Time::Long get_remaining_time_pool() const { return this->time_pool; }
   HeadStatus &get_head_status() { return this->head_status; };
   const HeadStatus &read_node_status() const { return this->head_status; }
@@ -124,12 +127,6 @@ public:
   int calculate_new_time_pool(size_t index,
                               NodeTypes::HoseDuration new_duration);
   bool is_node_watering_this_phase(size_t addr);
-  HourMin get_hourmin_curr_time() const {
-    return this->clock.get_hourmin_curr_time();
-  }
-  std::optional<HourMin> get_hourmin_next_phase() const {
-    return this->clock.get_hourmin_next_phase();
-  }
   CyclePhase get_phase_of_cycle() const {
     return this->clock.get_phase_of_cycle();
   }
@@ -147,6 +144,13 @@ public:
   }
   int get_no_response_pairing_count() {
     return this->no_response_pairing_count;
+  }
+
+  HourMin get_hourmin_curr_time() const {
+    return this->clock.get_hourmin_curr_time();
+  }
+  std::optional<HourMin> get_hourmin_next_phase() const {
+    return this->clock.get_hourmin_next_phase();
   }
   //  all_durations_t retrieve_all_durations();
   void print_node_durations();
@@ -182,12 +186,6 @@ public:
     ExtRequest req = {BLE::Cmds::WRITE_CONF_TIME_PHASE};
     req.data[REQ_HOUR_INPUT] = hour;
     req.data[REQ_MIN_INPUT] = minute;
-    this->extRequestsManager.putRequest(req);
-  }
-  void ext_req_set_phase(uint8_t phase) {
-
-    ExtRequest req = {BLE::Cmds::WRITE_CONF_PHASE};
-    req.data[REQ_NO_ADDR_DATA_START] = phase;
     this->extRequestsManager.putRequest(req);
   }
   //////////////

@@ -1,3 +1,4 @@
+#pragma once
 #include "config.hpp"
 #include "constants.hpp"
 #include "node.hpp"

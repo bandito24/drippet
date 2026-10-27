@@ -199,90 +199,75 @@ Read
 
 Returns controller-level configuration information.
 
-Payload length: **6 bytes**.
+Payload length: **13 bytes**. Multi-byte fields are little-endian.
 
-| Byte | Description                |
-| ---- | -------------------------- |
-| 0    | Current hour               |
-| 1    | Current minute             |
-| 2    | Current cycle phase        |
-| 3    | Next phase configured flag |
-| 4    | Next phase hour            |
-| 5    | Next phase minute          |
+| Byte  | Description                                        |
+| ----- | -------------------------------------------------- |
+| 0-7   | Current time: UTC Unix seconds (`int64_t`)         |
+| 8-9   | UTC offset in minutes (`int16_t`, `-720` to `840`) |
+| 10    | Watering time set flag                             |
+| 11    | Watering hour, local time (0-23)                   |
+| 12    | Watering minute, local time (0-59)                 |
 
-### Current Cycle Phase
+### Current Time
 
-The cycle phase value corresponds to the firmware's `CyclePhase` enumeration.
-
-### Next Phase Configured Flag
-
-| Value | Meaning                 |
-| ----- | ----------------------- |
-| 0     | No next phase scheduled |
-| 1     | Next phase scheduled    |
-
-When no next phase is scheduled:
+Bytes 0-7 hold the controller's clock as true UTC Unix seconds. The UTC offset is **not** applied. To get the controller's local time:
 
 ```text
-Byte 4 = 0
-Byte 5 = 0
+local = utc + offset_minutes * 60
 ```
 
-The values in bytes 4 and 5 should be ignored when the configured flag (byte 3) is `0`.
+The client sets the clock with `WRITE_CONF_TIME` on every connect, so the current time is always valid when this characteristic is read.
+
+### Watering Time Set Flag
+
+| Value | Meaning                                            |
+| ----- | -------------------------------------------------- |
+| 0     | No daily watering time set                         |
+| 1     | Daily watering time set by `WRITE_CONF_TIME_PHASE` |
+
+When no watering time is set, bytes 11 and 12 are `0` and should be ignored.
+
+The watering hour and minute are the **local** time of day exactly as written with `WRITE_CONF_TIME_PHASE`. They are not a date: whether a node waters on a given day depends on its cycle bitmask.
+
+### Cycle Phase
+
+The current cycle phase is not sent. It is the local weekday (Sunday = 0), which the client can work out from the current time and offset.
 
 ---
 
 ## Example
 
 ```text
-14 1E 02 01 16 00
+48 CE BA 6A 00 00 00 00 5C FE 01 02 00
 ```
 
 Decoded:
 
-| Field                | Value |
-| -------------------- | ----- |
-| Current Time         | 20:30 |
-| Current Phase        | 2     |
-| Next Phase Scheduled | Yes   |
-| Next Phase Time      | 22:00 |
+| Field             | Value                                  |
+| ----------------- | -------------------------------------- |
+| Current Time      | `1790627400` = 2026-09-28 20:30:00 UTC |
+| UTC Offset        | `-420` minutes (-07:00)                |
+| Local Time        | 2026-09-28 13:30                       |
+| Watering Time Set | Yes                                    |
+| Watering Time     | 02:00 local                            |
 
 ---
 
-## Example (No Next Phase Scheduled)
+## Example (No Watering Time Set)
 
 ```text
-14 1E 02 00 00 00
+48 CE BA 6A 00 00 00 00 5C FE 00 00 00
 ```
 
 Decoded:
 
-| Field                | Value |
-| -------------------- | ----- |
-| Current Time         | 20:30 |
-| Current Phase        | 2     |
-| Next Phase Scheduled | No    |
-| Next Phase Time      | N/A   |
-
-```
-```
-
----
-
-## Example
-
-```text
-14 1E 02 00 01 16 00
-```
-
-Decoded:
-
-| Field                | Value |
-| -------------------- | ----- |
-| Current Time         | 20:30 |
-| Current Phase        | 2     |
-| Next Phase Scheduled | Yes   |
-| Next Phase Time      | 22:00 |
+| Field             | Value                   |
+| ----------------- | ----------------------- |
+| Current Time      | 2026-09-28 20:30:00 UTC |
+| UTC Offset        | -07:00                  |
+| Watering Time Set | No                      |
+| Watering Time     | N/A                     |
 
 ---
 
@@ -319,9 +304,8 @@ The notification payload is:
 | 0     | WRITE_CONF_TIME       |
 | 1     | WRITE_NODE_DURATION   |
 | 2     | WRITE_NODE_CYCLE      |
-| 3     | WRITE_CONF_PHASE      |
-| 4     | WRITE_CONF_TIME_PHASE |
-| 5     | INIT_PAIRING          |
+| 3     | WRITE_CONF_TIME_PHASE |
+| 4     | INIT_PAIRING          |
 
 ---
 

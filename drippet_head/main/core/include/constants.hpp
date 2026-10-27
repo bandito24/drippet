@@ -23,6 +23,9 @@ struct UserSetWaterTime {
   uint8_t minute;
 };
 
+const int MIN_VALID_EPOCH = 1767225600;
+const int OFFSET_RANGES[] = {-720, 840};
+
 } // namespace Time
 
 // enum class Weekdays {
@@ -34,6 +37,7 @@ struct UserSetWaterTime {
 //   FRIDAY,
 //   SATURDAY,
 // };
+// NOTE: First is Sunday
 enum class CyclePhase {
   FIRST,
   SECOND,

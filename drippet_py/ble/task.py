@@ -32,7 +32,6 @@ class Actions(StrEnum):
     READ_NODE_STATUS = "Read Node Statuses"
     SET_TIME = "Set Time"
     SET_PHASE_TIME = "Set Water Start"
-    SET_PHASE = "Set Day Of Week"
     READ_CONFIG = "Get Config"
 
     SYNC_TIME = "Sync Time"
@@ -63,12 +62,6 @@ class CommandHandler:
 
     def handle_write_phase_time(self, hour: int, minute: int) -> bytes:
         return protocol.writePhaseStartTime(hour, minute)
-
-    def handle_write_curr_phase(self, phase: str) -> bytes:
-        if phase not in WEEKDAY_INDEX:
-            raise RuntimeError("Item not in weekday index")
-
-        return protocol.writeConfPhase(WEEKDAY_INDEX[phase])
 
     def handle_read_durations(self, data: bytearray) -> list[Node]:
         return protocol.read_durations(data)
@@ -167,33 +160,13 @@ async def ble_task(client: BleakClient):
                     now.hour,
                     now.minute,
                 )
-                # 0 == Monday with datetime
-                adj_day = (now.weekday() + 1) % 7
                 await transport.write(protocol.GATT.SYS_CONF_CHAR, data)
-                weekday = list(WEEKDAY_INDEX.keys())[
-                    list(WEEKDAY_INDEX.values()).index(adj_day)
-                ]
-                data2 = handler.handle_write_curr_phase(weekday)
-                await transport.write(protocol.GATT.SYS_CONF_CHAR, data2)
 
             case Actions.SET_PHASE_TIME.value:
                 data = handler.handle_write_phase_time(
                     prompt_int("Set Hour 0-23"),
                     prompt_int("Set Minutes 0-59"),
                 )
-                await transport.write(protocol.GATT.SYS_CONF_CHAR, data)
-
-            case Actions.SET_PHASE.value:
-                phase = cast(
-                    str,
-                    select(
-                        list(WEEKDAY_INDEX.keys()),
-                        cursor="->",
-                        cursor_style="cyan",
-                    ),
-                )
-
-                data = handler.handle_write_curr_phase(phase)
                 await transport.write(protocol.GATT.SYS_CONF_CHAR, data)
 
             case Actions.READ_DURATIONS.value:

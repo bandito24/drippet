@@ -10,7 +10,6 @@
 #include <memory>
 
 extern "C" void app_main(void) {
-  Logger::log_simple("STARTING OVER AGAIN!!");
 
   UartDriver driver{};
   ESP_ERROR_CHECK(driver.init());
