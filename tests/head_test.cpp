@@ -131,7 +131,7 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
   SECTION("correctly processes watering schedule") {
     Fixture fix;
     When(Method(fix.clockMock, is_watering_due)).AlwaysReturn(true);
-    When(Method(fix.clockMock, progress_watering_due)).AlwaysReturn();
+    When(Method(fix.clockMock, recalculate_next_watering_point)).AlwaysReturn();
 
     Mocks::populate_head_nodes(*fix.head);
 
@@ -150,7 +150,7 @@ TEST_CASE("Head task behaves as expected in the task loop", "[head_task]") {
 
       fix.head->process_watering_schedule();
       REQUIRE(fix.head->get_head_status() == HeadStatus::WATERING_CMDS);
-      Verify(Method(fix.clockMock, progress_watering_due)).Exactly(1);
+      Verify(Method(fix.clockMock, recalculate_next_watering_point)).Exactly(1);
 
       SECTION("Nodes with no duration and not NodeStatus::ready and false "
               "phase do not go in "

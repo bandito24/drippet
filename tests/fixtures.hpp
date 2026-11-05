@@ -35,12 +35,12 @@ struct HeadFixture {
         .AlwaysReturn(NodeTypes::DurationSchedule{});
 
     When(Method(clockMock, is_watering_due)).AlwaysReturn();
-    When(Method(clockMock, progress_watering_due)).AlwaysReturn();
+    When(Method(clockMock, recalculate_next_watering_point)).AlwaysReturn();
     When(Method(clockMock, now)).AlwaysReturn();
 
     When(Method(clockMock, set_next_phase_start_time)).AlwaysReturn();
-
-    When(Method(clockMock, set_int_phase_of_cycle)).AlwaysReturn();
+    When(Method(clockMock, get_phase_of_cycle))
+        .AlwaysReturn(CyclePhase::FIRST);
 
     When(Method(clockMock, get_hourmin_curr_time))
         .AlwaysReturn(HourMin{12, 12});
@@ -78,34 +78,43 @@ struct ClockFixture {
   Esp32Clock espClock;
   static constexpr int CURR_TIME_HR = 3;
   static constexpr int CURR_TIME_MIN = 0;
+  // Test date is 2026-03-03 (a Tuesday), after Time::MIN_VALID_EPOCH
+  static constexpr std::chrono::sys_days TEST_DAY =
+      std::chrono::year{2026} / std::chrono::March / 3;
   Time::Time_Point curr_time;
   Time::Time_Point get_curr_time() { return this->curr_time; }
-  void set_test_time(int hour, int min) {
 
-    time_t time = Clk::make_ex_time(hour, min);
-    this->curr_time = std::chrono::system_clock::from_time_t(time);
-    time_t time2 = this->espClock.set_time(3, 3);
+  // Syncs the clock so that LOCAL time is hour:min on TEST_DAY
+  ActionStatus set_test_time(int hour, int min, int offset_min = 0) {
+    Time::Time_Point utc = Clk::make_ex_tp(hour, min) -
+                           std::chrono::minutes{offset_min};
+    return this->espClock.set_time(std::chrono::system_clock::to_time_t(utc),
+                                   offset_min);
   }
 
   using Clk = ClockFixture;
   static time_t make_ex_time(int hour = Clk::CURR_TIME_HR,
                              int min = Clk::CURR_TIME_MIN) {
-    return Esp32Clock::makeTime(2026, 3, 3, hour, min, 0);
+    return std::chrono::system_clock::to_time_t(Clk::make_ex_tp(hour, min));
   }
+  // hour:min on TEST_DAY, as UTC
   static Time::Time_Point make_ex_tp(int hour = Clk::CURR_TIME_HR,
                                      int min = Clk::CURR_TIME_MIN) {
-    time_t time = Clk::make_ex_time(hour, min);
-    return std::chrono::system_clock::from_time_t(time);
+    return Time::Time_Point{TEST_DAY + std::chrono::hours{hour} +
+                            std::chrono::minutes{min}};
   }
   void initialize() {
 
     setenv("TZ", "UTC", 1);
     tzset();
 
-    When(Method(sysMock, change_system_clock)).AlwaysReturn();
+    // The mocked system clock follows whatever set_time writes to it
+    When(Method(sysMock, change_system_clock)).AlwaysDo([this](const timeval &tv) {
+      this->curr_time = std::chrono::system_clock::from_time_t(tv.tv_sec);
+    });
+    When(Method(sysMock, now)).AlwaysDo([this]() { return this->curr_time; });
     this->set_test_time(ClockFixture::CURR_TIME_HR,
                         ClockFixture::CURR_TIME_MIN);
-    When(Method(sysMock, now)).AlwaysDo([this]() { return this->curr_time; });
   }
 
   ClockFixture() : espClock{TEST_PHASE_LEN, sysMock.get()} {

@@ -86,7 +86,8 @@ TEST_CASE("BLE_Link_interface", "[ble_link]") {
     //
     // Conf Time
     Verify(Method(fix.clockMock, set_time)
-               .Using(set_clock_bytes[1], set_clock_bytes[2]))
+               .Using(static_cast<time_t>(BleMocks::CONF_TIME_TS),
+                      BleMocks::CONF_TIME_OFFSET))
         .Exactly(1);
     // Conf Phase Time
     Verify(Method(fix.clockMock, set_next_phase_start_time)
@@ -211,17 +212,19 @@ TEST_CASE("BLE_Link_interface", "[ble_link]") {
   }
   SECTION("Will correctly load configuration data") {
 
-    When(Method(fix.clockMock, get_hourmin_curr_time))
-        .AlwaysReturn(HourMin{23, 5});
+    When(Method(fix.clockMock, now))
+        .AlwaysReturn(
+            std::chrono::system_clock::from_time_t(BleMocks::CONF_TIME_TS));
+    fix.clockMock.get().UTC_OFFSET_MIN = BleMocks::CONF_TIME_OFFSET;
 
-    fix.clockMock.get().set_phase_of_cycle(CyclePhase::SECOND);
     SECTION("With null next watering") {
 
       When(Method(fix.clockMock, get_hourmin_next_phase)).Return(std::nullopt);
 
       auto buffer = ble_if.handle_reads(BLE::Read_T::READ_CONFIGURATION);
-      auto expected =
-          SerializedPacketBuffer{.data = {23, 5, 1, 0, 0, 0}, .len = 6};
+      auto expected = SerializedPacketBuffer{
+          .data = {0x48, 0xCE, 0xBA, 0x6A, 0, 0, 0, 0, 0x5C, 0xFE, 0, 0, 0},
+          .len = BLE::READ_CONF_PKT_LEN};
 
       REQUIRE(buffer == expected);
     }
@@ -230,8 +233,9 @@ TEST_CASE("BLE_Link_interface", "[ble_link]") {
       When(Method(fix.clockMock, get_hourmin_next_phase)).Return(HourMin(6, 9));
 
       auto buffer = ble_if.handle_reads(BLE::Read_T::READ_CONFIGURATION);
-      auto expected =
-          SerializedPacketBuffer{.data = {23, 5, 1, 1, 6, 9}, .len = 6};
+      auto expected = SerializedPacketBuffer{
+          .data = {0x48, 0xCE, 0xBA, 0x6A, 0, 0, 0, 0, 0x5C, 0xFE, 1, 6, 9},
+          .len = BLE::READ_CONF_PKT_LEN};
 
       REQUIRE(buffer == expected);
     }

@@ -43,7 +43,6 @@ private:
 
   void initialize_watering_states();
 
-  void progress_watering_due() { return this->clock.progress_watering_due(); }
   HeadStatus head_status =
       HeadStatus::STANDBY; // only is changed by initialize_watering_procedure
                            // ane generate_next_watering_command
@@ -174,11 +173,10 @@ public:
     req.data[REQ_ADDRESSED_DATA_START] = cycle_bitmask;
     this->extRequestsManager.putRequest(req);
   }
-  void ext_req_set_clock(uint8_t hour, uint8_t minute) {
+  void ext_req_set_clock(time_t timestamp, int16_t min_offset) {
 
     ExtRequest req = {BLE::Cmds::WRITE_CONF_TIME};
-    req.data[REQ_HOUR_INPUT] = hour;
-    req.data[REQ_MIN_INPUT] = minute;
+    req.clockSync = {.timestamp = timestamp, .min_offset = min_offset};
     this->extRequestsManager.putRequest(req);
   }
 

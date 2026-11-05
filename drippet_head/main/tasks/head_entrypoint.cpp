@@ -4,7 +4,6 @@ void HeadEntrypointTask::run() {
 
   setenv("TZ", "UTC", 1);
   tzset();
-  this->clock.set_time(12, 0);
   // TODO: Consider if this should be set by user and not initialized
   clock.set_next_phase_start_time(2, 0);
 

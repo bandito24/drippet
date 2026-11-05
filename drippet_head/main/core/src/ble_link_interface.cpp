@@ -16,13 +16,15 @@ void BLELinkInterface::handle_writes(std::span<const uint8_t> raw_data) {
   case BLE::Cmds::INIT_PAIRING:
     this->head_node.ext_req_pairing_mode();
     break;
-  case BLE::Cmds::WRITE_CONF_TIME:
-    time_t time = Util::get_le64(&raw_data[BLE::CONF_TIME_TS_IDX]);
-    int min_offset = Util::get_le16(&raw_data[BLE::CONF_TIME_OFFSET_IDX]);
+  case BLE::Cmds::WRITE_CONF_TIME: {
 
-    // FIX: Finish this, figure out how to send this. breaks external request,
-    // does it write data? this->head_node.ext_req_set_clock();
+    int64_t time = Util::get_le64(&raw_data[BLE::CONF_TIME_TS_IDX]);
+    int min_offset = static_cast<int16_t>(
+        Util::get_le16(&raw_data[BLE::CONF_TIME_OFFSET_IDX]));
+    this->head_node.ext_req_set_clock(time, min_offset);
+
     break;
+  }
 
   case BLE::Cmds::WRITE_CONF_TIME_PHASE:
     this->head_node.ext_req_set_phase_time(raw_data[BLE::HOUR_IDX],

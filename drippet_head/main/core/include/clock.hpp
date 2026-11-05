@@ -1,6 +1,5 @@
 #pragma once
 #include "constants.hpp"
-#include <bits/chrono.h>
 #include <chrono>
 #include <memory>
 #include <optional>
@@ -33,9 +32,8 @@ struct iClock {
   virtual ~iClock() = default;
   virtual Time::Time_Point now() const = 0;
   int UTC_OFFSET_MIN{0};
-
+  bool synced = false;
   virtual bool is_watering_due() const = 0;
-  virtual void progress_watering_due() = 0;
 
   // CyclePhase phase_of_cycle = CyclePhase::FIRST;
   // void set_phase_of_cycle(CyclePhase phase) { this->phase_of_cycle = phase;
@@ -45,9 +43,10 @@ struct iClock {
 
   virtual HourMin get_hourmin_curr_time() const = 0;
   virtual std::optional<HourMin> get_hourmin_next_phase() const = 0;
-  virtual time_t set_next_phase_start_time(uint8_t hour, uint8_t min) = 0;
+  virtual void set_next_phase_start_time(uint8_t hour, uint8_t min) = 0;
 
   virtual ActionStatus set_time(time_t timePoint, int offset_min) = 0;
+  virtual void recalculate_next_watering_point() = 0;
   // virtual HourMin get_hourmin_curr_time() const = 0;
   // virtual std::optional<HourMin> get_hourmin_next_phase() const = 0;
 
@@ -68,12 +67,14 @@ public:
   Time::Time_Point now() const override;
 
   CyclePhase get_phase_of_cycle() const override {
-    std::chrono::weekday day{
-        std::chrono::floor<std::chrono::days>(this->now())};
+    std::chrono::weekday day{std::chrono::floor<std::chrono::days>(
+        this->now() + std::chrono::minutes{this->UTC_OFFSET_MIN})};
     return static_cast<CyclePhase>(day.c_encoding());
   };
+
+  void recalculate_next_watering_point() override;
   ActionStatus set_time(time_t timePoint, int offset_min) override;
-  time_t set_next_phase_start_time(uint8_t hour, uint8_t min) override;
+  void set_next_phase_start_time(uint8_t hour, uint8_t min) override;
   static time_t makeTime(int year, int month, int day, int hour, int min,
                          int second);
   std::optional<Time::Time_Point> get_next_watering_point() {
@@ -85,15 +86,14 @@ public:
 
   Time::Long get_phase_length() const override { return this->phase_length; }
   bool is_watering_due() const override;
-  void progress_watering_due() override;
 
   // HourMin get_hourmin_curr_time() const override;
   // std::optional<HourMin> get_hourmin_next_phase() const override;
 
 private:
+  std::optional<HourMin> phase_start_schedule = std::nullopt;
   std::optional<Time::Time_Point> next_watering_point = std::nullopt;
   Time::Long phase_length;
   HourMin cast_hour_min(const Time::Time_Point &point) const;
   iSysClock &sys;
-  bool initalized = false;
 };

@@ -22,15 +22,19 @@ constexpr size_t REQ_NO_ADDR_DATA_START = 0;
 
 constexpr size_t REQ_HOUR_INPUT = 0;
 constexpr size_t REQ_MIN_INPUT = 1;
+struct ClockSync {
+  int64_t timestamp;
+  int16_t min_offset;
+};
 
 struct ExtRequest {
   ExtRequest(BLE::Cmds _type, std::array<uint16_t, 4> _data)
-
       : type{_type}, data{_data} {};
 
   ExtRequest(BLE::Cmds _type) : type{_type} {};
   BLE::Cmds type;
   std::array<uint16_t, 4> data{};
+  ClockSync clockSync{};
 };
 using OptionalRequest = std::optional<ExtRequest>;
 using ExternalQueue = std::array<OptionalRequest, ExtRqLen>;

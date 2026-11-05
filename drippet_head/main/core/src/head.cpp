@@ -1,4 +1,5 @@
 
+#include "constants.hpp"
 #include "logger.hpp"
 #include "util.hpp"
 #include <assert.h>
@@ -255,7 +256,7 @@ void Head::process_watering_schedule() {
 
       this->initialize_watering_states(); // For head status and nodes
     }
-    this->progress_watering_due();
+    this->clock.recalculate_next_watering_point();
   }
 }
 
@@ -391,7 +392,8 @@ size_t Head::process_external_requests() {
           req.data[REQ_ADDR_INPUT], req.data[REQ_ADDRESSED_DATA_START]);
       this->extRequestsManager.putEvents(
           ExtRequest{BLE::Cmds::WRITE_NODE_DURATION,
-                     {static_cast<uint8_t>(status), req.data[0]}});
+                     {static_cast<uint8_t>(status),
+                      static_cast<unsigned short>(req.data[0])}});
 
       break;
     }
@@ -403,13 +405,13 @@ size_t Head::process_external_requests() {
           this->set_watering_cycle(req.data[REQ_ADDR_INPUT], wc);
       this->extRequestsManager.putEvents(
           ExtRequest{BLE::Cmds::WRITE_NODE_CYCLE,
-                     {static_cast<uint8_t>(status), req.data[REQ_ADDR_INPUT]}});
+                     {static_cast<uint8_t>(status),
+                      static_cast<unsigned short>(req.data[REQ_ADDR_INPUT])}});
       break;
     }
 
       // Queued by ext_req_set_phase_time
     case BLE::Cmds::WRITE_CONF_TIME_PHASE:
-      Logger::log_error("NOT AN ERROR");
       this->clock.set_next_phase_start_time(req.data[REQ_HOUR_INPUT],
                                             req.data[REQ_MIN_INPUT]);
       this->extRequestsManager.putEvents(
@@ -418,9 +420,10 @@ size_t Head::process_external_requests() {
 
       // Queued by ext_req_set_clock
     case BLE::Cmds::WRITE_CONF_TIME:
-      this->clock.set_time(req.data[REQ_HOUR_INPUT], req.data[REQ_MIN_INPUT]);
       this->extRequestsManager.putEvents(
-          ExtRequest{BLE::Cmds::WRITE_CONF_TIME, {ActionStatus::OK}});
+          ExtRequest{BLE::Cmds::WRITE_CONF_TIME,
+                     {static_cast<unsigned short>(this->clock.set_time(
+                         req.clockSync.timestamp, req.clockSync.min_offset))}});
       break;
 
     default:

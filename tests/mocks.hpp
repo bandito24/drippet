@@ -106,6 +106,9 @@ inline uint8_t uint8(BLE::Cmds cmd) { return static_cast<uint8_t>(cmd); }
 
 namespace BleMocks {
 using MockWrite = std::array<uint8_t, BLE::MAX_INCOMING_PKT_LEN>;
+// Values encoded in the WRITE_CONF_TIME mock packet
+constexpr time_t CONF_TIME_TS = 1790627400;
+constexpr int CONF_TIME_OFFSET = -420;
 inline MockWrite make_incoming_cmd(BLE::Cmds cmd_type) {
   switch (cmd_type) {
   case BLE::Cmds::WRITE_NODE_CYCLE: {
@@ -127,9 +130,10 @@ inline MockWrite make_incoming_cmd(BLE::Cmds cmd_type) {
   }
 
   case BLE::Cmds::WRITE_CONF_TIME: {
+    // 1790627400 = 2026-09-28 20:30:00 UTC, offset -420 (-07:00)
     return {Mocks::uint8(BLE::Cmds::WRITE_CONF_TIME), // COMMAND
-            0,                                        // Hour
-            1};                                       // Minute
+            0x48, 0xCE, 0xBA, 0x6A, 0x00, 0x00, 0x00, 0x00, // UTC seconds (LE)
+            0x5C, 0xFE};                                  // Offset min (LE)
   }
 
   case BLE::Cmds::WRITE_CONF_TIME_PHASE: {
