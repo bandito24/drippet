@@ -47,7 +47,9 @@ struct HeadFixture {
 
     When(Method(clockMock, get_hourmin_next_phase))
         .AlwaysReturn(HourMin{12, 12});
-    When(Method(clockMock, set_time)).AlwaysReturn();
+    When(Method(clockMock, set_time)).AlwaysReturn(ActionStatus::OK);
+    When(Method(clockMock, get_utc_offset_min)).AlwaysReturn(0);
+    When(Method(clockMock, is_synced)).AlwaysReturn(true);
     When(Method(clockMock, get_phase_length)).AlwaysReturn(phase_length);
     head = std::make_unique<Head>(clockMock.get(), storageMock.get(),
                                   [this]() { this->mockReset.get().do_it(); });

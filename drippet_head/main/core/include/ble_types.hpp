@@ -4,7 +4,7 @@ namespace BLE {
 
 constexpr std::string DEVICE_NAME = "Drippet";
 enum class Cmds {
-  // NOTE: WRITE_CONF_TIME will now handle time and phase with timestamp
+  // Clock Sync: int64 UTC seconds + int16 UTC offset (docs/ble_writes.md)
   WRITE_CONF_TIME,
   WRITE_NODE_DURATION,
   WRITE_NODE_CYCLE,
@@ -24,9 +24,9 @@ enum class Read_T {
 
 constexpr size_t HEADER_LEN = 1;
 enum CONF_DATA_IDX { HOUR = BLE::HEADER_LEN, MINUTE = BLE::HEADER_LEN + 1 };
-const size_t CONF_TIME_TS_IDX = HEADER_LEN;
-const size_t CONF_TIME_OFFSET_IDX = HEADER_LEN + 8;  // (9)
-const size_t CONF_TIME_PKT_LEN = HEADER_LEN + 8 + 2; // (11)
+constexpr size_t CONF_TIME_TS_IDX = HEADER_LEN;               // (1)
+constexpr size_t CONF_TIME_OFFSET_IDX = HEADER_LEN + 8;       // (9)
+constexpr size_t CONF_TIME_PKT_LEN = HEADER_LEN + 8 + 2;      // (11)
 // READ_CONFIGURATION response (no header byte)
 constexpr size_t READ_CONF_TS_IDX = 0;               // int64_t UTC seconds
 constexpr size_t READ_CONF_OFFSET_IDX = 8;           // int16_t offset minutes

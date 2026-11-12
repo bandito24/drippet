@@ -79,7 +79,9 @@ public:
   std::optional<size_t> get_active_watering_index() const {
     return this->active_watering_index;
   }
-  int get_utc_offset_min() { return this->clock.UTC_OFFSET_MIN; }
+  Time::UtcOffsetMin get_utc_offset_min() const {
+    return this->clock.get_utc_offset_min();
+  }
 
   ExtRqManager extRequestsManager{};
   Time::Time_Point get_curr_utc_time() { return this->clock.now(); }
@@ -173,7 +175,7 @@ public:
     req.data[REQ_ADDRESSED_DATA_START] = cycle_bitmask;
     this->extRequestsManager.putRequest(req);
   }
-  void ext_req_set_clock(time_t timestamp, int16_t min_offset) {
+  void ext_req_set_clock(Time::Epoch timestamp, Time::UtcOffsetMin min_offset) {
 
     ExtRequest req = {BLE::Cmds::WRITE_CONF_TIME};
     req.clockSync = {.timestamp = timestamp, .min_offset = min_offset};

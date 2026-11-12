@@ -166,12 +166,12 @@ TEST_CASE("Clock uses UTC with a local offset", "[clock]") {
 
     REQUIRE(clock.set_time(Time::MIN_VALID_EPOCH - 1, 0) ==
             ActionStatus::INVALID_TIME);
-    REQUIRE(clock.set_time(valid_ts, Time::OFFSET_RANGES[0] - 1) ==
+    REQUIRE(clock.set_time(valid_ts, Time::MIN_UTC_OFFSET_MIN - 1) ==
             ActionStatus::INVALID_TIME);
-    REQUIRE(clock.set_time(valid_ts, Time::OFFSET_RANGES[1] + 1) ==
+    REQUIRE(clock.set_time(valid_ts, Time::MAX_UTC_OFFSET_MIN + 1) ==
             ActionStatus::INVALID_TIME);
     REQUIRE(fix.curr_time == before_time);
-    REQUIRE(clock.UTC_OFFSET_MIN == 0);
+    REQUIRE(clock.get_utc_offset_min() == 0);
     REQUIRE(clock.get_next_watering_point() == before_watering);
   }
 
@@ -180,6 +180,20 @@ TEST_CASE("Clock uses UTC with a local offset", "[clock]") {
     Esp32Clock unsynced{day_seconds, fix.sysMock.get()};
     unsynced.set_next_phase_start_time(Fix::CURR_TIME_HR, Fix::CURR_TIME_MIN + 1);
     fix.curr_time += days{2};
+    REQUIRE(unsynced.is_synced() == false);
     REQUIRE(unsynced.is_watering_due() == false);
+  }
+
+  SECTION("the read-back watering time is the stored start time") {
+    // With short phases the next watering point moves away from the start
+    // time, but the reported time stays what the client wrote
+    Fix fix{};
+    Esp32Clock &clock = fix.espClock;
+    clock.set_next_phase_start_time(Fix::CURR_TIME_HR - 1, 15);
+    REQUIRE(clock.get_hourmin_next_phase() ==
+            HourMin{Fix::CURR_TIME_HR - 1, 15});
+    REQUIRE(*clock.get_next_watering_point() > fix.curr_time);
+    REQUIRE(*clock.get_next_watering_point() <=
+            fix.curr_time + seconds{clock.get_phase_length()});
   }
 }

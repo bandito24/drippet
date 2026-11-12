@@ -23,8 +23,11 @@ struct UserSetWaterTime {
   uint8_t minute;
 };
 
-const int MIN_VALID_EPOCH = 1767225600;
-const int OFFSET_RANGES[] = {-720, 840};
+using Epoch = int64_t;          // UTC Unix seconds
+using UtcOffsetMin = int16_t;   // local = utc + offset
+constexpr Epoch MIN_VALID_EPOCH = 1767225600; // 2026-01-01 00:00:00 UTC
+constexpr UtcOffsetMin MIN_UTC_OFFSET_MIN = -720; // UTC-12:00
+constexpr UtcOffsetMin MAX_UTC_OFFSET_MIN = 840;  // UTC+14:00
 
 } // namespace Time
 

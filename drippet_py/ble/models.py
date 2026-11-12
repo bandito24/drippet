@@ -5,6 +5,7 @@ from constants import WEEKDAY_INDEX
 
 
 from dataclasses import dataclass
+from datetime import datetime
 
 
 class BLEClient(Protocol):
@@ -73,12 +74,31 @@ class HourMin:
 
 @dataclass
 class SysConfig:
-    sys_time: HourMin
-    phase: int
+    # Device clock, in the device's stored UTC offset
+    sys_time: datetime
+    utc_offset_min: int
+    # Watering Start Time, local
     next_watering: HourMin | None
 
+    @property
+    def phase(self) -> int:
+        """Cycle Day: local weekday, Sunday = 0 (matches the cycle bitmask)."""
+        return (self.sys_time.weekday() + 1) % 7
+
+    @property
+    def offset_str(self) -> str:
+        sign = "+" if self.utc_offset_min >= 0 else "-"
+        hours, minutes = divmod(abs(self.utc_offset_min), 60)
+        return f"UTC{sign}{hours:02d}:{minutes:02d}"
+
     def __str__(self) -> str:
-        return f"System Config: System Time={self.sys_time}. Current Phase={list(WEEKDAY_INDEX.keys())[self.phase]}. Next Watering={self.next_watering if self.next_watering else 'Not Set'}"
+        t = self.sys_time
+        clock = HourMin(t.hour, t.minute)
+        return (
+            f"System Config: System Time={t:%a %b} {t.day} {clock} ({self.offset_str}). "
+            f"Current Phase={list(WEEKDAY_INDEX.keys())[self.phase]}. "
+            f"Next Watering={self.next_watering if self.next_watering else 'Not Set'}"
+        )
 
 
 @dataclass
@@ -93,7 +113,7 @@ class EventResult:
         self.event = BleCommand(data[0])
         self.status = ActionStatus(data[1])
         if len(data) > 2:
-            self.node_index
+            self.node_index = data[2]
 
     def __str__(self) -> str:
         node_info = (
@@ -109,11 +129,12 @@ class EventResult:
         )
 
 
+# Indexed by BleCommand value
 COMMAND_NAMES = [
     "Write Configuration Time",
     "Write Node Duration",
     "Write Node Cycle",
-    "Write Configuration Phase",
-    "Write Configuration Time & Phase",
+    "Write Watering Start Time",
     "Initialize Pairing",
 ]
+assert len(COMMAND_NAMES) == len(BleCommand)

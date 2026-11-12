@@ -21,7 +21,53 @@ from constants import CYCLE_LEN, NodeStatus, WEEKDAY_INDEX
 from . import protocol
 from typing import Protocol
 
-from datetime import datetime
+from datetime import datetime, timedelta
+
+# Warn after a config read when the device clock is this far off
+MAX_CLOCK_DRIFT_SEC = 60
+
+
+def utc_and_offset(moment: datetime) -> tuple[int, int]:
+    """Split an aware datetime into (UTC Unix seconds, UTC offset minutes)."""
+    offset = moment.utcoffset()
+    if offset is None:
+        raise ValueError("datetime must be timezone-aware")
+    return int(moment.timestamp()), int(offset.total_seconds() // 60)
+
+
+def current_utc_and_offset() -> tuple[int, int]:
+    """Clock Sync payload values for this computer's clock and timezone."""
+    return utc_and_offset(datetime.now().astimezone())
+
+
+def mock_local_time(
+    weekday: int, hour: int, minute: int, now: datetime | None = None
+) -> datetime:
+    """The next local hour:minute on `weekday` (Sunday = 0), within the
+    7 days starting today. Today counts, even if the time has passed."""
+    now = (now or datetime.now()).astimezone()
+    today = (now.weekday() + 1) % 7  # Python Monday = 0 -> Sunday = 0
+    day = now + timedelta(days=(weekday - today) % 7)
+    naive = day.replace(hour=hour, minute=minute, second=0, microsecond=0,
+                        tzinfo=None)
+    # Re-resolve the offset for that date, in case DST differs from today
+    return naive.astimezone()
+
+
+def clock_drift_warning(config: SysConfig, now: datetime | None = None) -> str | None:
+    now = (now or datetime.now()).astimezone()
+    phone_ts, phone_offset = utc_and_offset(now)
+    drift = int(config.sys_time.timestamp()) - phone_ts
+    problems = []
+    if abs(drift) > MAX_CLOCK_DRIFT_SEC:
+        problems.append(f"device clock is {drift:+d} s off")
+    if config.utc_offset_min != phone_offset:
+        problems.append(
+            f"device offset is {config.utc_offset_min} min, this computer's is {phone_offset} min"
+        )
+    if not problems:
+        return None
+    return "Warning: " + "; ".join(problems) + f". Run '{Actions.SYNC_TIME.value}'."
 
 
 class Actions(StrEnum):
@@ -30,7 +76,7 @@ class Actions(StrEnum):
     WRITE_NODE_CYCLE = "Write Node Cycle"
     READ_DURATIONS = "Read Node Durations"
     READ_NODE_STATUS = "Read Node Statuses"
-    SET_TIME = "Set Time"
+    MOCK_TIME = "Mock Time"
     SET_PHASE_TIME = "Set Water Start"
     READ_CONFIG = "Get Config"
 
@@ -57,8 +103,8 @@ class CommandHandler:
         bitmask = Node.weekdayToBitmask(selections)
         return protocol.writeNodeCycle(node_index, bitmask)
 
-    def handle_write_sys_time(self, hour: int, minute: int) -> bytes:
-        return protocol.writeConfTime(hour, minute)
+    def handle_write_sys_time(self, utc_seconds: int, offset_min: int) -> bytes:
+        return protocol.writeConfTime(utc_seconds, offset_min)
 
     def handle_write_phase_time(self, hour: int, minute: int) -> bytes:
         return protocol.writePhaseStartTime(hour, minute)
@@ -112,6 +158,14 @@ async def ble_task(client: BleakClient):
     await client.start_notify(protocol.GATT.RESPONSE_CHAR.value, handler.read_events_cb)
     await client.start_notify(protocol.GATT.NODE_STAT_CHAR.value, handler.node_stat_cb)
 
+    # The head won't water until its clock is synced, and resyncing on every
+    # connect is what keeps DST correct
+    await transport.write(
+        protocol.GATT.SYS_CONF_CHAR,
+        handler.handle_write_sys_time(*current_utc_and_offset()),
+    )
+    console.print("Synced device clock to this computer")
+
     async def prompt_user():
         console.print("Select Action")
 
@@ -148,18 +202,19 @@ async def ble_task(client: BleakClient):
                 data = handler.handle_write_cycle(node_index, items)
                 await transport.write(protocol.GATT.DURATIONS_CHAR, data)
 
-            case Actions.SET_TIME.value:
-                data = handler.handle_write_sys_time(
-                    prompt_int("Set Hour 0-23"),
-                    prompt_int("Set Minutes 0-59"),
+            case Actions.MOCK_TIME.value:
+                console.print("Which day?")
+                day_name = cast(str, select(list(WEEKDAY_INDEX.keys()), cursor="->"))
+                moment = mock_local_time(
+                    WEEKDAY_INDEX[day_name],
+                    prompt_int("Set Hour 0-23") % 24,
+                    prompt_int("Set Minutes 0-59") % 60,
                 )
+                console.print(f"Setting device clock to {moment:%a %b %d %H:%M %Z}")
+                data = handler.handle_write_sys_time(*utc_and_offset(moment))
                 await transport.write(protocol.GATT.SYS_CONF_CHAR, data)
             case Actions.SYNC_TIME.value:
-                now = datetime.now()
-                data = handler.handle_write_sys_time(
-                    now.hour,
-                    now.minute,
-                )
+                data = handler.handle_write_sys_time(*current_utc_and_offset())
                 await transport.write(protocol.GATT.SYS_CONF_CHAR, data)
 
             case Actions.SET_PHASE_TIME.value:
@@ -183,7 +238,11 @@ async def ble_task(client: BleakClient):
                 if raw is None:
                     print("Read operation failed on config")
                 else:
-                    print(handler.handle_read_config(raw))
+                    config = handler.handle_read_config(raw)
+                    print(config)
+                    warning = clock_drift_warning(config)
+                    if warning:
+                        console.print(warning, style="yellow")
 
             case Actions.READ_NODE_STATUS.value:
                 raw = await transport.read(protocol.GATT.NODE_STAT_CHAR)

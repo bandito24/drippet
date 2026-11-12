@@ -5,11 +5,6 @@
 #include <optional>
 #include <sys/time.h>
 
-//
-constexpr int DEFAULT_YEAR = 2026;
-constexpr int DEFAULT_MONTH = 12;
-constexpr int DEFAULT_DAY = 12;
-
 struct HourMin {
   uint8_t hour;
   uint8_t minute;
@@ -30,34 +25,28 @@ class SystemClock : public iSysClock {
 
 struct iClock {
   virtual ~iClock() = default;
+  // True UTC. Add get_utc_offset_min() for local time.
   virtual Time::Time_Point now() const = 0;
-  int UTC_OFFSET_MIN{0};
-  bool synced = false;
+  virtual Time::UtcOffsetMin get_utc_offset_min() const = 0;
+  // False until the first successful Clock Sync (set_time)
+  virtual bool is_synced() const = 0;
   virtual bool is_watering_due() const = 0;
 
-  // CyclePhase phase_of_cycle = CyclePhase::FIRST;
-  // void set_phase_of_cycle(CyclePhase phase) { this->phase_of_cycle = phase;
-  // };
+  // Cycle Day: the local weekday, Sunday = CyclePhase::FIRST
   virtual CyclePhase get_phase_of_cycle() const = 0;
   virtual Time::Long get_phase_length() const = 0;
 
+  // Local time of day
   virtual HourMin get_hourmin_curr_time() const = 0;
+  // The stored local Watering Start Time (not the next watering point)
   virtual std::optional<HourMin> get_hourmin_next_phase() const = 0;
   virtual void set_next_phase_start_time(uint8_t hour, uint8_t min) = 0;
 
-  virtual ActionStatus set_time(time_t timePoint, int offset_min) = 0;
+  // Clock Sync. Returns INVALID_TIME and leaves the clock untouched when the
+  // timestamp or offset is out of range.
+  virtual ActionStatus set_time(Time::Epoch utc_seconds,
+                                Time::UtcOffsetMin offset_min) = 0;
   virtual void recalculate_next_watering_point() = 0;
-  // virtual HourMin get_hourmin_curr_time() const = 0;
-  // virtual std::optional<HourMin> get_hourmin_next_phase() const = 0;
-
-  // ActionStatus set_int_phase_of_cycle(uint8_t enumIdx) {
-  //   if (enumIdx >= static_cast<uint8_t>(CyclePhase::CYCLE_LEN)) {
-  //     return ActionStatus::INVALID_TIME;
-  //   }
-  //   CyclePhase phase = static_cast<CyclePhase>(enumIdx);
-  //   this->set_phase_of_cycle(phase);
-  //   return ActionStatus::OK;
-  // }
 };
 
 class Esp32Clock : public iClock {
@@ -66,17 +55,21 @@ public:
       : phase_length{_phase_length}, sys{_sys} {};
   Time::Time_Point now() const override;
 
+  Time::UtcOffsetMin get_utc_offset_min() const override {
+    return this->utc_offset_min;
+  }
+  bool is_synced() const override { return this->synced; }
+
   CyclePhase get_phase_of_cycle() const override {
-    std::chrono::weekday day{std::chrono::floor<std::chrono::days>(
-        this->now() + std::chrono::minutes{this->UTC_OFFSET_MIN})};
+    std::chrono::weekday day{
+        std::chrono::floor<std::chrono::days>(this->to_local(this->now()))};
     return static_cast<CyclePhase>(day.c_encoding());
   };
 
   void recalculate_next_watering_point() override;
-  ActionStatus set_time(time_t timePoint, int offset_min) override;
+  ActionStatus set_time(Time::Epoch utc_seconds,
+                        Time::UtcOffsetMin offset_min) override;
   void set_next_phase_start_time(uint8_t hour, uint8_t min) override;
-  static time_t makeTime(int year, int month, int day, int hour, int min,
-                         int second);
   std::optional<Time::Time_Point> get_next_watering_point() {
     return this->next_watering_point;
   }
@@ -87,13 +80,19 @@ public:
   Time::Long get_phase_length() const override { return this->phase_length; }
   bool is_watering_due() const override;
 
-  // HourMin get_hourmin_curr_time() const override;
-  // std::optional<HourMin> get_hourmin_next_phase() const override;
-
 private:
+  Time::UtcOffsetMin utc_offset_min{0};
+  bool synced = false;
   std::optional<HourMin> phase_start_schedule = std::nullopt;
   std::optional<Time::Time_Point> next_watering_point = std::nullopt;
   Time::Long phase_length;
-  HourMin cast_hour_min(const Time::Time_Point &point) const;
+  // Time of day of an already-local time point
+  static HourMin cast_hour_min(const Time::Time_Point &local_point);
+  Time::Time_Point to_local(Time::Time_Point utc) const {
+    return utc + std::chrono::minutes{this->utc_offset_min};
+  }
+  Time::Time_Point from_local(Time::Time_Point local) const {
+    return local - std::chrono::minutes{this->utc_offset_min};
+  }
   iSysClock &sys;
 };

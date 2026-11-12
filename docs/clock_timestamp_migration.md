@@ -1,6 +1,14 @@
 # Clock Migration: Unix Timestamp + UTC Offset
 
-This is the checklist for replacing the `hour:minute` system clock sync with a full UTC Unix timestamp plus the phone's UTC offset.
+This is the design record for replacing the `hour:minute` system clock sync with a full UTC Unix timestamp plus the phone's UTC offset.
+
+> **Status: done (2026-11).** Firmware, host tests and the Python client (`drippet_py/`) are migrated. The checklists below are kept as the design record and are not ticked. Decisions taken where this doc offered options or differs from what was built:
+> - **2.5 Phase:** Option 1. The Cycle Day is always the local weekday, including in dev mode (`DEV_PHASE_LEN = 60` only shows that watering fires repeatedly; to test a different weekday, use the Python `Mock Time` action). `WRITE_CONF_PHASE` was removed.
+> - **2.9 Boot:** Option A. `is_watering_due()` is `false` until the first successful `set_time`. There is no boot-default epoch.
+> - **1.3 Read:** the watering bytes are the stored Watering Start Time, not the next watering point.
+> - **2.10 Write length:** deferred. A short `WRITE_CONF_TIME` is zero-padded, decodes below `MIN_VALID_EPOCH`, and returns `INVALID_TIME`. Passing the real length to `handle_writes` (for every command) is a separate follow-up.
+> - **Python:** `SET_TIME` became `MOCK_TIME` (pick a weekday + hour:minute; sent as a real timestamp with that day's offset). The client syncs automatically on connect, and warns after a config read if the clock is more than 60 s off or the offset differs.
+> - **Names:** some code names didn't match the terms. See `GLOSSARY.md` for the agreed terms; the code names (`phase_*`) haven't been renamed.
 
 ## Why
 

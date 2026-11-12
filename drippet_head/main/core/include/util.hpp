@@ -38,8 +38,8 @@ inline uint32_t get_le32(const void *buf) {
 inline void put_le64(void *buf, uint64_t x) {
 
   auto u8ptr = static_cast<uint8_t *>(buf);
-  int low = static_cast<uint32_t>(x);
-  int high = static_cast<uint32_t>(x >> 32);
+  uint32_t low = static_cast<uint32_t>(x);
+  uint32_t high = static_cast<uint32_t>(x >> 32);
   put_le32(u8ptr, low);
   put_le32(u8ptr + 4, high);
 }

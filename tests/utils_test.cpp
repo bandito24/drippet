@@ -35,4 +35,28 @@ TEST_CASE("utils test", "[utils]") {
     auto res = Util::byte_to_water_cycle(bytes);
     REQUIRE(res == cycle);
   }
+
+  SECTION("le64 round-trips and is little endian") {
+    std::array<uint8_t, 8> buf{};
+    Util::put_le64(buf.data(), 1790627400ULL);
+    REQUIRE(buf == std::array<uint8_t, 8>{0x48, 0xCE, 0xBA, 0x6A, 0, 0, 0, 0});
+    REQUIRE(Util::get_le64(buf.data()) == 1790627400ULL);
+
+    uint64_t big = 0x0123456789ABCDEFULL;
+    Util::put_le64(buf.data(), big);
+    REQUIRE(buf[0] == 0xEF);
+    REQUIRE(buf[7] == 0x01);
+    REQUIRE(Util::get_le64(buf.data()) == big);
+
+    int64_t negative = -1790627400LL;
+    Util::put_le64(buf.data(), static_cast<uint64_t>(negative));
+    REQUIRE(static_cast<int64_t>(Util::get_le64(buf.data())) == negative);
+  }
+  SECTION("a negative int16 offset survives le16") {
+    std::array<uint8_t, 2> buf{};
+    int16_t offset = -420;
+    Util::put_le16(buf.data(), static_cast<uint16_t>(offset));
+    REQUIRE(buf == std::array<uint8_t, 2>{0x5C, 0xFE});
+    REQUIRE(static_cast<int16_t>(Util::get_le16(buf.data())) == offset);
+  }
 }

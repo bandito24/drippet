@@ -18,10 +18,12 @@ void BLELinkInterface::handle_writes(std::span<const uint8_t> raw_data) {
     break;
   case BLE::Cmds::WRITE_CONF_TIME: {
 
-    int64_t time = Util::get_le64(&raw_data[BLE::CONF_TIME_TS_IDX]);
-    int min_offset = static_cast<int16_t>(
+    // A short packet is zero-padded, so ts = 0 and set_time rejects it
+    auto ts = static_cast<Time::Epoch>(
+        Util::get_le64(&raw_data[BLE::CONF_TIME_TS_IDX]));
+    auto offset_min = static_cast<Time::UtcOffsetMin>(
         Util::get_le16(&raw_data[BLE::CONF_TIME_OFFSET_IDX]));
-    this->head_node.ext_req_set_clock(time, min_offset);
+    this->head_node.ext_req_set_clock(ts, offset_min);
 
     break;
   }
@@ -70,22 +72,17 @@ const SerializedPacketBuffer &BLELinkInterface::handle_reads(BLE::Read_T type) {
     // Layout documented above handle_reads in ble_link_interface.hpp
 
     Time::Time_Point curr_time = this->head_node.get_curr_utc_time();
-    std::optional<HourMin> next_phase =
-        this->head_node.get_hourmin_next_phase();
-    uint8_t phase_set = next_phase ? 1 : 0;
+    std::optional<HourMin> start = this->head_node.get_hourmin_next_phase();
+    auto &out = this->buffer.data;
 
-    std::array<uint8_t, 13> cfg{};
-
-    Util::put_le64(cfg.data(), std::chrono::system_clock::to_time_t(curr_time));
-
-    size_t idx = static_cast<size_t>(BLE::READ_CONF_OFFSET_IDX);
-    Util::put_le16(cfg.data() + idx, this->head_node.get_utc_offset_min());
-    idx += 2;
-    cfg[idx++] = phase_set;
-    cfg[idx++] = next_phase ? next_phase->hour : 0;
-    cfg[idx++] = next_phase ? next_phase->minute : 0;
-    std::copy(cfg.begin(), cfg.end(), this->buffer.data.begin());
-    this->buffer.len = cfg.size();
+    Util::put_le64(&out[BLE::READ_CONF_TS_IDX],
+                   std::chrono::system_clock::to_time_t(curr_time));
+    Util::put_le16(&out[BLE::READ_CONF_OFFSET_IDX],
+                   static_cast<uint16_t>(this->head_node.get_utc_offset_min()));
+    out[BLE::READ_CONF_WATER_SET_IDX] = start ? 1 : 0;
+    out[BLE::READ_CONF_WATER_HOUR_IDX] = start ? start->hour : 0;
+    out[BLE::READ_CONF_WATER_MIN_IDX] = start ? start->minute : 0;
+    this->buffer.len = BLE::READ_CONF_PKT_LEN;
     break;
   }
 

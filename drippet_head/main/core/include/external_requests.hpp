@@ -1,5 +1,6 @@
 #pragma once
 #include "ble_types.hpp"
+#include "constants.hpp"
 #include <array>
 #include <cstddef>
 #include <optional>
@@ -22,9 +23,10 @@ constexpr size_t REQ_NO_ADDR_DATA_START = 0;
 
 constexpr size_t REQ_HOUR_INPUT = 0;
 constexpr size_t REQ_MIN_INPUT = 1;
+// Payload of WRITE_CONF_TIME. Too wide for ExtRequest::data.
 struct ClockSync {
-  int64_t timestamp;
-  int16_t min_offset;
+  Time::Epoch timestamp;
+  Time::UtcOffsetMin min_offset;
 };
 
 struct ExtRequest {

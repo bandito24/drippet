@@ -86,8 +86,9 @@ TEST_CASE("BLE_Link_interface", "[ble_link]") {
     //
     // Conf Time
     Verify(Method(fix.clockMock, set_time)
-               .Using(static_cast<time_t>(BleMocks::CONF_TIME_TS),
-                      BleMocks::CONF_TIME_OFFSET))
+               .Using(static_cast<Time::Epoch>(BleMocks::CONF_TIME_TS),
+                      static_cast<Time::UtcOffsetMin>(
+                          BleMocks::CONF_TIME_OFFSET)))
         .Exactly(1);
     // Conf Phase Time
     Verify(Method(fix.clockMock, set_next_phase_start_time)
@@ -182,6 +183,23 @@ TEST_CASE("BLE_Link_interface", "[ble_link]") {
     REQUIRE(first_fail.data[1] == ActionStatus::INVALID_NODE);
     REQUIRE(second_fail.data[1] == ActionStatus::INVALID_NODE);
   }
+  SECTION("A short WRITE_CONF_TIME decodes below MIN_VALID_EPOCH") {
+    // Only 2 of the 8 timestamp bytes arrive; the rest are zero padding
+    BleMocks::MockWrite short_pkt{Mocks::uint8(BLE::Cmds::WRITE_CONF_TIME),
+                                  0x48, 0xCE};
+    When(Method(fix.clockMock, set_time))
+        .AlwaysDo([](Time::Epoch ts, Time::UtcOffsetMin) {
+          return ts < Time::MIN_VALID_EPOCH ? ActionStatus::INVALID_TIME
+                                            : ActionStatus::OK;
+        });
+    ble_if.handle_writes(short_pkt);
+    fix.head->process_external_requests();
+
+    Verify(Method(fix.clockMock, set_time).Using(0xCE48, 0)).Exactly(1);
+    auto event = ble_if.handle_reads(BLE::Read_T::READ_EVENTS);
+    REQUIRE(event.data[0] == Mocks::uint8(BLE::Cmds::WRITE_CONF_TIME));
+    REQUIRE(event.data[1] == ActionStatus::INVALID_TIME);
+  }
   SECTION("Will correctly load all node durations into buffer") {
     auto buffer = ble_if.handle_reads(BLE::Read_T::READ_NODE_DURATIONS);
     int i = 0;
@@ -215,7 +233,8 @@ TEST_CASE("BLE_Link_interface", "[ble_link]") {
     When(Method(fix.clockMock, now))
         .AlwaysReturn(
             std::chrono::system_clock::from_time_t(BleMocks::CONF_TIME_TS));
-    fix.clockMock.get().UTC_OFFSET_MIN = BleMocks::CONF_TIME_OFFSET;
+    When(Method(fix.clockMock, get_utc_offset_min))
+        .AlwaysReturn(BleMocks::CONF_TIME_OFFSET);
 
     SECTION("With null next watering") {
 

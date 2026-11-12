@@ -1,3 +1,5 @@
+import struct
+
 from constants import BleCommand
 from ble.protocol import GATT
 
@@ -16,13 +18,11 @@ class BLEClientMock:
 
 class Mocks:
     @staticmethod
-    def write_conf_time(hour: int, minute: int) -> bytes:
-        return bytes(
-            [
-                BleCommand.WRITE_CONF_TIME.value,
-                hour,
-                minute,
-            ]
+    def write_conf_time(utc_seconds: int, offset_min: int) -> bytes:
+        return (
+            bytes([BleCommand.WRITE_CONF_TIME.value])
+            + utc_seconds.to_bytes(8, "little", signed=True)
+            + offset_min.to_bytes(2, "little", signed=True)
         )
 
     @staticmethod
@@ -88,18 +88,12 @@ class Mocks:
 
     @staticmethod
     def read_config(
-        hour: int = 20,
-        minute: int = 30,
-        phase: int = 2,
+        utc_seconds: int = 1790627400,
+        offset_min: int = -420,
         next_phase: tuple[int, int] | None = (22, 0),
     ) -> bytearray:
-        data = bytearray(
-            [
-                hour,
-                minute,
-                phase,
-            ]
-        )
+        data = bytearray(utc_seconds.to_bytes(8, "little", signed=True))
+        data.extend(offset_min.to_bytes(2, "little", signed=True))
 
         if next_phase is None:
             data.extend([0, 0, 0])
@@ -107,7 +101,7 @@ class Mocks:
             next_hour, next_min = next_phase
             data.extend([1, next_hour, next_min])
 
-        return bytearray(data)
+        return data
 
     @staticmethod
     def read_event(
